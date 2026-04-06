@@ -1,6 +1,6 @@
 """
-Polymarket预测市场API路由
-提供按需分析接口（只读，不涉及交易）
+Polymarket prediction market API routing
+Provide on-demand analysis interface (read-only, no transactions involved)
 """
 from flask import Blueprint, jsonify, request, g
 
@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 
 polymarket_bp = Blueprint('polymarket', __name__)
 
-# 初始化服务
+# Initialize service
 polymarket_source = PolymarketDataSource()
 
 
@@ -23,20 +23,20 @@ polymarket_source = PolymarketDataSource()
 @login_required
 def analyze_polymarket():
     """
-    分析Polymarket预测市场（用户输入链接或标题）
+    Analyze Polymarket prediction market (user enters link or title)
     
     POST /api/polymarket/analyze
     Body: {
-        "input": "https://polymarket.com/event/xxx" 或 "市场标题",
+        "input": "https://polymarket.com/event/xxx" or "market title",
         "language": "zh-CN" (optional)
     }
     
-    流程：
-    1. 从输入中解析market_id或slug
-    2. 从API获取市场数据
-    3. 检查计费并扣除积分
-    4. 调用AI分析
-    5. 返回分析结果
+    process:
+    1. Parse market_id or slug from input
+    2. Get market data from API
+    3. Check billing and deduct points
+    4. Call AI analysis
+    5. Return analysis results
     """
     try:
         from app.services.billing_service import BillingService
@@ -62,11 +62,11 @@ def analyze_polymarket():
                 "data": None
             }), 400
         
-        # 1. 解析market_id或slug
+        # 1. Parse market_id or slug
         market_id = None
         slug = None
         
-        # 尝试从URL中提取
+        # Try to extract from URL
         url_patterns = [
             r'polymarket\.com/event/([^/?]+)',
             r'polymarket\.com/markets/(\d+)',
@@ -77,20 +77,20 @@ def analyze_polymarket():
             match = re.search(pattern, input_text)
             if match:
                 extracted = match.group(1)
-                # 如果是数字，是market_id；否则是slug
+                # If it is a number, it is market_id; otherwise it is slug
                 if extracted.isdigit():
                     market_id = extracted
                 else:
                     slug = extracted
                 break
         
-        # 如果没有从URL提取到，尝试搜索市场
+        # If not extracted from the URL, try searching the market
         if not market_id and not slug:
-            # 尝试通过标题搜索
+            # Try searching by title
             logger.info(f"Searching for market by title: {input_text[:100]}")
             search_results = polymarket_source.search_markets(input_text, limit=5)
             if search_results:
-                # 使用第一个搜索结果
+                # Use first search result
                 market_id = search_results[0].get('market_id')
                 logger.info(f"Found market via search: {market_id}")
         
@@ -101,11 +101,11 @@ def analyze_polymarket():
                 "data": None
             }), 400
         
-        # 2. 获取市场数据
+        # 2. Obtain market data
         if market_id:
             market = polymarket_source.get_market_details(market_id)
         elif slug:
-            # 通过slug查找市场（需要先搜索）
+            # Find the market by slug (need to search first)
             search_results = polymarket_source.search_markets(slug, limit=10)
             market = None
             for result in search_results:
@@ -115,7 +115,7 @@ def analyze_polymarket():
                     break
             
             if not market and search_results:
-                # 使用第一个搜索结果
+                # Use first search result
                 market = search_results[0]
                 market_id = market.get('market_id')
         
@@ -136,7 +136,7 @@ def analyze_polymarket():
                 "data": None
             }), 400
         
-        # 3. 检查计费
+        # 3. Check billing
         billing = BillingService()
         cost = 0
         
@@ -156,7 +156,7 @@ def analyze_polymarket():
                         }
                     }), 400
                 
-                # 扣除积分（使用check_and_consume方法，它会自动从配置中获取成本）
+                # Deduct points (use check_and_consume method, it will automatically get the cost from the configuration)
                 success, error_msg = billing.check_and_consume(
                     user_id=user_id,
                     feature='polymarket_deep_analysis',
@@ -164,7 +164,7 @@ def analyze_polymarket():
                 )
                 
                 if not success:
-                    # 检查是否是积分不足的错误
+                    # Check whether it is an error due to insufficient points
                     if error_msg.startswith('insufficient_credits'):
                         parts = error_msg.split(':')
                         if len(parts) >= 3:
@@ -185,9 +185,9 @@ def analyze_polymarket():
                         "data": None
                     }), 500
         
-        # 4. 执行AI分析（传递语言和模型参数）
+        # 4. Perform AI analysis (pass language and model parameters)
         analyzer = PolymarketAnalyzer()
-        model = request.get_json().get('model')  # 可选：从请求中获取模型参数
+        model = request.get_json().get('model')  # Optional: Get model parameters from request
         analysis_result = analyzer.analyze_market(
             market_id, 
             user_id=user_id, 
@@ -203,7 +203,7 @@ def analyze_polymarket():
                 "data": None
             }), 500
         
-        # 5. 获取剩余积分
+        # 5. Get remaining points
         remaining_credits = 0
         if billing.is_billing_enabled():
             remaining_credits = float(billing.get_user_credits(user_id))
@@ -245,7 +245,7 @@ def get_polymarket_history():
         with get_db_connection() as db:
             cur = db.cursor()
             
-            # 获取总数
+            # Get total
             cur.execute("""
                 SELECT COUNT(*) AS total
                 FROM qd_analysis_tasks
@@ -254,7 +254,7 @@ def get_polymarket_history():
             total_row = cur.fetchone()
             total = total_row['total'] if total_row else 0
             
-            # 获取历史记录
+            # Get history
             cur.execute("""
                 SELECT 
                     t.id,
@@ -273,7 +273,7 @@ def get_polymarket_history():
             rows = cur.fetchall() or []
             cur.close()
         
-        # 解析结果
+        # Parse results
         items = []
         for row in rows:
             result_json = row.get('result_json', '{}')

@@ -41,37 +41,37 @@ MT5Client = None
 
 def _normalize_symbol_for_order(symbol: str, market_type: str = "swap") -> str:
     """
-    规范化符号格式，确保符号符合交易所要求。
+    Standardize symbol formats to ensure symbols comply with exchange requirements.
     
-    处理各种输入格式：
+    Handles various input formats:
     - BTC/USDT -> BTC/USDT
     - BTCUSDT -> BTC/USDT
     - BTC/USDT:USDT -> BTC/USDT
-    - PI, TRX -> PI/USDT, TRX/USDT (默认添加 /USDT)
+    - PI, TRX -> PI/USDT, TRX/USDT (/USDT is added by default)
     
     Args:
-        symbol: 原始符号
-        market_type: 市场类型 (spot/swap)
+        symbol: original symbol
+        market_type: market type (spot/swap)
         
     Returns:
-        规范化后的符号
+        normalized symbols
     """
     if not symbol:
         return symbol
     
     sym = symbol.strip()
     
-    # 移除 swap/futures 后缀
+    # Remove swap/futures suffix
     if ':' in sym:
         sym = sym.split(':', 1)[0]
     
     sym = sym.upper()
     
-    # 如果已经有分隔符，直接返回（假设格式正确）
+    # If there is already a separator, return it directly (assuming the format is correct)
     if '/' in sym:
         return sym
     
-    # 尝试从常见报价货币中识别
+    # Try to identify from common quote currencies
     common_quotes = ['USDT', 'USD', 'BTC', 'ETH', 'BUSD', 'USDC']
     for quote in common_quotes:
         if sym.endswith(quote) and len(sym) > len(quote):
@@ -79,7 +79,7 @@ def _normalize_symbol_for_order(symbol: str, market_type: str = "swap") -> str:
             if base:
                 return f"{base}/{quote}"
     
-    # 如果无法识别，默认使用 USDT
+    # If not recognized, USDT will be used by default.
     return f"{sym}/USDT"
 
 
@@ -148,7 +148,7 @@ def place_order_from_signal(
     if mt == "spot" and ("short" in (signal_type or "").lower()):
         raise LiveTradingError("spot market does not support short signals")
     
-    # 规范化符号格式（统一处理裸符号如 PI, TRX 等）
+    # Standardized symbol format (unified processing of bare symbols such as PI, TRX, etc.)
     symbol = _normalize_symbol_for_order(symbol, market_type=mt)
 
     if isinstance(client, BinanceFuturesClient):

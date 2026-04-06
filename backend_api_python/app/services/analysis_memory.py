@@ -20,11 +20,11 @@ logger = get_logger(__name__)
 
 
 def _safe_json_parse(val, default=None):
-    """安全解析 JSON - 处理已是 Python 对象或字符串的情况"""
+    """Safely parse JSON - handle cases where it's already a Python object or string"""
     if val is None:
         return default
     if isinstance(val, (dict, list)):
-        return val  # 已经是 Python 对象 (PostgreSQL JSONB 自动转换)
+        return val  # Already a Python object (PostgreSQL JSONB automatically converted)
     if isinstance(val, str):
         try:
             return json.loads(val)
@@ -48,7 +48,7 @@ class AnalysisMemory:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 创建表（如果不存在）
+                # Create table if it does not exist
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS qd_analysis_memory (
                         id SERIAL PRIMARY KEY,
@@ -80,7 +80,7 @@ class AnalysisMemory:
                     );
                 """)
                 
-                # 检查并添加缺失的列（用于已存在的表）
+                # Check and add missing columns (for existing tables)
                 cur.execute("""
                     DO $$
                     BEGIN
@@ -151,7 +151,7 @@ class AnalysisMemory:
                     END $$;
                 """)
                 
-                # 创建索引
+                #Create index
                 cur.execute("""
                     CREATE INDEX IF NOT EXISTS idx_analysis_memory_symbol 
                     ON qd_analysis_memory(market, symbol);
@@ -187,7 +187,7 @@ class AnalysisMemory:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 准备数据
+                # Prepare data
                 market = analysis_result.get("market")
                 symbol = analysis_result.get("symbol")
                 decision = analysis_result.get("decision")
@@ -221,7 +221,7 @@ class AnalysisMemory:
                     "completed", "",
                 ))
                 
-                # 使用 lastrowid 属性获取 ID（execute 内部已经处理了 RETURNING）
+                # Use the lastrowid attribute to get the ID (execute has already processed RETURNING internally)
                 memory_id = cur.lastrowid
                 db.commit()
                 cur.close()
@@ -425,8 +425,8 @@ class AnalysisMemory:
                     summary, reasons, scores, indicators, raw,
                     "processing", "",
                 ))
-                # PostgresCursor.execute() 会在 INSERT 时提前 fetchone() 消耗 RETURNING 结果，
-                # 所以这里不要再 cur.fetchone()，直接取 lastrowid。
+                # PostgresCursor.execute() will consume the RETURNING result in advance from fetchone() during INSERT.
+                # So don’t use cur.fetchone() here, just get lastrowid.
                 memory_id = cur.lastrowid
                 db.commit()
                 cur.close()

@@ -15,18 +15,18 @@ from typing import Dict, Tuple
 
 def _split_base_quote(symbol: str) -> Tuple[str, str]:
     """
-    分割符号为基础货币和报价货币。
+    The split symbols are base currency and quote currency.
     
-    处理各种格式：
+    Handle various formats:
     - BTC/USDT -> (BTC, USDT)
-    - BTCUSDT -> (BTCUSDT, "") - 需要进一步处理
-    - PI, TRX -> (PI, "") - 需要进一步处理
+    - BTCUSDT -> (BTCUSDT, "") - requires further processing
+    - PI, TRX -> (PI, "") - requires further processing
     """
     s = (symbol or "").strip()
     if ":" in s:
         s = s.split(":", 1)[0]
     if "/" not in s:
-        # 尝试识别报价货币（常见格式：BASEQUOTE）
+        # Try to identify the quote currency (common format: BASEQUOTE)
         s_upper = s.upper()
         common_quotes = ['USDT', 'USD', 'BTC', 'ETH', 'BUSD', 'USDC', 'BNB']
         for quote in common_quotes:
@@ -34,7 +34,7 @@ def _split_base_quote(symbol: str) -> Tuple[str, str]:
                 base = s_upper[:-len(quote)]
                 if base:
                     return base, quote
-        # 无法识别，返回原符号和空报价
+        # Unrecognized, the original symbol and empty quote are returned.
         return s_upper, ""
     base, quote = s.split("/", 1)
     return base.strip().upper(), quote.strip().upper()

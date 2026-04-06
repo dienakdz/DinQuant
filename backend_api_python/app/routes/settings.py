@@ -1,5 +1,5 @@
 """
-Settings API - 读取和保存 .env 配置
+Settings API - Reading and saving .env configurations
 
 Admin-only endpoints for system configuration management.
 """
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 settings_bp = Blueprint('settings', __name__)
 
-# .env 文件路径
+# .env file path
 ENV_FILE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env')
 
 
@@ -68,16 +68,16 @@ def _refresh_runtime_services() -> None:
         except Exception as e:
             logger.warning(f"Singleton reset skipped: {module_name}.{field_name}: {e}")
 
-# 配置项定义（分组）- 按功能模块划分，每个配置项包含描述
+# Configuration item definition (grouping) - divided by functional modules, each configuration item contains a description
 # ---------------------------------------------------------------
-# 精简原则：
-#   - 部署级配置（host/port/debug）不在 UI 暴露，用户通过 .env 或 docker-compose 设置
-#   - 内部调优参数（超时/重试/tick间隔/向量维度等）使用默认值即可，不暴露给普通用户
-#   - 只保留用户真正需要配置的功能开关和 API Key
+# Streamlining principle:
+#   - Deployment-level configuration (host/port/debug) is not exposed in the UI, users can set it through .env or docker-compose
+#   - Internal tuning parameters (timeout/retry/tick interval/vector dimension, etc.) can use default values ​​and are not exposed to ordinary users.
+#   - Only keep the function switches and API Keys that users really need to configure
 # ---------------------------------------------------------------
 CONFIG_SCHEMA = {
 
-    # ==================== 1. 安全认证 ====================
+    # ==================== 1. Security certification ====================
     'auth': {
         'title': 'Security & Authentication',
         'icon': 'lock',
@@ -114,7 +114,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 2. AI/LLM 配置 ====================
+    # ==================== 2. AI/LLM configuration ====================
     'ai': {
         'title': 'AI / LLM & Search',
         'icon': 'robot',
@@ -342,7 +342,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 3. 实盘交易 ====================
+    # ==================== 3. Real offer ====================
     'trading': {
         'title': 'Live Trading',
         'icon': 'stock',
@@ -366,7 +366,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 4. 数据源配置 ====================
+    # ==================== 4. Data source configuration ====================
     'data_source': {
         'title': 'Data Sources',
         'icon': 'database',
@@ -402,7 +402,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 5. 邮件配置 ====================
+    # ==================== 5. Email configuration ====================
     'email': {
         'title': 'Email (SMTP)',
         'icon': 'mail',
@@ -460,7 +460,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 6. 短信配置 ====================
+    # ==================== 6. SMS configuration ====================
     'sms': {
         'title': 'SMS (Twilio)',
         'icon': 'phone',
@@ -571,7 +571,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 8. 网络代理 ====================
+    # ==================== 8. Network proxy ====================
     'network': {
         'title': 'Network & Proxy',
         'icon': 'global',
@@ -587,7 +587,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 10. 注册与 OAuth ====================
+    # ==================== 10. Registration and OAuth ====================
     'security': {
         'title': 'Registration & OAuth',
         'icon': 'safety',
@@ -658,7 +658,7 @@ CONFIG_SCHEMA = {
         ]
     },
 
-    # ==================== 11. 计费配置 ====================
+    # ==================== 11. Billing configuration ====================
     'billing': {
         'title': 'Billing & Credits',
         'icon': 'dollar',
@@ -716,7 +716,7 @@ CONFIG_SCHEMA = {
                 'description': 'Credits granted every 30 days for lifetime members'
             },
 
-            # ===== USDT Pay (方案B：每单独立地址) =====
+            # ===== USDT Pay (Plan B: independent address for each order) =====
             {
                 'key': 'USDT_PAY_ENABLED',
                 'label': 'Enable USDT Pay',
@@ -809,7 +809,7 @@ CONFIG_SCHEMA = {
 
 
 def read_env_file():
-    """读取 .env 文件"""
+    """Read .env file"""
     env_values = {}
     
     if not os.path.exists(ENV_FILE_PATH):
@@ -820,15 +820,15 @@ def read_env_file():
         with open(ENV_FILE_PATH, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
-                # 跳过空行和注释
+                # Skip empty lines and comments
                 if not line or line.startswith('#'):
                     continue
-                # 解析 KEY=VALUE
+                # Parse KEY=VALUE
                 if '=' in line:
                     key, value = line.split('=', 1)
                     key = key.strip()
                     value = value.strip()
-                    # 移除引号
+                    # Remove quotes
                     if (value.startswith('"') and value.endswith('"')) or \
                        (value.startswith("'") and value.endswith("'")):
                         value = value[1:-1]
@@ -840,11 +840,11 @@ def read_env_file():
 
 
 def write_env_file(env_values):
-    """写入 .env 文件，保留注释和格式"""
+    """Write to .env file, preserving comments and formatting"""
     lines = []
     existing_keys = set()
     
-    # 读取原文件保留格式
+    # Read the original file and keep the format
     if os.path.exists(ENV_FILE_PATH):
         try:
             with open(ENV_FILE_PATH, 'r', encoding='utf-8') as f:
@@ -852,18 +852,18 @@ def write_env_file(env_values):
                     original_line = line
                     stripped = line.strip()
                     
-                    # 保留空行和注释
+                    # Keep blank lines and comments
                     if not stripped or stripped.startswith('#'):
                         lines.append(original_line)
                         continue
                     
-                    # 更新已存在的键
+                    # Update an existing key
                     if '=' in stripped:
                         key = stripped.split('=', 1)[0].strip()
                         if key in env_values:
                             existing_keys.add(key)
                             value = env_values[key]
-                            # 如果值包含特殊字符，用引号包裹
+                            # If the value contains special characters, wrap it in quotes
                             if ' ' in str(value) or '"' in str(value) or "'" in str(value):
                                 lines.append(f'{key}="{value}"\n')
                             else:
@@ -875,7 +875,7 @@ def write_env_file(env_values):
         except Exception as e:
             logger.error(f"Failed to read .env file for update: {e}")
     
-    # 添加新的键
+    # Add new key
     new_keys = set(env_values.keys()) - existing_keys
     if new_keys:
         if lines and not lines[-1].endswith('\n'):
@@ -888,7 +888,7 @@ def write_env_file(env_values):
             else:
                 lines.append(f'{key}={value}\n')
     
-    # 写入文件
+    # write file
     try:
         with open(ENV_FILE_PATH, 'w', encoding='utf-8') as f:
             f.writelines(lines)
@@ -902,7 +902,7 @@ def write_env_file(env_values):
 @login_required
 @admin_required
 def get_settings_schema():
-    """获取配置项定义 (admin only)"""
+    """Get configuration item definition (admin only)"""
     return jsonify({
         'code': 1,
         'msg': 'success',
@@ -914,10 +914,10 @@ def get_settings_schema():
 @login_required
 @admin_required
 def get_settings_values():
-    """获取当前配置值 - 包括敏感信息（真实值）(admin only)"""
+    """Get current configuration values ​​- including sensitive information (real values) (admin only)"""
     env_values = read_env_file()
     
-    # 构建返回数据，返回真实值
+    # Construct return data and return true value
     result = {}
     for group_key, group in CONFIG_SCHEMA.items():
         result[group_key] = {}
@@ -925,7 +925,7 @@ def get_settings_values():
             key = item['key']
             value = env_values.get(key, item.get('default', ''))
             result[group_key][key] = value
-            # 标记密码类型是否已配置
+            # Marks whether the password type is configured
             if item['type'] == 'password':
                 result[group_key][f'{key}_configured'] = bool(value)
     
@@ -940,16 +940,16 @@ def get_settings_values():
 @login_required
 @admin_required
 def save_settings():
-    """保存配置 (admin only)"""
+    """Save configuration (admin only)"""
     try:
         data = request.get_json()
         if not data:
             return jsonify({'code': 0, 'msg': 'Invalid request payload'})
         
-        # 读取当前配置
+        # Read current configuration
         current_env = read_env_file()
         
-        # 更新配置
+        # Update configuration
         updates = {}
         for group_key, group_values in data.items():
             if group_key not in CONFIG_SCHEMA:
@@ -960,23 +960,23 @@ def save_settings():
                 if key in group_values:
                     new_value = group_values[key]
                     
-                    # 空值处理
+                    # Null value handling
                     if new_value is None or new_value == '':
                         if not item.get('required', True):
                             updates[key] = ''
                     else:
                         updates[key] = str(new_value)
         
-        # 合并更新
+        # Merge updates
         current_env.update(updates)
         
-        # 写入文件
+        # write file
         if write_env_file(current_env):
-            # 清除配置缓存
+            # Clear configuration cache
             clear_config_cache()
-            # 热重载运行时环境变量（无需重启进程）
+            # Hot reload runtime environment variables (no need to restart the process)
             _reload_runtime_env()
-            # 重置依赖配置的服务单例（下次请求自动按新配置重建）
+            # Reset the service singleton that depends on the configuration (the next request will be automatically rebuilt according to the new configuration)
             _refresh_runtime_services()
             
             return jsonify({
@@ -1001,7 +1001,7 @@ def save_settings():
 @login_required
 @admin_required
 def get_openrouter_balance():
-    """查询 OpenRouter 账户余额 (admin only)"""
+    """Check OpenRouter account balance (admin only)"""
     try:
         import requests
         from app.config.api_keys import APIKeys
@@ -1014,7 +1014,7 @@ def get_openrouter_balance():
                 'data': None
             })
         
-        # 调用 OpenRouter API 查询余额
+        # Call OpenRouter API to query balance
         # https://openrouter.ai/docs#limits
         resp = requests.get(
             'https://openrouter.ai/api/v1/auth/key',
@@ -1027,11 +1027,11 @@ def get_openrouter_balance():
         
         if resp.status_code == 200:
             data = resp.json()
-            # OpenRouter 返回格式: {"data": {"label": "...", "usage": 0.0, "limit": null, ...}}
+            # OpenRouter return format: {"data": {"label": "...", "usage": 0.0, "limit": null, ...}}
             key_data = data.get('data', {})
-            usage = key_data.get('usage', 0)  # 已使用金额
-            limit = key_data.get('limit')  # 限额（可能为null表示无限制）
-            limit_remaining = key_data.get('limit_remaining')  # 剩余额度
+            usage = key_data.get('usage', 0)  # Amount used
+            limit = key_data.get('limit')  # limit (may be null for no limit)
+            limit_remaining = key_data.get('limit_remaining')  # remaining balance
             is_free_tier = key_data.get('is_free_tier', False)
             rate_limit = key_data.get('rate_limit', {})
             
@@ -1039,9 +1039,9 @@ def get_openrouter_balance():
                 'code': 1,
                 'msg': 'success',
                 'data': {
-                    'usage': round(usage, 4),  # 已使用（美元）
-                    'limit': limit,  # 总限额
-                    'limit_remaining': round(limit_remaining, 4) if limit_remaining is not None else None,  # 剩余额度
+                    'usage': round(usage, 4),  # Used (USD)
+                    'limit': limit,  # total limit
+                    'limit_remaining': round(limit_remaining, 4) if limit_remaining is not None else None,  # remaining balance
                     'is_free_tier': is_free_tier,
                     'rate_limit': rate_limit,
                     'label': key_data.get('label', '')
@@ -1079,13 +1079,13 @@ def get_openrouter_balance():
 @login_required
 @admin_required
 def test_connection():
-    """测试API连接 (admin only)"""
+    """Test API connection (admin only)"""
     try:
         data = request.get_json()
         service = data.get('service')
         
         if service == 'openrouter':
-            # 测试 OpenRouter 连接
+            # Test OpenRouter connection
             from app.services.llm import LLMService
             llm = LLMService()
             result = llm.test_connection()
@@ -1095,7 +1095,7 @@ def test_connection():
                 return jsonify({'code': 0, 'msg': 'OpenRouter connection failed'})
         
         elif service == 'finnhub':
-            # 测试 Finnhub 连接
+            # Test Finnhub connection
             import requests
             api_key = data.get('api_key') or os.getenv('FINNHUB_API_KEY')
             if not api_key:

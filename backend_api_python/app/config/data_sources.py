@@ -1,5 +1,5 @@
 """
-数据源配置
+Data source configuration
 """
 import os
 
@@ -24,7 +24,7 @@ class MetaDataSourceConfig(type):
 
 
 class DataSourceConfig(metaclass=MetaDataSourceConfig):
-    """数据源通用配置"""
+    """General data source configuration."""
     pass
 
 
@@ -51,9 +51,7 @@ class MetaFinnhubConfig(type):
 
 
 class FinnhubConfig(metaclass=MetaFinnhubConfig):
-    """Finnhub 数据源配置"""
-    pass
-
+    """Finnhub data source configuration"""
 
 class MetaTiingoConfig(type):
     @property
@@ -68,9 +66,7 @@ class MetaTiingoConfig(type):
 
 
 class TiingoConfig(metaclass=MetaTiingoConfig):
-    """Tiingo 数据源配置"""
-    pass
-
+    """Tiingo data source configuration"""
 
 class MetaYFinanceConfig(type):
     @property
@@ -94,9 +90,7 @@ class MetaYFinanceConfig(type):
 
 
 class YFinanceConfig(metaclass=MetaYFinanceConfig):
-    """Yahoo Finance 数据源配置"""
-    pass
-
+    """Yahoo Finance data source configuration"""
 
 class MetaCCXTConfig(type):
     @property
@@ -146,7 +140,7 @@ class MetaCCXTConfig(type):
 
 
 class CCXTConfig(metaclass=MetaCCXTConfig):
-    """CCXT 加密货币数据源配置"""
+    """CCXT cryptocurrency data source configuration."""
     pass
 
 
@@ -166,5 +160,4 @@ class MetaAkshareConfig(type):
 
 
 class AkshareConfig(metaclass=MetaAkshareConfig):
-    """Akshare 数据源配置"""
-    pass
+    """Akshare data source configuration"""

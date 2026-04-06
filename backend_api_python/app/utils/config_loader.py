@@ -17,7 +17,7 @@ from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-# 配置缓存
+# Configure cache
 _config_cache: Optional[Dict[str, Any]] = None
 
 
@@ -32,7 +32,7 @@ def load_addon_config() -> Dict[str, Any]:
     """
     global _config_cache
     
-    # 如果缓存存在，直接返回
+    # If the cache exists, return directly
     if _config_cache is not None:
         return _config_cache
     
@@ -147,16 +147,16 @@ def load_addon_config() -> Dict[str, Any]:
 
 def _convert_config_value(value: str, value_type: str) -> Any:
     """
-    根据类型转换配置值（与PHP端convertConfigValue方法保持一致）
+    Convert configuration values ​​according to type (consistent with the convertConfigValue method on the PHP side)
     
     Args:
-        value: 配置值字符串（可能为None）
-        value_type: 配置类型
+        value: configuration value string (may be None)
+        value_type: configuration type
         
     Returns:
-        转换后的配置值
+        Converted configuration value
     """
-    # 处理 None 或空值
+    # Handling None or null values
     if value is None or value == '':
         if value_type == 'int':
             return 0
@@ -186,7 +186,7 @@ def _convert_config_value(value: str, value_type: str) -> Any:
             return str(value) if value is not None else ''
     except (ValueError, TypeError) as e:
         logger.warning(f"Config value type conversion failed: value={value}, type={value_type}, error={str(e)}")
-        # 转换失败时返回默认值
+        # Returns default value if conversion fails
         if value_type == 'int':
             return 0
         elif value_type == 'float':
@@ -201,10 +201,10 @@ def _convert_config_value(value: str, value_type: str) -> Any:
 
 def get_internal_api_key() -> Optional[str]:
     """
-    获取内部API密钥（优先从环境变量读取）
+    Get the internal API key (preferably read from environment variables)
     
     Returns:
-        内部API密钥，如果未配置则返回None
+        Internal API key, returns None if not configured
     """
     try:
         env_val = os.getenv('INTERNAL_API_KEY', '').strip()
@@ -227,7 +227,7 @@ def get_internal_api_key() -> Optional[str]:
 
 def clear_config_cache():
     """
-    清除配置缓存（配置更新后调用）
+    Clear configuration cache (called after configuration update)
     """
     global _config_cache
     _config_cache = None

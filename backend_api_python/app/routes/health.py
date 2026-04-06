@@ -1,5 +1,5 @@
 """
-健康检查路由
+Health check routing
 """
 from flask import Blueprint, jsonify
 from datetime import datetime
@@ -9,7 +9,7 @@ health_bp = Blueprint('health', __name__)
 
 @health_bp.route('/', methods=['GET'])
 def index():
-    """API 首页"""
+    """API Home Page"""
     return jsonify({
         'name': 'QuantDinger Python API',
         'version': '2.0.0',
@@ -20,7 +20,7 @@ def index():
 
 @health_bp.route('/health', methods=['GET'])
 def health_check():
-    """健康检查"""
+    """health check"""
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat()
@@ -29,5 +29,5 @@ def health_check():
 
 @health_bp.route('/api/health', methods=['GET'])
 def api_health_check():
-    """兼容路径：用于容器健康检查/反代探针等场景。"""
+    """Compatible path: used for container health check/anti-generation probe and other scenarios."""
     return health_check()

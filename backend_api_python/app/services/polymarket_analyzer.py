@@ -1,6 +1,6 @@
 """
-Polymarket预测市场分析器
-分析预测市场，生成AI预测和交易机会推荐
+Polymarket Prediction Market Analyzer
+Analyze prediction markets and generate AI predictions and trading opportunity recommendations
 """
 import json
 import re
@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 
 class PolymarketAnalyzer:
-    """预测市场AI分析器"""
+    """Prediction Market AI Analyzer"""
     
     def __init__(self):
         self.llm_service = LLMService()
@@ -26,19 +26,19 @@ class PolymarketAnalyzer:
     
     def analyze_market(self, market_id: str, user_id: int = None, use_cache: bool = True, language: str = 'zh-CN', model: str = None) -> Dict:
         """
-        分析单个预测市场
+        Analyze a single prediction market
         
         Args:
-            market_id: 市场ID
-            user_id: 用户ID（可选，用于用户特定分析）
-            use_cache: 是否使用缓存的分析结果（默认True）
-            language: 语言设置（'zh-CN' 或 'en-US'），用于生成对应语言的AI分析结果
+            market_id: Market ID
+            user_id: User ID (optional, for user-specific analysis)
+            use_cache: whether to use cached analysis results (default True)
+            language: language setting ('zh-CN' or 'en-US'), used to generate AI analysis results in the corresponding language
             
         Returns:
-            分析结果字典
+            Analysis results dictionary
         """
         try:
-            # 1. 获取市场数据
+            # 1. Get market data
             market = self.polymarket_source.get_market_details(market_id)
             if not market:
                 return {
@@ -46,21 +46,21 @@ class PolymarketAnalyzer:
                     "market_id": market_id
                 }
             
-            # 2. 如果使用缓存，检查是否有缓存的分析结果（30分钟有效）
+            # 2. If cache is used, check whether there are cached analysis results (valid for 30 minutes)
             if use_cache:
                 cached_analysis = self._get_cached_analysis(market_id, user_id)
                 if cached_analysis:
-                    cache_minutes = 30  # 缓存30分钟
+                    cache_minutes = 30  # Cache for 30 minutes
                     if self._is_analysis_fresh(cached_analysis, max_age_minutes=cache_minutes):
                         logger.debug(f"Using cached analysis for market {market_id}")
                         return cached_analysis
             
-            # 3. 收集相关数据
+            # 3. Collect relevant data
             related_news = self._get_related_news(market['question'])
             related_assets = self._identify_related_assets(market['question'])
             asset_data = self._get_asset_data(related_assets)
             
-            # 4. AI分析
+            # 4. AI analysis
             ai_result = self._ai_predict_probability(
                 question=market['question'],
                 current_market_prob=market['current_probability'],
@@ -69,20 +69,20 @@ class PolymarketAnalyzer:
                 language=language
             )
             
-            # 5. 计算机会评分
+            # 5. Calculate opportunity scores
             opportunity_score = self._calculate_opportunity_score(
                 ai_prob=ai_result['predicted_probability'],
                 market_prob=market['current_probability'],
                 confidence=ai_result['confidence']
             )
             
-            # 6. 生成推荐
+            # 6. Generate recommendations
             recommendation = self._generate_recommendation(
                 divergence=ai_result['predicted_probability'] - market['current_probability'],
                 confidence=ai_result['confidence']
             )
             
-            # 7. 构建分析结果
+            # 7. Construct analysis results
             analysis_result = {
                 "market_id": market_id,
                 "ai_predicted_probability": ai_result['predicted_probability'],
@@ -98,7 +98,7 @@ class PolymarketAnalyzer:
                 "opportunity_score": opportunity_score
             }
             
-            # 8. 保存到数据库
+            # 8. Save to database
             self._save_analysis_to_db(analysis_result, user_id)
             
             return analysis_result
@@ -112,54 +112,54 @@ class PolymarketAnalyzer:
     
     def generate_asset_trading_opportunities(self, market_id: str) -> List[Dict]:
         """
-        基于预测市场生成相关资产的交易机会
+        Generate trading opportunities for related assets based on prediction markets
         
         Args:
-            market_id: 预测市场ID
+            market_id: prediction market ID
             
         Returns:
-            资产交易机会列表
+            List of asset trading opportunities
         """
         try:
-            # 1. 分析预测市场
+            # 1. Analyze prediction markets
             market_analysis = self.analyze_market(market_id)
             if market_analysis.get('error'):
                 return []
             
-            # 2. 识别相关资产
+            # 2. Identify relevant assets
             related_assets = market_analysis.get('related_assets', [])
             if not related_assets:
                 return []
             
-            # 3. 对每个资产进行技术分析
+            # 3. Perform technical analysis on each asset
             opportunities = []
             for asset in related_assets:
                 try:
-                    # 推断市场类型
+                    # Infer market type
                     market_type = self._infer_market(asset)
                     
-                    # 获取资产数据
+                    # Get asset data
                     asset_data = self.data_collector.collect_all(
                         market=market_type,
                         symbol=asset,
                         timeframe="1D",
-                        include_polymarket=False  # 避免循环
+                        include_polymarket=False  # avoid loops
                     )
                     
-                    # 技术分析
+                    # technical analysis
                     technical_analysis = self._analyze_technical(asset_data)
                     
-                    # 结合预测市场信号
+                    # Incorporate Predictive Market Signals
                     if market_analysis['recommendation'] == "YES":
-                        # 预测事件发生概率高 → 相关资产可能上涨
+                        # Predicted event probability is high → related assets may rise
                         signal = "BUY" if technical_analysis.get('trend') == "bullish" else "HOLD"
                     elif market_analysis['recommendation'] == "NO":
-                        # 预测事件发生概率低 → 相关资产可能下跌
+                        # The probability of the predicted event is low → the related assets may fall
                         signal = "SELL" if technical_analysis.get('trend') == "bearish" else "HOLD"
                     else:
                         signal = "HOLD"
                     
-                    # 计算综合置信度
+                    # Calculate overall confidence
                     confidence = (
                         market_analysis['confidence_score'] * 0.6 + 
                         technical_analysis.get('confidence', 50) * 0.4
@@ -184,7 +184,7 @@ class PolymarketAnalyzer:
                     logger.debug(f"Failed to analyze asset {asset} for market {market_id}: {e}")
                     continue
             
-            # 保存机会到数据库
+            # Save opportunity to database
             if opportunities:
                 self._save_opportunities_to_db(market_id, opportunities)
             
@@ -196,12 +196,12 @@ class PolymarketAnalyzer:
     
     def _ai_predict_probability(self, question: str, current_market_prob: float,
                                 related_news: List, asset_data: Dict, language: str = 'zh-CN') -> Dict:
-        """使用AI预测事件概率"""
+        """Using AI to predict event probabilities"""
         try:
-            # 根据语言设置构建prompt
+            # Build prompt based on language settings
             is_english = language.lower() in ['en', 'en-us', 'en_us']
             
-            # 构建prompt
+            # build prompt
             news_text = "\n".join([f"- {n.get('title', '')[:100]}" for n in related_news[:5]])
             
             asset_text = ""
@@ -287,7 +287,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
                 
                 system_prompt = "你是一个专业的市场分析师，擅长分析预测市场事件。请基于提供的数据，客观评估事件发生的概率。请使用中文回答。"
             
-            # 调用LLM
+            # Call LLM
             messages = [
                 {
                     "role": "system",
@@ -305,13 +305,13 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
                 temperature=0.3
             )
             
-            # 解析结果
+            # Parse results
             if isinstance(result, str):
                 result = json.loads(result)
             
-            # 验证和规范化
+            # Validation and normalization
             predicted_prob = float(result.get('predicted_probability', current_market_prob))
-            predicted_prob = max(0, min(100, predicted_prob))  # 限制在0-100
+            predicted_prob = max(0, min(100, predicted_prob))  # Limit to 0-100
             
             confidence = float(result.get('confidence', 70))
             confidence = max(0, min(100, confidence))
@@ -326,7 +326,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
             
         except Exception as e:
             logger.error(f"AI prediction failed: {e}", exc_info=True)
-            # 返回默认值
+            # Return to default value
             return {
                 'predicted_probability': current_market_prob,
                 'confidence': 50.0,
@@ -338,28 +338,28 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
     def _calculate_opportunity_score(self, ai_prob: float, market_prob: float, 
                                      confidence: float) -> float:
         """
-        计算机会评分（0-100）
+        Calculate opportunity rating (0-100)
         
-        逻辑：
-        - AI与市场差异越大，机会越好
-        - 置信度越高，机会越好
+        logic:
+        - The greater the difference between AI and the market, the better the opportunity
+        - The higher the confidence, the better the chance
         """
         divergence = abs(ai_prob - market_prob)
-        # 差异越大，机会越好（最大40分）
+        # The bigger the difference, the better the chance (maximum 40 points)
         divergence_score = min(divergence * 2, 40)
-        # 置信度越高，机会越好（最大60分）
+        # The higher the confidence level, the better the chance (maximum 60 points)
         confidence_score = confidence * 0.6
         
         return round(divergence_score + confidence_score, 2)
     
     def _generate_recommendation(self, divergence: float, confidence: float) -> str:
         """
-        生成推荐：YES/NO/HOLD
+        Generate recommendations: YES/NO/HOLD
         
-        逻辑：
-        - AI概率 > 市场概率 + 5% 且置信度 > 60 → YES
-        - AI概率 < 市场概率 - 5% 且置信度 > 60 → NO
-        - 其他 → HOLD
+        logic:
+        - AI Probability > Market Probability + 5% and Confidence > 60 → YES
+        - AI probability < market probability - 5% and confidence level > 60 → NO
+        - Others → HOLD
         """
         if divergence > 5 and confidence > 60:
             return "YES"
@@ -369,7 +369,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
             return "HOLD"
     
     def _assess_risk(self, market: Dict, ai_result: Dict) -> str:
-        """评估风险等级"""
+        """Assess risk level"""
         confidence = ai_result.get('confidence', 50)
         divergence = abs(ai_result.get('predicted_probability', 50) - market.get('current_probability', 50))
         
@@ -381,19 +381,19 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
             return "low"
     
     def _get_related_news(self, question: str) -> List[Dict]:
-        """获取相关问题相关的新闻"""
-        # 提取关键词
+        """Get news on relevant issues"""
+        # Extract keywords
         keywords = self._extract_keywords(question)
         
-        # 这里可以调用新闻API，暂时返回空列表
-        # 实际实现时可以调用现有的新闻服务
+        # Here you can call the news API and temporarily return an empty list
+        # In actual implementation, existing news services can be called
         return []
     
     def _identify_related_assets(self, question: str) -> List[str]:
-        """识别问题中提到的相关资产"""
+        """Identify related assets mentioned in the question"""
         assets = []
         
-        # 加密货币关键词映射
+        # Cryptocurrency Keyword Mapping
         crypto_keywords = {
             'BTC': ['BTC', 'Bitcoin', 'bitcoin', 'btc'],
             'ETH': ['ETH', 'Ethereum', 'ethereum', 'eth'],
@@ -412,11 +412,11 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
             if any(kw in question_upper for kw in keywords):
                 assets.append(f"{symbol}/USDT")
         
-        # 去重
+        # Remove duplicates
         return list(set(assets))
     
     def _get_asset_data(self, assets: List[str]) -> Optional[Dict]:
-        """获取资产数据（取第一个资产）"""
+        """Get asset data (get the first asset)"""
         if not assets:
             return None
         
@@ -433,7 +433,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
             return None
     
     def _analyze_technical(self, asset_data: Dict) -> Dict:
-        """简单的技术分析"""
+        """simple technical analysis"""
         if not asset_data:
             return {
                 'trend': 'neutral',
@@ -445,7 +445,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
         indicators = asset_data.get('indicators', {})
         price_data = asset_data.get('price', {})
         
-        # 简单的趋势判断
+        # Simple trend judgment
         rsi = indicators.get('rsi', {}).get('value', 50)
         macd_signal = indicators.get('macd', {}).get('signal', 'neutral')
         
@@ -465,22 +465,22 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
         }
     
     def _infer_market(self, symbol: str) -> str:
-        """推断市场类型"""
+        """Infer market type"""
         if '/' in symbol:
             return "Crypto"
         elif len(symbol) <= 5 and symbol.isupper():
             return "USStock"
         else:
-            return "Crypto"  # 默认
+            return "Crypto"  # default
     
     def _extract_keywords(self, text: str) -> List[str]:
-        """提取关键词"""
-        # 简单的关键词提取
+        """Extract keywords"""
+        # Simple keyword extraction
         words = re.findall(r'\b[A-Z][a-z]+\b|\b[A-Z]{2,}\b', text)
         return [w.lower() for w in words if len(w) > 2]
     
     def _get_cached_analysis(self, market_id: str, user_id: int = None) -> Optional[Dict]:
-        """获取缓存的分析结果"""
+        """Get cached analysis results"""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -506,7 +506,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
                 cur.close()
                 
                 if row:
-                    # RealDictCursor返回字典，使用键访问
+                    #RealDictCursor returns the dictionary, accessed using keys
                     key_factors_raw = row.get('key_factors')
                     key_factors = []
                     if key_factors_raw:
@@ -551,19 +551,19 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
     
     def _save_analysis_to_db(self, analysis: Dict, user_id: int = None, language: str = 'en-US', model: str = None):
         """
-        保存分析结果到数据库
+        Save analysis results to database
         
         Args:
-            analysis: 分析结果字典
-            user_id: 用户ID
-            language: 语言设置
-            model: 使用的模型
+            analysis: dictionary of analysis results
+            user_id: user ID
+            language: language settings
+            model: model used
         """
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 1. 保存到 qd_polymarket_ai_analysis 表（Polymarket专用表）
+                # 1. Save to qd_polymarket_ai_analysis table (Polymarket special table)
                 cur.execute("""
                     INSERT INTO qd_polymarket_ai_analysis
                     (market_id, user_id, ai_predicted_probability, market_probability,
@@ -584,7 +584,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
                     analysis.get('related_assets', [])
                 ))
                 
-                # 2. 同时保存到 qd_analysis_tasks 表（用于管理员统计和统一的历史记录查看）
+                # 2. Save to the qd_analysis_tasks table at the same time (for administrator statistics and unified historical record viewing)
                 market_info = analysis.get('market', {})
                 market_title = market_info.get('question', '') or market_info.get('title', '') or f"Polymarket Market {analysis['market_id']}"
                 result_json = json.dumps({
@@ -592,7 +592,7 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
                     'market_title': market_title,
                     'analysis': analysis,
                     'market': market_info,
-                    'type': 'polymarket'  # 标记为Polymarket分析
+                    'type': 'polymarket' # Mark as Polymarket analysis
                 }, ensure_ascii=False)
                 
                 cur.execute("""
@@ -602,8 +602,8 @@ IMPORTANT: All text in the JSON response (reasoning, key_factors, risk_factors) 
                     RETURNING id
                 """, (
                     int(user_id) if user_id else 1,
-                    'Polymarket',  # market字段
-                    str(analysis['market_id']),  # symbol字段存储market_id
+                    'Polymarket', # market field
+                    str(analysis['market_id']), # symbol field stores market_id
                     str(model) if model else '',
                     str(language),
                     'completed',

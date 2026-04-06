@@ -1,13 +1,13 @@
 """
-Billing Service - 统一计费服务
+Billing Service - unified billing service
 
-负责用户积分余额、功能扣费、会员状态与套餐发放。
-当前计费模型为：
-1. 是否扣费由 `BILLING_ENABLED` 与各功能 cost 配置决定
-2. VIP/会员状态用于会员套餐与权益展示
-3. 社区指标的 `vip_free` 逻辑在社区购买流程中单独处理，不在这里做全局旁路
+Responsible for user points balance, function deductions, membership status and package issuance.
+The current billing model is:
+1. Whether to deduct fees is determined by `BILLING_ENABLED` and the cost configuration of each function.
+2. VIP/member status is used to display membership packages and benefits.
+3. The `vip_free` logic of community indicators is processed separately in the community purchase process, and no global bypass is done here.
 
-计费配置存储在 `.env` 文件中，可通过系统设置界面配置。
+Accounting configuration is stored in the `.env` file and can be configured through the system settings interface.
 """
 import os
 import time
@@ -21,16 +21,16 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-# 功能计费配置键名
+# Function billing configuration key name
 BILLING_CONFIG_PREFIX = 'BILLING_'
 
-# 默认计费配置
+# Default billing configuration
 DEFAULT_BILLING_CONFIG = {
-    # 全局开关
-    'enabled': False,  # 是否启用计费
+    # global switch
+    'enabled': False,  # Whether to enable billing
 
-    # 各功能积分消耗（0表示免费）
-    # ai_analysis 统一单价：即时分析 / AI过滤 / 定时任务 均按此单价 × 标的数扣费
+    # Point consumption for each function (0 means free)
+    # ai_analysis unified unit price: real-time analysis / AI filtering / scheduled tasks are all deducted based on this unit price × number of targets
     'cost_ai_analysis': 10,
     'cost_ai_code_gen': 30,
     'cost_polymarket_deep_analysis': 15,
@@ -45,15 +45,15 @@ FEATURE_NAMES = {
 
 
 class BillingService:
-    """计费服务类"""
+    """Billing service category"""
     
     def __init__(self):
         self._config_cache = None
         self._config_cache_time = 0
-        self._cache_ttl = 60  # 配置缓存60秒
+        self._cache_ttl = 60  # Configure cache for 60 seconds
     
     def get_billing_config(self) -> Dict[str, Any]:
-        """获取计费配置"""
+        """Get billing configuration"""
         now = time.time()
         if self._config_cache and (now - self._config_cache_time) < self._cache_ttl:
             return self._config_cache
@@ -80,23 +80,23 @@ class BillingService:
         return config
     
     def clear_config_cache(self):
-        """清除配置缓存"""
+        """Clear configuration cache"""
         self._config_cache = None
         self._config_cache_time = 0
     
     def is_billing_enabled(self) -> bool:
-        """检查是否启用计费"""
+        """Check if billing is enabled"""
         config = self.get_billing_config()
         return config.get('enabled', False)
     
     def get_feature_cost(self, feature: str) -> int:
-        """获取指定功能的积分消耗，0 表示免费"""
+        """Get the points consumption of the specified function, 0 means free"""
         config = self.get_billing_config()
         cost_key = f'cost_{feature}'
         return config.get(cost_key, 0)
     
     def get_user_credits(self, user_id: int) -> Decimal:
-        """获取用户积分余额"""
+        """Get user points balance"""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -116,10 +116,10 @@ class BillingService:
     
     def get_user_vip_status(self, user_id: int) -> Tuple[bool, Optional[datetime]]:
         """
-        获取用户VIP状态
+        Get user VIP status
         
         Returns:
-            (is_vip, expires_at): VIP是否有效, VIP过期时间
+            (is_vip, expires_at): whether the VIP is valid, VIP expiration time
         """
         try:
             with get_db_connection() as db:
@@ -138,11 +138,11 @@ class BillingService:
                 
                 if row and row.get('vip_expires_at'):
                     expires_at = row['vip_expires_at']
-                    # 确保是 datetime 对象
+                    # Make sure it is a datetime object
                     if isinstance(expires_at, str):
                         expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
                     
-                    # 检查是否过期
+                    # Check if expired
                     now = datetime.now(timezone.utc)
                     if expires_at.tzinfo is None:
                         expires_at = expires_at.replace(tzinfo=timezone.utc)
@@ -449,49 +449,49 @@ class BillingService:
     
     def check_and_consume(self, user_id: int, feature: str, reference_id: str = '') -> Tuple[bool, str]:
         """
-        检查并消耗积分
+        Check and spend points
         
         Args:
-            user_id: 用户ID
-            feature: 功能名称（ai_analysis / polymarket_deep_analysis）
-            reference_id: 关联ID（可选）
+            user_id: user ID
+            feature: function name (ai_analysis / polymarket_deep_analysis)
+            reference_id: association ID (optional)
         
         Returns:
-            (success, message): 是否成功, 提示消息
+            (success, message): Whether it is successful, prompt message
         """
-        # 检查是否启用计费
+        # Check if billing is enabled
         if not self.is_billing_enabled():
             return True, 'billing_disabled'
         
         config = self.get_billing_config()
         cost = self.get_feature_cost(feature)
         
-        # 免费功能
+        # free features
         if cost <= 0:
             return True, 'free_feature'
 
-        # 说明：这里不再根据 VIP 做全局免扣积分旁路。
-        # VIP / membership 仅保留为套餐、到期时间和社区 vip_free 指标权益。
+        # Note: There is no longer a global point deduction bypass based on VIP.
+        # VIP/membership is reserved only for package, expiry time and community vip_free metric benefits.
 
-        # 检查积分余额
+        # Check points balance
         credits = self.get_user_credits(user_id)
         if credits < cost:
             return False, f'insufficient_credits:{credits}:{cost}'
         
-        # 扣除积分
+        # Points deducted
         try:
             new_balance = credits - Decimal(str(cost))
             
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 更新用户积分
+                # Update user points
                 cur.execute(
                     "UPDATE qd_users SET credits = ?, updated_at = NOW() WHERE id = ?",
                     (float(new_balance), user_id)
                 )
                 
-                # 记录日志 - 使用 UTC 时间确保跨时区显示正确
+                # Logging - Use UTC time to ensure correct display across time zones
                 feature_name = FEATURE_NAMES.get(feature, feature)
                 created_at_utc = datetime.now(timezone.utc)
                 cur.execute(
@@ -516,15 +516,15 @@ class BillingService:
     def add_credits(self, user_id: int, amount: int, action: str = 'recharge', 
                     remark: str = '', operator_id: int = None, reference_id: str = '') -> Tuple[bool, str]:
         """
-        增加用户积分
+        Increase user points
         
         Args:
-            user_id: 用户ID
-            amount: 增加金额（正数）
-            action: 操作类型（recharge/admin_adjust/refund/referral_bonus/register_bonus）
-            remark: 备注
-            operator_id: 操作人ID（管理员操作时）
-            reference_id: 关联ID（如被邀请用户ID、订单号等）
+            user_id: user ID
+            amount: increase the amount (positive number)
+            action: action type (recharge/admin_adjust/refund/referral_bonus/register_bonus)
+            remark: remark
+            operator_id: operator ID (when the administrator operates)
+            reference_id: association ID (such as invited user ID, order number, etc.)
         
         Returns:
             (success, message)
@@ -539,13 +539,13 @@ class BillingService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 更新用户积分
+                # Update user points
                 cur.execute(
                     "UPDATE qd_users SET credits = ?, updated_at = NOW() WHERE id = ?",
                     (float(new_balance), user_id)
                 )
                 
-                # 记录日志（包含 reference_id）
+                # Logging (contains reference_id)
                 cur.execute(
                     """
                     INSERT INTO qd_credits_log 
@@ -568,13 +568,13 @@ class BillingService:
     def set_credits(self, user_id: int, amount: int, remark: str = '', 
                     operator_id: int = None) -> Tuple[bool, str]:
         """
-        设置用户积分（管理员直接设置）
+        Set user points (set directly by the administrator)
         
         Args:
-            user_id: 用户ID
-            amount: 设置的金额
-            remark: 备注
-            operator_id: 操作人ID
+            user_id: user ID
+            amount: the set amount
+            remark: remark
+            operator_id: operator ID
         
         Returns:
             (success, message)
@@ -589,13 +589,13 @@ class BillingService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 更新用户积分
+                # Update user points
                 cur.execute(
                     "UPDATE qd_users SET credits = ?, updated_at = NOW() WHERE id = ?",
                     (amount, user_id)
                 )
                 
-                # 记录日志
+                # logging
                 cur.execute(
                     """
                     INSERT INTO qd_credits_log 
@@ -618,13 +618,13 @@ class BillingService:
     def set_vip(self, user_id: int, expires_at: Optional[datetime], 
                 remark: str = '', operator_id: int = None) -> Tuple[bool, str]:
         """
-        设置用户VIP状态
+        Set user VIP status
         
         Args:
-            user_id: 用户ID
-            expires_at: VIP过期时间（None表示取消VIP）
-            remark: 备注
-            operator_id: 操作人ID
+            user_id: user ID
+            expires_at: VIP expiration time (None means canceling VIP)
+            remark: remark
+            operator_id: operator ID
         
         Returns:
             (success, message)
@@ -633,13 +633,13 @@ class BillingService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 更新VIP过期时间
+                # Update VIP expiration time
                 cur.execute(
                     "UPDATE qd_users SET vip_expires_at = ?, updated_at = NOW() WHERE id = ?",
                     (expires_at, user_id)
                 )
                 
-                # 记录日志
+                # logging
                 action = 'vip_grant' if expires_at else 'vip_revoke'
                 log_remark = remark or (f'VIP granted until {expires_at}' if expires_at else 'VIP revoked')
                 cur.execute(
@@ -662,21 +662,21 @@ class BillingService:
             return False, str(e)
     
     def get_credits_log(self, user_id: int, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
-        """获取用户积分变动日志"""
+        """Get user points change log"""
         offset = (page - 1) * page_size
         
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 获取总数
+                # Get total
                 cur.execute(
                     "SELECT COUNT(*) as count FROM qd_credits_log WHERE user_id = ?",
                     (user_id,)
                 )
                 total = cur.fetchone()['count']
                 
-                # 获取日志
+                # Get log
                 cur.execute(
                     """
                     SELECT id, action, amount, balance_after, feature, reference_id, remark, created_at
@@ -700,7 +700,7 @@ class BillingService:
                             if getattr(dt, 'tzinfo', None) is not None:
                                 d['created_at'] = dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
                             else:
-                                # 无时区：新记录用 UTC 写入，旧记录可能为服务器本地时间，统一按 UTC 返回以便前端正确转换
+                                # No time zone: New records are written in UTC, and old records may be in the local time of the server. They are returned in UTC to facilitate correct conversion by the front end.
                                 d['created_at'] = dt.strftime('%Y-%m-%dT%H:%M:%S') + 'Z'
                     logs.append(d)
                 
@@ -716,7 +716,7 @@ class BillingService:
             return {'items': [], 'total': 0, 'page': 1, 'page_size': page_size, 'total_pages': 0}
     
     def get_user_billing_info(self, user_id: int) -> Dict[str, Any]:
-        """获取用户计费与会员信息快照（供前端显示）"""
+        """Get a snapshot of user billing and membership information (for front-end display)"""
         credits = self.get_user_credits(user_id)
         is_vip, vip_expires_at = self.get_user_vip_status(user_id)
         config = self.get_billing_config()
@@ -734,12 +734,12 @@ class BillingService:
         }
 
 
-# 全局单例
+# Global singleton
 _billing_service = None
 
 
 def get_billing_service() -> BillingService:
-    """获取计费服务单例"""
+    """Get billing service singleton instance"""
     global _billing_service
     if _billing_service is None:
         _billing_service = BillingService()

@@ -223,7 +223,7 @@ class PostgresConnection:
 
 
 def _ensure_session_utc(conn) -> None:
-    """每条连接检出后固定为 UTC，与 API 序列化约定一致。"""
+    """Each connection is fixed to UTC after checkout, consistent with the API serialization convention."""
     try:
         cur = conn.cursor()
         cur.execute("SET TIME ZONE 'UTC'")
@@ -250,7 +250,7 @@ def get_pg_connection():
                 conn.rollback()
             except Exception:
                 pass
-        # 记录更详细的错误信息
+        # Log more detailed error information
         error_msg = str(e) if e else repr(e)
         error_type = type(e).__name__
         logger.error(f"PostgreSQL operation error ({error_type}): {error_msg}", exc_info=True)

@@ -188,7 +188,7 @@ def login():
             user_id=user_id,
             username=user.get('username', username),
             role=user.get('role', 'admin'),
-            token_version=new_token_version  # 包含新的 token_version
+            token_version=new_token_version  # Contains new token_version
         )
         
         if not token:

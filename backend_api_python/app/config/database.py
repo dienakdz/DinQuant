@@ -1,11 +1,10 @@
 """
-数据库和缓存配置
+Database and cache configuration
 """
 import os
 
 class MetaRedisConfig(type):
-    """Redis 配置"""
-    
+    """Redis configuration""" 
     @property
     def HOST(cls):
         return os.getenv('REDIS_HOST', 'localhost')
@@ -36,22 +35,21 @@ class MetaRedisConfig(type):
 
 
 class RedisConfig(metaclass=MetaRedisConfig):
-    """Redis 缓存配置"""
-    
+    """Redis cache configuration."""
+
     @classmethod
     def get_url(cls) -> str:
-        """获取 Redis 连接 URL"""
+        """Get the Redis connection URL."""
         if cls.PASSWORD:
             return f"redis://:{cls.PASSWORD}@{cls.HOST}:{cls.PORT}/{cls.DB}"
         return f"redis://{cls.HOST}:{cls.PORT}/{cls.DB}"
 
 
 class MetaCacheConfig(type):
-    """缓存业务配置"""
-    
-    @property
+    """Cache business configuration."""
+
     def ENABLED(cls):
-        # 强制默认关闭，除非环境变量显式开启
+        # Forced to be off by default unless explicitly enabled by an environment variable
         return os.getenv('CACHE_ENABLED', 'False').lower() == 'true'
 
     @property
@@ -61,15 +59,15 @@ class MetaCacheConfig(type):
     @property
     def KLINE_CACHE_TTL(cls):
         return {
-            '1m': 5,       # 1分钟K线缓存5秒
-            '3m': 30,      # 3分钟K线缓存30秒
-            '5m': 60,      # 5分钟K线缓存1分钟
-            '15m': 300,    # 15分钟K线缓存5分钟
-            '30m': 300,    # 30分钟K线缓存5分钟
-            '1H': 300,     # 1小时K线缓存5分钟
-            '4H': 300,     # 4小时K线缓存5分钟
-            '1D': 300,     # 日K线缓存5分钟
-            # 兼容小写
+            '1m': 5,       # K-line cache for 1 minute and 5 seconds
+            '3m': 30,      # 3 minutes K-line cache 30 seconds
+            '5m': 60,      # 5 minutes K-line cache 1 minute
+            '15m': 300,    # 15 minutes K-line cache 5 minutes
+            '30m': 300,    # 30 minutes K-line cache 5 minutes
+            '1H': 300,     # 1 hour K-line cache for 5 minutes
+            '4H': 300,     # 4 hours K-line cache for 5 minutes
+            '1D': 300,     # Daily K-line cache for 5 minutes
+            # Compatible with lowercase
             '1h': 300,
             '4h': 300,
             '1d': 300,
@@ -85,5 +83,5 @@ class MetaCacheConfig(type):
 
 
 class CacheConfig(metaclass=MetaCacheConfig):
-    """缓存配置"""
+    """Cache configuration."""
     pass

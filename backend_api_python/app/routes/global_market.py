@@ -38,22 +38,22 @@ logger = get_logger(__name__)
 global_market_bp = Blueprint("global_market", __name__)
 
 # Cache for market data (simple in-memory cache)
-# 多用户场景下，合理的缓存可以大幅减少 API 请求
+# In multi-user scenarios, reasonable caching can significantly reduce API requests.
 _cache: Dict[str, Dict[str, Any]] = {}
 _cache_ttl = 60  # Default 60 seconds cache
 
-# 缓存时间配置（秒）
+# Cache time configuration (seconds)
 CACHE_TTL = {
-    "crypto_heatmap": 300,      # 5分钟 - 加密货币变化快但热力图不需要实时
-    "forex_pairs": 120,          # 2分钟 - 外汇日内波动较小
-    "stock_indices": 120,        # 2分钟 - 指数变化较慢
-    "market_overview": 120,      # 2分钟 - 概览数据
-    "market_heatmap": 120,       # 2分钟 - 热力图
-    "commodities": 120,          # 2分钟 - 大宗商品
-    "market_news": 180,          # 3分钟 - 新闻
-    "economic_calendar": 3600,   # 1小时 - 日历事件
-    "market_sentiment": 21600,   # 6小时 - 宏观情绪变化缓慢
-    "trading_opportunities": 3600, # 1小时 - 每小时更新一次
+    "crypto_heatmap": 300,      # 5 minutes - Cryptocurrencies change fast but heatmaps don’t need to be real-time
+    "forex_pairs": 120,          # 2 minutes - Forex intraday fluctuations are small
+    "stock_indices": 120,        # 2 minutes - index changes slowly
+    "market_overview": 120,      # 2 minutes - overview data
+    "market_heatmap": 120,       # 2 minutes - heat map
+    "commodities": 120,          # 2 minutes - Commodities
+    "market_news": 180,          # 3 minutes - News
+    "economic_calendar": 3600,   # 1 hour - calendar event
+    "market_sentiment": 21600,   # 6 hours - Macro sentiment changes slowly
+    "trading_opportunities": 3600, # 1 hour - updated every hour
 }
 
 
@@ -61,7 +61,7 @@ def _get_cached(key: str, ttl: int = None) -> Optional[Any]:
     """Get cached data if not expired."""
     if key in _cache:
         entry = _cache[key]
-        # 优先使用传入的 ttl，然后是 CACHE_TTL 配置，最后是默认值
+        # Use the incoming ttl first, then the CACHE_TTL configuration, then the default value
         cache_ttl = ttl or CACHE_TTL.get(key, entry.get("ttl", _cache_ttl))
         if time.time() - entry.get("ts", 0) < cache_ttl:
             return entry.get("data")
@@ -253,7 +253,7 @@ def _fetch_crypto_prices() -> List[Dict[str, Any]]:
 def _fetch_stock_indices() -> List[Dict[str, Any]]:
     """Fetch major stock indices using yfinance."""
     indices = [
-        # US Markets - 坐标错开避免重叠
+        # US Markets - Coordinates are staggered to avoid overlap
         {"symbol": "^GSPC", "name_cn": "标普500", "name_en": "S&P 500", "region": "US", "flag": "🇺🇸", "lat": 40.7, "lng": -74.0},
         {"symbol": "^DJI", "name_cn": "道琼斯", "name_en": "Dow Jones", "region": "US", "flag": "🇺🇸", "lat": 38.5, "lng": -77.0},
         {"symbol": "^IXIC", "name_cn": "纳斯达克", "name_en": "NASDAQ", "region": "US", "flag": "🇺🇸", "lat": 37.5, "lng": -122.4},
@@ -520,12 +520,12 @@ def _fetch_fear_greed_index() -> Dict[str, Any]:
 
 def _fetch_vix() -> Dict[str, Any]:
     """Fetch VIX (CBOE Volatility Index) with multiple fallbacks."""
-    # 默认值 - 合理的市场中性水平
+    # Default - a reasonable market neutral level
     DEFAULT_VIX = {"value": 18, "change": 0, "level": "low", 
                    "interpretation": "低波动 - 市场稳定", 
                    "interpretation_en": "Low - Market Stable"}
     
-    # 1) 尝试 yfinance
+    # 1) Try yfinance
     try:
         import yfinance as yf
         logger.debug("Fetching VIX from yfinance")
@@ -551,10 +551,10 @@ def _fetch_vix() -> Dict[str, Any]:
     except Exception as e:
         logger.warning(f"yfinance VIX failed, trying akshare: {e}")
         
-        # 2) 尝试 Akshare (对中国服务器友好)
+        # 2) Try Akshare (friendly for Chinese servers)
         try:
             import akshare as ak
-            vix_df = ak.index_vix()  # VIX指数
+            vix_df = ak.index_vix()  # VIX index
             if vix_df is not None and len(vix_df) > 0:
                 current = float(vix_df.iloc[-1]['close'])
                 prev_close = float(vix_df.iloc[-2]['close']) if len(vix_df) >= 2 else current
@@ -602,7 +602,7 @@ def _fetch_vix() -> Dict[str, Any]:
 
 def _fetch_dollar_index() -> Dict[str, Any]:
     """Fetch US Dollar Index (DXY) with multiple fallbacks."""
-    # 默认值 - 合理的中性水平
+    # Default - reasonably neutral level
     DEFAULT_DXY = {"value": 104, "change": 0, "level": "moderate_strong",
                    "interpretation": "美元偏强 - 关注资金流向", 
                    "interpretation_en": "Moderately Strong - Watch capital flows"}
@@ -610,7 +610,7 @@ def _fetch_dollar_index() -> Dict[str, Any]:
     current = 0
     change = 0
     
-    # 1) 尝试 yfinance
+    # 1) Try yfinance
     try:
         import yfinance as yf
         logger.debug("Fetching DXY from yfinance")
@@ -636,15 +636,15 @@ def _fetch_dollar_index() -> Dict[str, Any]:
     except Exception as e:
         logger.warning(f"yfinance DXY failed, trying akshare: {e}")
         
-        # 2) 尝试 Akshare 获取美元指数
+        # 2) Try Akshare to get USD Index
         try:
             import akshare as ak
-            # Akshare 外汇数据
+            # Akshare Forex Data
             fx_df = ak.currency_boc_sina(symbol="美元")
             if fx_df is not None and len(fx_df) > 0:
-                # 使用中行汇率估算 DXY (近似值)
+                # Estimate DXY using Bank of China exchange rate (approximate value)
                 usd_cny = float(fx_df.iloc[-1]['中行汇买价']) / 100
-                current = usd_cny * 14.5  # 大致换算
+                current = usd_cny * 14.5  # Approximate conversion
                 change = 0
                 logger.info(f"DXY estimated from akshare: {current:.2f}")
             else:
@@ -698,14 +698,14 @@ def _fetch_yield_curve() -> Dict[str, Any]:
         # 10-year Treasury yield
         tnx = yf.Ticker("^TNX")
         
-        # 使用 try-except 包裹 history 调用
+        # Use try-except to wrap history calls
         try:
             tnx_hist = tnx.history(period="5d")
         except Exception as hist_err:
             logger.warning(f"TNX history fetch failed: {hist_err}")
             tnx_hist = None
         
-        # 安全检查
+        # security check
         if tnx_hist is None or tnx_hist.empty:
             logger.warning("TNX history is None or empty, returning default")
             return {
@@ -1070,7 +1070,7 @@ def _fetch_financial_news(lang: str = "all") -> Dict[str, List[Dict[str, Any]]]:
 def _get_economic_calendar() -> List[Dict[str, Any]]:
     """
     Get economic calendar events with impact indicators.
-    Impact: bullish (利多), bearish (利空), neutral (中性)
+    Impact: bullish (positive), bearish (negative), neutral (neutral)
     """
     today = datetime.now()
     events = []
@@ -1084,7 +1084,7 @@ def _get_economic_calendar() -> List[Dict[str, Any]]:
             "importance": "high",
             "forecast": "180K",
             "previous": "175K",
-            "impact_if_above": "bullish",  # 高于预期利多美元
+            "impact_if_above": "bullish",  # Higher than expected bullish for dollar
             "impact_if_below": "bearish",
             "impact_desc": "高于预期利多美元/美股，低于预期利空",
             "impact_desc_en": "Above forecast: bullish USD/stocks; Below: bearish"
@@ -1096,7 +1096,7 @@ def _get_economic_calendar() -> List[Dict[str, Any]]:
             "importance": "high",
             "forecast": "5.25%",
             "previous": "5.25%",
-            "impact_if_above": "bearish",  # 加息利空股市
+            "impact_if_above": "bearish",  # Raising interest rates is bad for the stock market
             "impact_if_below": "bullish",
             "impact_desc": "加息利空股市/加密货币，降息利多",
             "impact_desc_en": "Rate hike: bearish stocks/crypto; Cut: bullish"
@@ -1108,7 +1108,7 @@ def _get_economic_calendar() -> List[Dict[str, Any]]:
             "importance": "high",
             "forecast": "0.3%",
             "previous": "0.4%",
-            "impact_if_above": "bearish",  # CPI高利空
+            "impact_if_above": "bearish",  # High CPI is negative
             "impact_if_below": "bullish",
             "impact_desc": "CPI高于预期增加加息预期，利空股市",
             "impact_desc_en": "Higher CPI increases rate hike expectations, bearish stocks"
@@ -1132,7 +1132,7 @@ def _get_economic_calendar() -> List[Dict[str, Any]]:
             "importance": "high",
             "forecast": "0.10%",
             "previous": "0.10%",
-            "impact_if_above": "bullish",  # 日本加息利多日元
+            "impact_if_above": "bullish",  # Japan's interest rate hikes are bullish for the yen
             "impact_if_below": "bearish",
             "impact_desc": "加息预期利多日元，利空日股",
             "impact_desc_en": "Rate hike expectation: bullish JPY, bearish Nikkei"
@@ -1315,11 +1315,11 @@ def _generate_heatmap_data() -> Dict[str, Any]:
         "crypto": [],
         "sectors": [],
         "forex": [],
-        "commodities": [],  # 新增大宗商品热力图
+        "commodities": [],  # Added commodity heat map
         "indices": []
     }
     
-    # Commodities heatmap (黄金、白银、原油等)
+    # Commodities heatmap (gold, silver, crude oil, etc.)
     commodities_data = _get_cached("commodities")
     if not commodities_data:
         commodities_data = _fetch_commodities()
@@ -1563,7 +1563,7 @@ def market_sentiment():
     Includes: Fear & Greed, VIX, DXY, Yield Curve, VXN, GVZ, VIX Term Structure.
     """
     try:
-        # 缓存6小时 (21600秒)，宏观数据变化缓慢，减少 API 调用
+        # Cache for 6 hours (21600 seconds), macro data changes slowly, reducing API calls
         MACRO_CACHE_TTL = 21600  # 6 hours
         cached = _get_cached("market_sentiment", MACRO_CACHE_TTL)
         if cached:
@@ -1863,7 +1863,7 @@ def _analyze_opportunities_forex(opportunities: list):
 
 
 def _analyze_opportunities_polymarket(opportunities: list):
-    """扫描预测市场机会"""
+    """Scan for prediction market opportunities"""
     try:
         from app.data_sources.polymarket import PolymarketDataSource
         from app.services.polymarket_analyzer import PolymarketAnalyzer
@@ -1871,24 +1871,24 @@ def _analyze_opportunities_polymarket(opportunities: list):
         polymarket_source = PolymarketDataSource()
         analyzer = PolymarketAnalyzer()
         
-        # 获取热门市场
+        # Get popular markets
         markets = polymarket_source.get_trending_markets(limit=20)
         
         for market in markets:
             try:
-                # AI分析
+                # AI analysis
                 analysis = analyzer.analyze_market(market['market_id'])
                 
                 if analysis.get('error'):
                     continue
                 
-                # 只添加高分机会
+                # Only add high score chances
                 if analysis.get('opportunity_score', 0) > 75:
                     opportunities.append({
-                        "symbol": market['question'][:50],  # 简化显示
+                        "symbol": market['question'][:50],  # Simplified display
                         "name": market['question'],
                         "price": market['current_probability'],
-                        "change_24h": 0,  # 预测市场没有24h涨跌幅概念
+                        "change_24h": 0,  # There is no concept of 24h rise and fall in the prediction market
                         "signal": "prediction_opportunity",
                         "strength": "strong" if analysis.get('opportunity_score', 0) > 85 else "medium",
                         "reason": f"AI预测概率{analysis.get('ai_predicted_probability', 0):.1f}%，市场概率{market['current_probability']:.1f}%，差异{analysis.get('divergence', 0):.1f}%",

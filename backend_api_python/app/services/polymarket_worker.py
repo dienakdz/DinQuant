@@ -1,6 +1,6 @@
 """
-Polymarket后台任务
-每30分钟更新一次市场数据，并批量分析市场机会
+Polymarket background tasks
+Update market data every 30 minutes and analyze market opportunities in batches
 """
 import threading
 import time
@@ -15,15 +15,15 @@ logger = get_logger(__name__)
 
 
 class PolymarketWorker:
-    """Polymarket数据更新和分析后台任务"""
+    """Polymarket data update and analysis background tasks"""
     
-    def __init__(self, update_interval_minutes: int = 30, analysis_cache_minutes: int = 1440):  # 24小时缓存
+    def __init__(self, update_interval_minutes: int = 30, analysis_cache_minutes: int = 1440):  # 24 hours cache
         """
-        初始化后台任务
+        Initialize background tasks
         
         Args:
-            update_interval_minutes: 市场数据更新间隔（分钟）
-            analysis_cache_minutes: AI分析结果缓存时间（分钟）
+            update_interval_minutes: market data update interval (minutes)
+            analysis_cache_minutes: AI analysis result cache time (minutes)
         """
         self.update_interval_minutes = update_interval_minutes
         self.analysis_cache_minutes = analysis_cache_minutes
@@ -35,7 +35,7 @@ class PolymarketWorker:
         self._last_update_ts = 0.0
         
     def start(self) -> bool:
-        """启动后台任务"""
+        """Start background task"""
         with self._lock:
             if self._thread and self._thread.is_alive():
                 return True
@@ -46,7 +46,7 @@ class PolymarketWorker:
             return True
     
     def stop(self, timeout_sec: float = 5.0) -> None:
-        """停止后台任务"""
+        """Stop background tasks"""
         with self._lock:
             if not self._thread or not self._thread.is_alive():
                 return
@@ -58,36 +58,36 @@ class PolymarketWorker:
                 logger.info("PolymarketWorker stopped")
     
     def _run_loop(self) -> None:
-        """主循环"""
+        """main loop"""
         logger.info("PolymarketWorker loop started")
         
-        # 启动时立即执行一次
+        # Execute once immediately on startup
         self._update_markets_and_analyze()
         
         while not self._stop_event.is_set():
             try:
-                # 等待指定时间间隔
+                # Wait for specified time interval
                 wait_seconds = self.update_interval_minutes * 60
                 if self._stop_event.wait(wait_seconds):
-                    break  # 如果收到停止信号，退出循环
+                    break  # If a stop signal is received, exit the loop
                 
-                # 执行更新和分析
+                # Perform updates and analysis
                 self._update_markets_and_analyze()
                 
             except Exception as e:
                 logger.error(f"PolymarketWorker loop error: {e}", exc_info=True)
-                # 出错后等待1分钟再重试
+                # After an error, wait 1 minute and try again
                 self._stop_event.wait(60)
         
         logger.info("PolymarketWorker loop stopped")
     
     def _update_markets_and_analyze(self) -> None:
-        """更新市场数据并分析"""
+        """Update market data and analyze"""
         try:
             logger.info("Starting Polymarket data update and analysis...")
             start_time = time.time()
             
-            # 1. 更新市场数据（从所有主要分类获取）
+            # 1. Update market data (obtained from all major categories)
             categories = ["crypto", "politics", "economics", "sports", "tech", "finance", "geopolitics", "culture", "climate", "entertainment"]
             all_markets = []
             
@@ -99,7 +99,7 @@ class PolymarketWorker:
                 except Exception as e:
                     logger.warning(f"Failed to fetch markets for category {category}: {e}")
             
-            # 去重（按market_id）
+            # Deduplication (by market_id)
             unique_markets = {}
             for market in all_markets:
                 market_id = market.get('market_id')
@@ -108,28 +108,28 @@ class PolymarketWorker:
             
             logger.info(f"Total unique markets: {len(unique_markets)}")
             
-            # 2. 批量分析市场（一次性分析所有市场，由AI筛选机会）
+            # 2. Analyze the market in batches (analyze all markets at once, and use AI to screen opportunities)
             markets_list = list(unique_markets.values())
             logger.info(f"Starting batch analysis for {len(markets_list)} markets...")
             
-            # 优化策略：先用规则筛选，只对高价值机会调用LLM
-            # 这样可以大幅减少LLM调用次数，节省token
+            # Optimization strategy: first use rules to filter and only call LLM on high-value opportunities
+            # This can greatly reduce the number of LLM calls and save tokens.
             
-            # 1. 先用规则筛选出最有价值的机会（不调用LLM）
+            # 1. First use rules to filter out the most valuable opportunities (without calling LLM)
             rule_based_opportunities = []
             for market in markets_list:
                 prob = market.get('current_probability', 50.0)
                 volume = market.get('volume_24h', 0)
                 divergence = abs(prob - 50.0)
                 
-                # 规则筛选：高交易量 + 明显概率偏差
+                # Rule screening: high trading volume + obvious probability deviation
                 if volume > 5000 and divergence > 8:
                     rule_based_opportunities.append(market)
             
-            # 2. 只对规则筛选出的机会调用LLM（最多30个，节省token）
+            # 2. Only call LLM for opportunities filtered out by rules (up to 30, saving tokens)
             if rule_based_opportunities:
                 logger.info(f"Rule-based filtering: {len(rule_based_opportunities)} opportunities, analyzing top 30 with LLM")
-                # 按交易量和概率偏差排序，取前30个
+                # Sort by transaction volume and probability deviation, take the top 30
                 rule_based_opportunities.sort(
                     key=lambda x: (x.get('volume_24h', 0) * abs(x.get('current_probability', 50) - 50)),
                     reverse=True
@@ -138,13 +138,13 @@ class PolymarketWorker:
                 
                 analyzed_markets = self.batch_analyzer.batch_analyze_markets(
                     top_opportunities,
-                    max_opportunities=30  # 只分析30个最有价值的机会
+                    max_opportunities=30  # Analyze only the 30 most valuable opportunities
                 )
             else:
                 logger.info("No rule-based opportunities found, skipping LLM analysis")
                 analyzed_markets = []
             
-            # 3. 保存分析结果到数据库
+            # 3. Save the analysis results to the database
             if analyzed_markets:
                 self.batch_analyzer.save_batch_analysis(analyzed_markets)
                 analyzed_count = len(analyzed_markets)
@@ -160,18 +160,18 @@ class PolymarketWorker:
     
     
     def force_update(self) -> None:
-        """强制立即更新（用于手动触发）"""
+        """Force immediate update (for manual triggering)"""
         logger.info("Force update triggered")
         self._update_markets_and_analyze()
 
 
-# 全局单例
+# Global singleton
 _polymarket_worker: Optional[PolymarketWorker] = None
 _worker_lock = threading.Lock()
 
 
 def get_polymarket_worker() -> PolymarketWorker:
-    """获取PolymarketWorker单例"""
+    """Get PolymarketWorker singleton"""
     global _polymarket_worker
     with _worker_lock:
         if _polymarket_worker is None:
@@ -184,5 +184,5 @@ def get_polymarket_worker() -> PolymarketWorker:
         return _polymarket_worker
 
 
-# 需要导入os
+# Need to import os
 import os

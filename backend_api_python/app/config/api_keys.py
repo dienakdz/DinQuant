@@ -5,8 +5,7 @@ All third-party keys should be provided via environment variables (recommended: 
 import os
 
 class MetaAPIKeys(type):
-    """API Keys 元类，用于支持类属性的动态获取"""
-    
+    """API Keys metaclass, used to support dynamic acquisition of class attributes"""
     @property
     def FINNHUB_API_KEY(cls):
         from app.utils.config_loader import load_addon_config
@@ -95,18 +94,18 @@ class MetaAPIKeys(type):
 
 
 class APIKeys(metaclass=MetaAPIKeys):
-    """API 密钥配置类"""
-    
+    """API key configuration class"""
+
     @classmethod
     def get(cls, key_name: str, default: str = '') -> str:
-        """获取 API 密钥"""
-        # 尝试从类属性获取
+        """Get API key"""
+        # Try to get from class attribute
         if hasattr(cls, key_name):
             return getattr(cls, key_name)
         return default
     
     @classmethod
     def is_configured(cls, key_name: str) -> bool:
-        """检查 API 密钥是否已配置"""
+        """Check if the API key is configured"""
         value = cls.get(key_name)
         return bool(value and value.strip())

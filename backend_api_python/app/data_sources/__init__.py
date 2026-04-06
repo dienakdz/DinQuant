@@ -1,11 +1,11 @@
 """
-数据源模块
-支持多种市场的K线数据获取
+data source module
+Support K-line data acquisition for multiple markets
 
-改进版本（参考 daily_stock_analysis 项目）:
-- 熔断器保护 (circuit_breaker)
-- 数据缓存 (cache_manager)
-- 防封禁策略 (rate_limiter)
+Improved version (refer to daily_stock_analysis project):
+- Fuse protection (circuit_breaker)
+- Data cache (cache_manager)
+- Anti-ban strategy (rate_limiter)
 """
 from app.data_sources.factory import DataSourceFactory
 from app.data_sources.circuit_breaker import (
@@ -26,17 +26,17 @@ from app.data_sources.rate_limiter import (
 )
 
 __all__ = [
-    # 工厂
+    # factory
     'DataSourceFactory',
-    # 熔断器
+    # fuse
     'CircuitBreaker',
     'get_realtime_circuit_breaker',
-    # 缓存
+    # cache
     'DataCache',
     'get_realtime_cache',
     'get_kline_cache',
     'get_stock_info_cache',
-    # 限流器
+    # current limiter
     'RateLimiter',
     'get_random_user_agent',
     'random_sleep',

@@ -1,11 +1,11 @@
 """
-应用主配置
+Apply main configuration
 """
 import os
 
 class MetaConfig(type):
-    # ==================== 服务配置 ====================
-    # 服务启动参数通常由环境变量或命令行参数决定，不建议从数据库读取
+    # ==================== Service Configuration ====================
+    # Service startup parameters are usually determined by environment variables or command line parameters. Reading from the database is not recommended.
     
     @property
     def HOST(cls):
@@ -27,7 +27,7 @@ class MetaConfig(type):
     def VERSION(cls):
         return '2.0.0'
 
-    # ==================== 认证配置 ====================
+    # ==================== Authentication configuration ====================
     @property
     def SECRET_KEY(cls):
         return os.getenv('SECRET_KEY', 'quantdinger-secret-key-change-me')
@@ -40,8 +40,8 @@ class MetaConfig(type):
     def ADMIN_PASSWORD(cls):
         return os.getenv('ADMIN_PASSWORD', '123456')
 
-    # ==================== 日志配置 ====================
-    # 日志配置通常在应用启动最早阶段需要，建议保持环境变量
+    # ==================== Log configuration ====================
+    # Log configuration is usually required at the earliest stage of application startup. It is recommended to maintain environment variables.
     
     @property
     def LOG_LEVEL(cls):
@@ -63,7 +63,7 @@ class MetaConfig(type):
     def LOG_BACKUP_COUNT(cls):
         return int(os.getenv('LOG_BACKUP_COUNT', 5))
 
-    # ==================== 安全配置 ====================
+    # ==================== Security Configuration ====================
 
     @property
     def RATE_LIMIT(cls):
@@ -71,7 +71,7 @@ class MetaConfig(type):
         val = load_addon_config().get('app', {}).get('rate_limit')
         return int(val) if val is not None else int(os.getenv('RATE_LIMIT', 100))
 
-    # ==================== 功能开关 ====================
+    # ==================== Function switch ====================
 
     @property
     def ENABLE_CACHE(cls):
@@ -90,9 +90,9 @@ class MetaConfig(type):
         return os.getenv('ENABLE_REQUEST_LOG', 'True').lower() == 'true'
 
 class Config(metaclass=MetaConfig):
-    """应用配置类"""
-    
+    """Application configuration class."""
+
     @classmethod
     def get_log_path(cls) -> str:
-        """获取日志文件完整路径"""
+        """Get the full path of the log file."""
         return os.path.join(cls.LOG_DIR, cls.LOG_FILE)

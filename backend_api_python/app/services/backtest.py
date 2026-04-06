@@ -877,7 +877,7 @@ class BacktestService:
             if i > 0 and i % progress_log_interval == 0:
                 progress_pct = (i / total_exec_candles) * 100
                 logger.info(f"Execution progress: {i}/{total_exec_candles} ({progress_pct:.1f}%), trades={executed_trades_count}, position={position}")
-            # 爆仓后直接停止回测，输出结果
+            # After the liquidation, the backtest will be stopped directly and the results will be output.
             if is_liquidated:
                 break
             
@@ -1175,7 +1175,7 @@ class BacktestService:
                             executed_trades_count += 1
                             if executed_trades_count <= 10:
                                 logger.info(f"Trade #{executed_trades_count}: close_short (before open_long) @ {timestamp}, price={close_price:.4f}, profit={close_profit:.2f}")
-                            # 检查是否爆仓
+                            # Check whether the position is liquidated
                             if capital < min_capital_to_trade:
                                 is_liquidated = True
                                 capital = 0
@@ -1232,7 +1232,7 @@ class BacktestService:
                         highest_since_entry = None
                         lowest_since_entry = None
                         pending_signal = None
-                        # 检查是否爆仓
+                        # Check whether the position is liquidated
                         if capital < min_capital_to_trade:
                             is_liquidated = True
                             capital = 0
@@ -1263,7 +1263,7 @@ class BacktestService:
                             executed_trades_count += 1
                             if executed_trades_count <= 10:
                                 logger.info(f"Trade #{executed_trades_count}: close_long (before open_short) @ {timestamp}, price={close_price:.4f}, profit={close_profit:.2f}")
-                            # 检查是否爆仓
+                            # Check whether the position is liquidated
                             if capital < min_capital_to_trade:
                                 is_liquidated = True
                                 capital = 0
@@ -1321,7 +1321,7 @@ class BacktestService:
                         highest_since_entry = None
                         lowest_since_entry = None
                         pending_signal = None
-                        # 检查是否爆仓
+                        # Check whether the position is liquidated
                         if capital < min_capital_to_trade:
                             is_liquidated = True
                             capital = 0
@@ -1763,16 +1763,16 @@ class BacktestService:
                 local_vars['commission'] = backtest_params.get('commission', 0.0002)
                 local_vars['trade_direction'] = backtest_params.get('trade_direction', 'both')
             
-            # === 指标参数支持 ===
-            # 从 backtest_params 获取用户设置的指标参数
+            # === Indicator parameter support ===
+            # Get the indicator parameters set by the user from backtest_params
             user_indicator_params = (backtest_params or {}).get('indicator_params', {})
-            # 解析指标代码中声明的参数
+            # Parse the parameters declared in the indicator code
             declared_params = IndicatorParamsParser.parse_params(code)
-            # 合并参数（用户值优先，否则使用默认值）
+            # Merge parameters (user values ​​take precedence, otherwise default values ​​are used)
             merged_params = IndicatorParamsParser.merge_params(declared_params, user_indicator_params)
             local_vars['params'] = merged_params
             
-            # === 指标调用器支持 ===
+            # === Indicator caller support ===
             user_id = (backtest_params or {}).get('user_id', 1)
             indicator_id = (backtest_params or {}).get('indicator_id')
             indicator_caller = IndicatorCaller(user_id, indicator_id)
@@ -2453,7 +2453,7 @@ import pandas as pd
         add_short_price_arr = signals.get('add_short_price', pd.Series([0.0] * len(df))).values
         
         for i, (timestamp, row) in enumerate(df.iterrows()):
-            # 爆仓后直接停止回测，输出结果
+            # After the liquidation, the backtest will be stopped directly and the results will be output.
             if is_liquidated:
                 break
 
@@ -2471,7 +2471,7 @@ import pandas as pd
                     'balance': 0
                 })
                 equity_curve.append({'time': timestamp.strftime('%Y-%m-%d %H:%M'), 'value': 0})
-                break  # 直接停止
+                break  # Stop directly
             
             # Use OHLC to evaluate triggers.
             high = row['high']
@@ -3126,7 +3126,7 @@ import pandas as pd
                         lowest_since_entry = None
                         trend_add_times = dca_add_times = trend_reduce_times = adverse_reduce_times = 0
                         last_trend_add_anchor = last_dca_add_anchor = last_trend_reduce_anchor = last_adverse_reduce_anchor = None
-                        # 检查是否爆仓
+                        # Check whether the position is liquidated
                         if capital < min_capital_to_trade:
                             is_liquidated = True
                             capital = 0
@@ -3251,7 +3251,7 @@ import pandas as pd
                         lowest_since_entry = None
                         trend_add_times = dca_add_times = trend_reduce_times = adverse_reduce_times = 0
                         last_trend_add_anchor = last_dca_add_anchor = last_trend_reduce_anchor = last_adverse_reduce_anchor = None
-                        # 检查是否爆仓
+                        # Check whether the position is liquidated
                         if capital < min_capital_to_trade:
                             is_liquidated = True
                             capital = 0
@@ -3354,7 +3354,7 @@ import pandas as pd
             # If liquidation hit, check SL signal first
             if position != 0 and not is_liquidated:
                 if position_type == 'long' and low <= liquidation_price:
-                    # Long触及爆仓线：检查是否有止损信号
+                    # Long touches the liquidation line: check whether there is a stop loss signal
                     has_stop_loss = close_long_arr[i] and close_long_price_arr[i] > 0
                     stop_loss_price = close_long_price_arr[i] if has_stop_loss else 0
                     
@@ -3397,7 +3397,7 @@ import pandas as pd
                     continue
                     
                 elif position_type == 'short' and high >= liquidation_price:
-                    # Short触及爆仓线：检查是否有止损信号
+                    # Short hits the liquidation line: check if there is a stop loss signal
                     has_stop_loss = close_short_arr[i] and close_short_price_arr[i] > 0
                     stop_loss_price = close_short_price_arr[i] if has_stop_loss else 0
                     
@@ -3530,7 +3530,7 @@ import pandas as pd
         strategy_config: Optional[Dict[str, Any]] = None
     ) -> tuple:
         """
-        使用旧格式信号进行交易模拟（保持兼容性）
+        Trading simulation using old format signals (maintaining compatibility)
         """
         equity_curve = []
         trades = []
@@ -3628,7 +3628,7 @@ import pandas as pd
                 signals_exec = signals
 
         for i, (timestamp, row) in enumerate(df.iterrows()):
-            # 爆仓后直接停止回测，输出结果
+            # After the liquidation, the backtest will be stopped directly and the results will be output.
             if is_liquidated:
                 break
 
@@ -3775,7 +3775,7 @@ import pandas as pd
             if signal == 0 and position != 0 and position_type in ['long', 'short'] and capital >= min_capital_to_trade:
                 # Long
                 if position_type == 'long' and position > 0:
-                    # Trend add（顺势加仓：上涨触发）
+                    # Trend add (increase positions with the trend: rising trigger)
                     if trend_add_enabled and trend_add_step_pct_eff > 0 and trend_add_size_pct > 0 and (trend_add_max_times == 0 or trend_add_times < trend_add_max_times):
                         anchor = last_trend_add_anchor if last_trend_add_anchor is not None else entry_price
                         trigger = anchor * (1 + trend_add_step_pct_eff)
@@ -3808,7 +3808,7 @@ import pandas as pd
                                     'balance': round(max(0, capital), 2)
                                 })
 
-                    # DCA add（逆势加仓：下跌触发）
+                    # DCA add (Add position against the trend: Triggered by decline)
                     if dca_add_enabled and dca_add_step_pct_eff > 0 and dca_add_size_pct > 0 and (dca_add_max_times == 0 or dca_add_times < dca_add_max_times):
                         anchor = last_dca_add_anchor if last_dca_add_anchor is not None else entry_price
                         trigger = anchor * (1 - dca_add_step_pct_eff)
@@ -3841,7 +3841,7 @@ import pandas as pd
                                     'balance': round(max(0, capital), 2)
                                 })
 
-                    # Trend reduce（顺势减仓：上涨触发）
+                    # Trend reduce (reduce positions with the trend: triggered by rising prices)
                     if trend_reduce_enabled and trend_reduce_step_pct_eff > 0 and trend_reduce_size_pct > 0 and (trend_reduce_max_times == 0 or trend_reduce_times < trend_reduce_max_times):
                         anchor = last_trend_reduce_anchor if last_trend_reduce_anchor is not None else entry_price
                         trigger = anchor * (1 + trend_reduce_step_pct_eff)
@@ -3876,7 +3876,7 @@ import pandas as pd
                                     'balance': round(max(0, capital), 2)
                                 })
 
-                    # Adverse reduce（逆势减仓：下跌触发）
+                    # Adverse reduce (against the trend: falling trigger)
                     if position_type == 'long' and position > 0 and adverse_reduce_enabled and adverse_reduce_step_pct_eff > 0 and adverse_reduce_size_pct > 0 and (adverse_reduce_max_times == 0 or adverse_reduce_times < adverse_reduce_max_times):
                         anchor = last_adverse_reduce_anchor if last_adverse_reduce_anchor is not None else entry_price
                         trigger = anchor * (1 - adverse_reduce_step_pct_eff)
@@ -3915,7 +3915,7 @@ import pandas as pd
                 if position_type == 'short' and position < 0:
                     shares_total = abs(position)
 
-                    # Trend add（顺势加空：下跌触发）
+                    # Trend add (Add short with the trend: triggered by decline)
                     if trend_add_enabled and trend_add_step_pct_eff > 0 and trend_add_size_pct > 0 and (trend_add_max_times == 0 or trend_add_times < trend_add_max_times):
                         anchor = last_trend_add_anchor if last_trend_add_anchor is not None else entry_price
                         trigger = anchor * (1 - trend_add_step_pct_eff)
@@ -3949,7 +3949,7 @@ import pandas as pd
                                     'balance': round(max(0, capital), 2)
                                 })
 
-                    # DCA add（逆势加空：上涨触发）
+                    # DCA add (Add short against the trend: rise trigger)
                     if dca_add_enabled and dca_add_step_pct_eff > 0 and dca_add_size_pct > 0 and (dca_add_max_times == 0 or dca_add_times < dca_add_max_times):
                         anchor = last_dca_add_anchor if last_dca_add_anchor is not None else entry_price
                         trigger = anchor * (1 + dca_add_step_pct_eff)
@@ -3983,7 +3983,7 @@ import pandas as pd
                                     'balance': round(max(0, capital), 2)
                                 })
 
-                    # Trend reduce（顺势减空：下跌触发，回补一部分）
+                    # Trend reduce (short reduction: triggered by decline, covering part of it)
                     if trend_reduce_enabled and trend_reduce_step_pct_eff > 0 and trend_reduce_size_pct > 0 and (trend_reduce_max_times == 0 or trend_reduce_times < trend_reduce_max_times):
                         anchor = last_trend_reduce_anchor if last_trend_reduce_anchor is not None else entry_price
                         trigger = anchor * (1 - trend_reduce_step_pct_eff)
@@ -4019,7 +4019,7 @@ import pandas as pd
                                     'balance': round(max(0, capital), 2)
                                 })
 
-                    # Adverse reduce（逆势减空：上涨触发）
+                    # Adverse reduce (against the trend: rising trigger)
                     if position_type == 'short' and position < 0 and adverse_reduce_enabled and adverse_reduce_step_pct_eff > 0 and adverse_reduce_size_pct > 0 and (adverse_reduce_max_times == 0 or adverse_reduce_times < adverse_reduce_max_times):
                         anchor = last_adverse_reduce_anchor if last_adverse_reduce_anchor is not None else entry_price
                         trigger = anchor * (1 + adverse_reduce_step_pct_eff)
@@ -4464,7 +4464,7 @@ import pandas as pd
             # Note: check after all signals, SL/TP takes priority
             if position != 0 and not is_liquidated:
                 if position_type == 'long':
-                    # Long爆仓：价格跌破爆仓线
+                    # Long liquidation: the price falls below the liquidation line
                     if price <= liquidation_price:
                         logger.warning(f"Long liquidation! entry={entry_price:.2f}, current={price:.2f}, liq_price={liquidation_price:.2f}")
                         is_liquidated = True
@@ -4486,7 +4486,7 @@ import pandas as pd
                         })
                         continue
                 elif position_type == 'short':
-                    # Short爆仓：价格涨破爆仓线
+                    # Short liquidation: the price rises above the liquidation line
                     if price >= liquidation_price:
                         logger.warning(f"Short liquidation! entry={entry_price:.2f}, current={price:.2f}, liq_price={liquidation_price:.2f}")
                         is_liquidated = True
@@ -4603,7 +4603,7 @@ import pandas as pd
         end_date: datetime,
         total_commission: float = 0
     ) -> Dict:
-        """计算回测指标"""
+        """Calculate backtest indicators"""
         if not equity_curve:
             return {}
         
@@ -4670,7 +4670,7 @@ import pandas as pd
         }
     
     def _calculate_max_drawdown(self, values: List[float]) -> float:
-        """计算最大回撤"""
+        """Calculate maximum drawdown"""
         if not values:
             return 0
         
@@ -4688,12 +4688,12 @@ import pandas as pd
     
     def _calculate_sharpe(self, values: List[float], timeframe: str = '1D', risk_free_rate: float = 0.02) -> float:
         """
-        计算夏普比率
+        Calculate Sharpe Ratio
         
         Args:
-            values: 权益曲线数值列表
-            timeframe: 时间周期
-            risk_free_rate: 无风险收益率（年化）
+            values: list of equity curve values
+            timeframe: time period
+            risk_free_rate: risk-free rate of return (annualized)
         """
         if len(values) < 2:
             return 0
@@ -4706,11 +4706,11 @@ import pandas as pd
         # Determine annualization factor by timeframe
         annualization_factor = {
             '1m': 252 * 24 * 60,      # 1m candle: ~362,880
-            '5m': 252 * 24 * 12,      # 5分钟K：约72,576
-            '15m': 252 * 24 * 4,      # 15分钟K：约24,192
-            '30m': 252 * 24 * 2,      # 30分钟K：约12,096
+            '5m': 252 * 24 * 12,      # 5 minutes K: about 72,576
+            '15m': 252 * 24 * 4,      # 15 minutes K: about 24,192
+            '30m': 252 * 24 * 2,      # 30 minutes K: about 12,096
             '1H': 252 * 24,           # 1H candle: 6,048
-            '4H': 252 * 6,            # 4小时K：1,512
+            '4H': 252 * 6,            # 4 hours K: 1,512
             '1D': 252,                # 1D candle: 252
             '1W': 52                  # 1W candle: 52
         }.get(timeframe, 252)
@@ -4746,7 +4746,7 @@ import pandas as pd
         equity_curve: List,
         trades: List
     ) -> Dict[str, Any]:
-        """格式化回测结果"""
+        """Format backtest results"""
         # Simplify equity curve
         max_points = 500
         if len(equity_curve) > max_points:
@@ -4755,7 +4755,7 @@ import pandas as pd
         
         # Clean NaN/Inf values for JSON serialization
         def clean_value(value):
-            """清理数值，将NaN/Inf转换为0"""
+            """Clean values, convert NaN/Inf to 0"""
             if isinstance(value, float):
                 if np.isnan(value) or np.isinf(value):
                     return 0

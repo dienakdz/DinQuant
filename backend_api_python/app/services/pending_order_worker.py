@@ -206,8 +206,8 @@ class PendingOrderWorker:
             try:
                 sc = load_strategy_configs(int(sid))
                 exec_mode = (sc.get("execution_mode") or "").strip().lower()
-                # 修改：即使signal模式，如果指定了target_strategy_id（策略启动时调用），也要同步
-                # 这样可以清理用户在交易所手动平仓但数据库记录还在的"幽灵持仓"
+                # Modification: Even in signal mode, if target_strategy_id (called when the strategy is started) is specified, it must be synchronized
+                # This can clear up "ghost positions" where users manually close positions on the exchange but still have database records.
                 if exec_mode != "live" and not target_strategy_id:
                     logger.debug(f"[PositionSync] Strategy {sid} skipped: execution_mode='{exec_mode}' (needs 'live' or explicit target)")
                     continue
@@ -215,7 +215,7 @@ class PendingOrderWorker:
                 exchange_config = resolve_exchange_config(sc.get("exchange_config") or {}, user_id=sync_user_id)
                 safe_cfg = safe_exchange_config_for_log(exchange_config)
                 
-                # 检查 exchange_id 是否有效，如果为空或无效则跳过同步（signal模式可能没有配置交易所）
+                # Check if exchange_id is valid, skip synchronization if it is empty or invalid (signal mode may not have an exchange configured)
                 exchange_id = str(exchange_config.get("exchange_id") or "").strip().lower()
                 if not exchange_id:
                     logger.debug(f"[PositionSync] Strategy {sid} skipped: exchange_id is empty (signal mode or no exchange config)")
@@ -248,7 +248,7 @@ class PendingOrderWorker:
                     except ImportError:
                         pass
 
-                # 尝试创建客户端，如果失败则跳过（可能是配置错误）
+                # Try to create client, skip if it fails (probably misconfiguration)
                 try:
                     client = create_client(exchange_config, market_type=market_type)
                 except Exception as e:

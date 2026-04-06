@@ -92,17 +92,17 @@ class SignalNotifier:
     """
     Notify signal events across channels.
 
-    通知配置说明:
-    - 用户在个人中心配置自己的通知设置（telegram_bot_token, telegram_chat_id, email 等）
-    - 创建策略/监控时，系统自动使用用户配置的通知目标
+    Notification configuration instructions:
+    - Users configure their own notification settings (telegram_bot_token, telegram_chat_id, email, etc.) in the personal center
+    - When creating policies/monitors, the system automatically uses user-configured notification targets
 
-    公共服务配置（管理员在系统设置中配置）:
+    Public service configuration (configured by administrator in system settings):
     - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, SMTP_USE_TLS
-      (邮件服务，所有用户共用)
+      (Mail service, shared by all users)
     - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
-      (短信服务，所有用户共用)
+      (SMS service, shared by all users)
 
-    可选的环境变量:
+    Optional environment variables:
     - SIGNAL_NOTIFY_TIMEOUT_SEC: HTTP timeout (default: 6)
     """
 
@@ -112,7 +112,7 @@ class SignalNotifier:
         except Exception:
             self.timeout_sec = 6.0
 
-        # 公共 SMTP 配置（管理员在系统设置中配置）
+        # Public SMTP configuration (configured by administrator in system settings)
         self.smtp_host = (os.getenv("SMTP_HOST") or "").strip()
         try:
             self.smtp_port = int(os.getenv("SMTP_PORT") or "587")
@@ -663,10 +663,10 @@ class SignalNotifier:
         token_override: str = "",
         parse_mode: str = "",
     ) -> Tuple[bool, str]:
-        # 用户必须在个人中心配置自己的 telegram_bot_token
+        # Users must configure their own telegram_bot_token in the personal center
         token = (token_override or "").strip()
         if not token:
-            return False, "missing_telegram_bot_token (请在个人中心配置 Telegram Bot Token)"
+            return False, "missing_telegram_bot_token (please configure Telegram Bot Token in the personal center)"
         if not chat_id:
             return False, "missing_telegram_chat_id"
         url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -859,5 +859,4 @@ class SignalNotifier:
             results[c] = {"ok": bool(ok), "error": (err or "")}
 
         return results
-
 

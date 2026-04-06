@@ -1,6 +1,6 @@
 """
-配置模块
-统一导出所有配置
+Configuration module
+Export all configurations uniformly
 """
 from app.config.settings import Config
 from app.config.api_keys import APIKeys
@@ -15,17 +15,17 @@ from app.config.data_sources import (
 )
 
 __all__ = [
-    # 主配置
+    # main configuration
     'Config',
     
-    # API 密钥
+    # API key
     'APIKeys',
     
-    # 数据库/缓存
+    # Database/cache
     'RedisConfig',
     'CacheConfig',
     
-    # 数据源
+    # data source
     'DataSourceConfig',
     'FinnhubConfig',
     'TiingoConfig',

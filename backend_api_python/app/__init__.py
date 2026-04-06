@@ -34,7 +34,7 @@ def get_pending_order_worker():
 
 
 def start_polymarket_worker():
-    """启动Polymarket后台任务"""
+    """Start the Polymarket background task."""
     try:
         from app.services.polymarket_worker import get_polymarket_worker
         get_polymarket_worker().start()
@@ -150,7 +150,7 @@ def restore_running_strategies():
                     logger.info(f"[OK] {strategy_type_name} {strategy_id} restored")
                 else:
                     logger.warning(f"[FAIL] {strategy_type_name} {strategy_id} restore failed (state may be stale)")
-                    # 如果恢复失败，更新数据库状态为stopped，避免策略处于"僵尸"状态
+                    # If recovery fails, update the database status to stopped to prevent the policy from being in a "zombie" state.
                     try:
                         strategy_service.update_strategy_status(strategy_id, 'stopped')
                         logger.info(f"[FIX] Updated strategy {strategy_id} status to 'stopped' after restore failure")
@@ -222,4 +222,3 @@ def create_app(config_name='default'):
         restore_running_strategies()
     
     return app
-

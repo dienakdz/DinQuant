@@ -1,6 +1,6 @@
 """
-Polymarket批量分析器
-一次性分析多个市场，由AI筛选出有交易机会的市场
+Polymarket Batch Analyzer
+Analyze multiple markets at once and use AI to screen out markets with trading opportunities.
 """
 import json
 from typing import List, Dict, Optional
@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 
 class PolymarketBatchAnalyzer:
-    """批量分析预测市场，由AI筛选交易机会"""
+    """Batch analysis predicts the market, and AI screens trading opportunities"""
     
     def __init__(self):
         self.llm_service = LLMService()
@@ -21,20 +21,20 @@ class PolymarketBatchAnalyzer:
     
     def batch_analyze_markets(self, markets: List[Dict], max_opportunities: int = 20) -> List[Dict]:
         """
-        批量分析市场，由AI筛选出有交易机会的市场
+        Analyze the market in batches and use AI to screen out markets with trading opportunities.
         
         Args:
-            markets: 市场列表
-            max_opportunities: 最多返回多少个交易机会
+            markets: list of markets
+            max_opportunities: The maximum number of trading opportunities returned
             
         Returns:
-            筛选后的市场列表（包含AI分析结果）
+            Filtered market list (including AI analysis results)
         """
         if not markets:
             return []
         
         try:
-            # 1. 构建批量分析的prompt
+            # 1. Build prompts for batch analysis
             markets_summary = self._build_markets_summary(markets)
             
             prompt = f"""你是一个专业的预测市场分析师。请分析以下预测市场列表，筛选出最有交易机会的市场。
@@ -69,7 +69,7 @@ class PolymarketBatchAnalyzer:
 - 优先选择：高交易量 + 明显概率偏差 + 高置信度
 - 简要说明原因，不要冗长"""
             
-            # 2. 调用LLM进行批量分析
+            # 2. Call LLM for batch analysis
             messages = [
                 {
                     "role": "system",
@@ -88,7 +88,7 @@ class PolymarketBatchAnalyzer:
                 temperature=0.3
             )
             
-            # 3. 解析结果
+            # 3. Parse the results
             if isinstance(result, str):
                 try:
                     result = json.loads(result)
@@ -101,7 +101,7 @@ class PolymarketBatchAnalyzer:
                 logger.warning("LLM returned no opportunities, using fallback")
                 return self._fallback_analysis(markets, max_opportunities)
             
-            # 4. 将AI分析结果合并到市场数据中
+            # 4. Incorporate AI analysis results into market data
             opportunities_map = {opp.get('market_id'): opp for opp in opportunities}
             analyzed_markets = []
             
@@ -112,24 +112,24 @@ class PolymarketBatchAnalyzer:
                 
                 opp = opportunities_map.get(market_id)
                 if opp:
-                    # 获取AI预测的概率
+                    # Get the probability predicted by AI
                     predicted_prob = float(opp.get('predicted_probability', market.get('current_probability', 50.0)))
                     market_prob = market.get('current_probability', 50.0)
                     divergence = predicted_prob - market_prob
                     
-                    # 合并AI分析结果
+                    # Merge AI analysis results
                     market['ai_analysis'] = {
-                        'predicted_probability': predicted_prob,  # 使用AI预测的概率
+                        'predicted_probability': predicted_prob,  # Probability predicted using AI
                         'recommendation': opp.get('recommendation', 'HOLD'),
                         'confidence_score': float(opp.get('confidence', 0)),
                         'opportunity_score': float(opp.get('opportunity_score', 0)),
-                        'divergence': divergence,  # AI预测概率 - 市场概率
+                        'divergence': divergence,  # AI Predicted Probability - Market Probability
                         'reasoning': opp.get('reason', ''),
                         'key_factors': opp.get('key_factors', [])
                     }
                     analyzed_markets.append(market)
             
-            # 5. 按机会评分排序
+            # 5. Sort by opportunity score
             analyzed_markets.sort(
                 key=lambda x: x.get('ai_analysis', {}).get('opportunity_score', 0),
                 reverse=True
@@ -158,12 +158,12 @@ class PolymarketBatchAnalyzer:
             return self._fallback_analysis(markets, max_opportunities)
     
     def _build_markets_summary(self, markets: List[Dict]) -> str:
-        """构建市场摘要，用于批量分析"""
+        """Build market summaries for batch analysis"""
         summary_lines = []
         
-        for i, market in enumerate(markets[:50], 1):  # 限制最多50个，避免prompt过长
+        for i, market in enumerate(markets[:50], 1):  # Limit to 50 to avoid prompts that are too long
             market_id = market.get('market_id', '')
-            question = market.get('question', '')[:100]  # 限制长度
+            question = market.get('question', '')[:100]  # Limit length
             prob = market.get('current_probability', 50.0)
             volume = market.get('volume_24h', 0)
             category = market.get('category', 'other')
@@ -179,14 +179,14 @@ class PolymarketBatchAnalyzer:
         return "\n\n".join(summary_lines)
     
     def _fallback_analysis(self, markets: List[Dict], max_opportunities: int) -> List[Dict]:
-        """回退分析：基于简单规则筛选"""
+        """Fallback analysis: filtering based on simple rules"""
         opportunities = []
         
         for market in markets:
             prob = market.get('current_probability', 50.0)
             volume = market.get('volume_24h', 0)
             
-            # 简单规则：交易量大 + 概率偏离50%
+            # Simple rule: large trading volume + 50% probability of deviation
             if volume > 10000 and abs(prob - 50.0) > 10:
                 opportunity_score = min(60 + abs(prob - 50.0) * 0.5, 90)
                 
@@ -201,7 +201,7 @@ class PolymarketBatchAnalyzer:
                 }
                 opportunities.append(market)
         
-        # 按机会评分排序
+        # Sort by opportunity score
         opportunities.sort(
             key=lambda x: x.get('ai_analysis', {}).get('opportunity_score', 0),
             reverse=True
@@ -210,7 +210,7 @@ class PolymarketBatchAnalyzer:
         return opportunities[:max_opportunities]
     
     def save_batch_analysis(self, markets: List[Dict]):
-        """保存批量分析结果到数据库"""
+        """Save batch analysis results to database"""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -223,13 +223,13 @@ class PolymarketBatchAnalyzer:
                         continue
                     
                     try:
-                        # 先删除该市场的旧分析记录（user_id为NULL的通用分析）
+                        # First delete the old analysis records of this market (general analysis with user_id as NULL)
                         cur.execute("""
                             DELETE FROM qd_polymarket_ai_analysis
                             WHERE market_id = %s AND user_id IS NULL
                         """, (market_id,))
                         
-                        # 插入新的分析记录
+                        #Insert new analysis record
                         cur.execute("""
                             INSERT INTO qd_polymarket_ai_analysis
                             (market_id, user_id, ai_predicted_probability, market_probability,
@@ -238,7 +238,7 @@ class PolymarketBatchAnalyzer:
                             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                         """, (
                             market_id,
-                            None,  # 通用分析
+                            None, # General analysis
                             float(ai_analysis.get('predicted_probability', market.get('current_probability', 50.0))),
                             market.get('current_probability', 50.0),
                             float(ai_analysis.get('divergence', 0)),

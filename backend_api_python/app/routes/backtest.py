@@ -88,15 +88,15 @@ def _normalize_lang(lang: str | None) -> str:
 @backtest_bp.route('/backtest/precision-info', methods=['GET'])
 def get_precision_info():
     """
-    获取回测精度信息（用于前端提示）
+    Get backtest accuracy information (for front-end prompts)
     
     Params (Query String):
-        market: 市场类型
-        startDate: 开始日期 (YYYY-MM-DD)
-        endDate: 结束日期 (YYYY-MM-DD)
+        market: market type
+        startDate: start date (YYYY-MM-DD)
+        endDate: end date (YYYY-MM-DD)
         
     Returns:
-        精度信息，包含推荐的执行时间框架和预估K线数量
+        Accuracy information, including recommended execution time frame and estimated number of K-lines
     """
     try:
         # Use request.args for GET params
@@ -164,7 +164,7 @@ def run_backtest():
         leverage = int(data.get('leverage', 1))
         trade_direction = data.get('tradeDirection', 'long')  # long, short, both
         strategy_config = data.get('strategyConfig') or {}
-        # 多时间框架回测开关（默认开启，仅加密货币市场有效）
+        # Multi-timeframe backtesting switch (enabled by default, only valid for cryptocurrency markets)
         enable_mtf = data.get('enableMtf', True)
         if isinstance(enable_mtf, str):
             enable_mtf = enable_mtf.lower() in ['true', '1', 'yes']
@@ -185,7 +185,7 @@ def run_backtest():
             except Exception:
                 pass
 
-        # 参数验证
+        # Parameter validation
         if not all([indicator_code, symbol, market, timeframe, start_date_str, end_date_str]):
             return jsonify({
                 'code': 0,
@@ -193,27 +193,27 @@ def run_backtest():
                 'data': None
             }), 400
         
-        # 转换日期
-        # 开始日期：当天的 00:00:00
+        # conversion date
+        # Start date: 00:00:00 today
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-        # 结束日期：当天的 23:59:59，确保包含整天的数据
+        # End date: 23:59:59 of the current day, ensuring that the entire day's data is included
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
         
-        # 验证时间范围限制
+        # Validation time range limit
         days_diff = (end_date - start_date).days
         
-        # 根据周期设置不同的时间限制
+        # Set different time limits based on cycles
         if timeframe == '1m':
-            max_days = 30  # 1分钟K线最多1个月
+            max_days = 30  # 1 minute K-line up to 1 month
             max_range_text = '1 month'
         elif timeframe == '5m':
-            max_days = 180  # 5分钟K线最多6个月
+            max_days = 180  # 5 minute K-line up to 6 months
             max_range_text = '6 months'
         elif timeframe in ['15m', '30m']:
-            max_days = 365  # 15分钟和30分钟K线最多1年
+            max_days = 365  # 15-minute and 30-minute K-line up to 1 year
             max_range_text = '1 year'
         else:  # 1H, 4H, 1D, 1W
-            max_days = 1095  # 1小时及以上最多3年
+            max_days = 1095  # 1 hour and above up to 3 years
             max_range_text = '3 years'
         
         if days_diff > max_days:
@@ -224,8 +224,8 @@ def run_backtest():
             }), 400
         
         
-        # 执行回测（支持多时间框架高精度回测）
-        # 加密货币市场且启用MTF时，使用多时间框架回测
+        # Execute backtesting (supports multi-time frame high-precision backtesting)
+        # Cryptocurrency markets and using multi-timeframe backtesting when MTF is enabled
         if enable_mtf and market.lower() in ['crypto', 'cryptocurrency']:
             result = backtest_service.run_multi_timeframe(
                 indicator_code=indicator_code,
@@ -257,7 +257,7 @@ def run_backtest():
                 trade_direction=trade_direction,
                 strategy_config=strategy_config
             )
-            # 添加标准回测的精度信息
+            # Add accuracy information for standard backtests
             result['precision_info'] = {
                 'enabled': False,
                 'timeframe': timeframe,

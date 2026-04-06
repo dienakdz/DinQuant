@@ -1,7 +1,7 @@
 """
-Community Service - 指标社区服务
+Community Service - indicator community service
 
-处理指标市场、购买、评论等功能。
+Handles functions such as indicator markets, purchases, and comments.
 """
 import json
 import time
@@ -16,7 +16,7 @@ logger = get_logger(__name__)
 
 
 class CommunityService:
-    """指标社区服务类"""
+    """Indicator Community Service Category"""
     
     def __init__(self):
         self.billing = get_billing_service()
@@ -31,7 +31,7 @@ class CommunityService:
             pass
     
     # ==========================================
-    # 指标市场
+    # indicator market
     # ==========================================
     
     def get_market_indicators(
@@ -41,16 +41,16 @@ class CommunityService:
         keyword: str = None,
         pricing_type: str = None,  # 'free' / 'paid' / None(all)
         sort_by: str = 'newest',   # 'newest' / 'hot' / 'price_asc' / 'price_desc' / 'rating'
-        user_id: int = None        # 当前用户ID，用于判断是否已购买
+        user_id: int = None        # Current user ID, used to determine whether purchase has been made
     ) -> Dict[str, Any]:
-        """获取市场上已发布的指标列表"""
+        """Get a list of published indicators on the market"""
         offset = (page - 1) * page_size
         
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 构建查询条件 - 只显示已发布且审核通过的指标
+                # Build query conditions - only display published and approved indicators
                 where_clauses = ["i.publish_to_community = 1", "(i.review_status = 'approved' OR i.review_status IS NULL)"]
                 params = []
                 
@@ -66,7 +66,7 @@ class CommunityService:
                 
                 where_sql = " AND ".join(where_clauses)
                 
-                # 排序
+                # sort
                 order_map = {
                     'newest': 'i.created_at DESC',
                     'hot': 'i.purchase_count DESC, i.view_count DESC',
@@ -76,7 +76,7 @@ class CommunityService:
                 }
                 order_sql = order_map.get(sort_by, 'i.created_at DESC')
                 
-                # 获取总数
+                # Get total
                 count_sql = f"""
                     SELECT COUNT(*) as count 
                     FROM qd_indicator_codes i 
@@ -85,7 +85,7 @@ class CommunityService:
                 cur.execute(count_sql, tuple(params))
                 total = cur.fetchone()['count']
                 
-                # 获取列表（联表查询作者信息）
+                # Get the list (join the table to query author information)
                 query_sql = f"""
                     SELECT 
                         i.id, i.name, i.description, i.pricing_type, i.price, COALESCE(i.vip_free, FALSE) as vip_free,
@@ -102,7 +102,7 @@ class CommunityService:
                 cur.execute(query_sql, tuple(params + [page_size, offset]))
                 rows = cur.fetchall() or []
                 
-                # 如果有当前用户，查询已购买的指标
+                # If there is a current user, query the purchased indicators
                 purchased_ids = set()
                 if user_id:
                     indicator_ids = [r['id'] for r in rows]
@@ -116,7 +116,7 @@ class CommunityService:
                 
                 cur.close()
                 
-                # 格式化返回数据
+                #Format return data
                 items = []
                 for row in rows:
                     items.append({
@@ -160,7 +160,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 获取指标信息
+                # Get indicator information
                 cur.execute("""
                     SELECT 
                         i.id, i.name, i.description, i.pricing_type, i.price, COALESCE(i.vip_free, FALSE) as vip_free,
@@ -179,12 +179,12 @@ class CommunityService:
                     cur.close()
                     return None
                 
-                # 检查是否已发布到社区（或者是自己的指标）
+                # Check if it has been published to the community (or its own indicator)
                 if not row['publish_to_community'] and row['user_id'] != user_id:
                     cur.close()
                     return None
                 
-                # 检查是否已购买
+                # Check if purchased
                 is_purchased = False
                 if user_id:
                     cur.execute(
@@ -193,7 +193,7 @@ class CommunityService:
                     )
                     is_purchased = cur.fetchone() is not None
                 
-                # 增加浏览次数
+                # Increase the number of views
                 cur.execute(
                     "UPDATE qd_indicator_codes SET view_count = COALESCE(view_count, 0) + 1 WHERE id = ?",
                     (indicator_id,)
@@ -230,7 +230,7 @@ class CommunityService:
             return None
     
     # ==========================================
-    # 购买功能
+    # Purchase function
     # ==========================================
     
     def purchase_indicator(self, buyer_id: int, indicator_id: int) -> Tuple[bool, str, Dict[str, Any]]:
@@ -244,7 +244,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 1. 获取指标信息
+                # 1. Get indicator information
                 cur.execute("""
                     SELECT id, user_id, name, code, description, pricing_type, price, COALESCE(vip_free, FALSE) as vip_free,
                            preview_image, is_encrypted
@@ -266,12 +266,12 @@ class CommunityService:
                 # VIP-free indicator: VIP users can get it without credits charge
                 effective_price = 0.0 if (vip_free and is_vip) else price
                 
-                # 2. 检查是否购买自己的指标
+                # 2. Check whether to buy your own indicator
                 if seller_id == buyer_id:
                     cur.close()
                     return False, 'cannot_buy_own', {}
                 
-                # 3. 检查是否已购买
+                # 3. Check if purchased
                 cur.execute(
                     "SELECT id FROM qd_indicator_purchases WHERE indicator_id = ? AND buyer_id = ?",
                     (indicator_id, buyer_id)
@@ -280,7 +280,7 @@ class CommunityService:
                     cur.close()
                     return False, 'already_purchased', {}
                 
-                # 4. 如果是付费指标，检查并扣除积分
+                # 4. If it is a paid indicator, check and deduct points
                 if pricing_type != 'free' and effective_price > 0:
                     buyer_credits = self.billing.get_user_credits(buyer_id)
                     if buyer_credits < effective_price:
@@ -290,22 +290,22 @@ class CommunityService:
                             'current': float(buyer_credits)
                         }
                     
-                    # 扣除买家积分
+                    # Deduct buyer points
                     new_buyer_balance = buyer_credits - Decimal(str(effective_price))
                     cur.execute(
                         "UPDATE qd_users SET credits = ?, updated_at = NOW() WHERE id = ?",
                         (float(new_buyer_balance), buyer_id)
                     )
                     
-                    # 记录买家积分日志
+                    # Record buyer points log
                     cur.execute("""
                         INSERT INTO qd_credits_log 
                         (user_id, action, amount, balance_after, feature, reference_id, remark, created_at)
                         VALUES (?, 'indicator_purchase', ?, ?, 'indicator_purchase', ?, ?, NOW())
                     """, (buyer_id, -effective_price, float(new_buyer_balance), str(indicator_id), 
-                          f"购买指标: {indicator['name']}"))
+                          f"Buy indicator: {indicator['name']}"))
                     
-                    # 给卖家增加积分（可配置抽成比例，这里先100%给卖家）
+                    # Increase points for sellers (the commission ratio can be configured, here 100% is given to sellers first)
                     seller_credits = self.billing.get_user_credits(seller_id)
                     new_seller_balance = seller_credits + Decimal(str(effective_price))
                     cur.execute(
@@ -313,22 +313,22 @@ class CommunityService:
                         (float(new_seller_balance), seller_id)
                     )
                     
-                    # 记录卖家积分日志
+                    # Record seller points log
                     cur.execute("""
                         INSERT INTO qd_credits_log 
                         (user_id, action, amount, balance_after, feature, reference_id, remark, created_at)
                         VALUES (?, 'indicator_sale', ?, ?, 'indicator_sale', ?, ?, NOW())
                     """, (seller_id, effective_price, float(new_seller_balance), str(indicator_id),
-                          f"出售指标: {indicator['name']}"))
+                          f"Sell indicator: {indicator['name']}"))
                 
-                # 5. 创建购买记录
+                # 5. Create purchase record
                 cur.execute("""
                     INSERT INTO qd_indicator_purchases 
                     (indicator_id, buyer_id, seller_id, price, created_at)
                     VALUES (?, ?, ?, ?, NOW())
                 """, (indicator_id, buyer_id, seller_id, effective_price))
                 
-                # 6. 复制指标到买家账户
+                # 6. Copy the indicator to the buyer’s account
                 now_ts = int(time.time())
                 # Get vip_free as boolean from indicator
                 vip_free_value = bool(indicator.get('vip_free') or False)
@@ -349,7 +349,7 @@ class CommunityService:
                     now_ts, now_ts
                 ))
                 
-                # 7. 更新指标购买次数
+                # 7. Update indicator purchase times
                 cur.execute("""
                     UPDATE qd_indicator_codes 
                     SET purchase_count = COALESCE(purchase_count, 0) + 1 
@@ -374,14 +374,14 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 获取总数
+                # Get total
                 cur.execute(
                     "SELECT COUNT(*) as count FROM qd_indicator_purchases WHERE buyer_id = ?",
                     (user_id,)
                 )
                 total = cur.fetchone()['count']
                 
-                # 获取列表
+                # Get list
                 cur.execute("""
                     SELECT 
                         p.id as purchase_id, p.price as purchase_price, p.created_at as purchase_time,
@@ -429,7 +429,7 @@ class CommunityService:
             return {'items': [], 'total': 0, 'page': 1, 'page_size': page_size, 'total_pages': 0}
     
     # ==========================================
-    # 评论功能
+    # Comment function
     # ==========================================
     
     def get_comments(self, indicator_id: int, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
@@ -440,14 +440,14 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 获取总数（只统计一级评论）
+                # Get the total number (only first-level comments are counted)
                 cur.execute("""
                     SELECT COUNT(*) as count FROM qd_indicator_comments 
                     WHERE indicator_id = ? AND parent_id IS NULL AND is_deleted = 0
                 """, (indicator_id,))
                 total = cur.fetchone()['count']
                 
-                # 获取评论列表
+                # Get the list of comments
                 cur.execute("""
                     SELECT 
                         c.id, c.rating, c.content, c.created_at,
@@ -498,14 +498,14 @@ class CommunityService:
         添加评论（只有购买过的用户可以评论，且只能评论一次）
         """
         try:
-            # 验证评分范围
+            # Verify score range
             rating = max(1, min(5, int(rating)))
-            content = (content or '').strip()[:500]  # 限制500字
+            content = (content or '').strip()[:500] # Limit 500 words
             
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 检查指标是否存在
+                # Check if the indicator exists
                 cur.execute(
                     "SELECT id, user_id FROM qd_indicator_codes WHERE id = ? AND publish_to_community = 1",
                     (indicator_id,)
@@ -515,12 +515,12 @@ class CommunityService:
                     cur.close()
                     return False, 'indicator_not_found', {}
                 
-                # 不能评论自己的指标
+                # Cannot comment on own indicators
                 if indicator['user_id'] == user_id:
                     cur.close()
                     return False, 'cannot_comment_own', {}
                 
-                # 检查是否已购买（免费指标也需要"获取"才能评论）
+                # Check if it has been purchased (free indicators also need to be "acquired" to comment)
                 cur.execute(
                     "SELECT id FROM qd_indicator_purchases WHERE indicator_id = ? AND buyer_id = ?",
                     (indicator_id, user_id)
@@ -529,7 +529,7 @@ class CommunityService:
                     cur.close()
                     return False, 'not_purchased', {}
                 
-                # 检查是否已评论
+                # Check if comments have been made
                 cur.execute(
                     "SELECT id FROM qd_indicator_comments WHERE indicator_id = ? AND user_id = ? AND parent_id IS NULL",
                     (indicator_id, user_id)
@@ -538,7 +538,7 @@ class CommunityService:
                     cur.close()
                     return False, 'already_commented', {}
                 
-                # 添加评论
+                #Add comment
                 cur.execute("""
                     INSERT INTO qd_indicator_comments 
                     (indicator_id, user_id, rating, content, created_at, updated_at)
@@ -546,7 +546,7 @@ class CommunityService:
                 """, (indicator_id, user_id, rating, content))
                 comment_id = cur.lastrowid
                 
-                # 更新指标的评分统计
+                # Update the scoring statistics of the indicator
                 cur.execute("""
                     UPDATE qd_indicator_codes 
                     SET 
@@ -586,7 +586,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 检查评论是否存在且属于当前用户
+                # Check if the comment exists and belongs to the current user
                 cur.execute("""
                     SELECT id, rating as old_rating FROM qd_indicator_comments 
                     WHERE id = ? AND user_id = ? AND indicator_id = ? AND is_deleted = 0
@@ -599,14 +599,14 @@ class CommunityService:
                 
                 old_rating = comment['old_rating']
                 
-                # 更新评论
+                # Update comment
                 cur.execute("""
                     UPDATE qd_indicator_comments 
                     SET rating = ?, content = ?, updated_at = NOW()
                     WHERE id = ?
                 """, (rating, content, comment_id))
                 
-                # 如果评分变了，更新指标的平均评分
+                # If the rating changes, update the average rating of the metric
                 if old_rating != rating:
                     cur.execute("""
                         UPDATE qd_indicator_codes 
@@ -656,7 +656,7 @@ class CommunityService:
             return None
     
     # ==========================================
-    # 管理员审核功能
+    # Administrator review function
     # ==========================================
     
     def get_pending_indicators(
@@ -672,7 +672,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 构建查询条件
+                # Build query conditions
                 where_clauses = ["i.publish_to_community = 1"]
                 params = []
                 
@@ -682,7 +682,7 @@ class CommunityService:
                 
                 where_sql = " AND ".join(where_clauses)
                 
-                # 获取总数
+                # Get total
                 count_sql = f"""
                     SELECT COUNT(*) as count 
                     FROM qd_indicator_codes i 
@@ -691,7 +691,7 @@ class CommunityService:
                 cur.execute(count_sql, tuple(params))
                 total = cur.fetchone()['count']
                 
-                # 获取列表
+                # Get the list
                 query_sql = f"""
                     SELECT 
                         i.id, i.name, i.description, i.pricing_type, i.price,
@@ -720,7 +720,7 @@ class CommunityService:
                         'pricing_type': row['pricing_type'] or 'free',
                         'price': float(row['price'] or 0),
                         'preview_image': row['preview_image'] or '',
-                        'code': row['code'] or '',  # 管理员可以看代码
+                        'code': row['code'] or '', # Administrators can view the code
                         'review_status': row['review_status'] or 'pending',
                         'review_note': row['review_note'] or '',
                         'reviewed_at': row['reviewed_at'].isoformat() if row['reviewed_at'] else None,
@@ -761,7 +761,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 检查指标是否存在且已发布到社区
+                # Check if the indicator exists and has been published to the community
                 cur.execute("""
                     SELECT id, name, user_id FROM qd_indicator_codes 
                     WHERE id = ? AND publish_to_community = 1
@@ -772,7 +772,7 @@ class CommunityService:
                     cur.close()
                     return False, 'indicator_not_found'
                 
-                # 更新审核状态
+                # Update review status
                 cur.execute("""
                     UPDATE qd_indicator_codes 
                     SET review_status = ?, review_note = ?, reviewed_at = NOW(), reviewed_by = ?
@@ -797,7 +797,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 检查指标是否存在
+                # Check if the indicator exists
                 cur.execute("""
                     SELECT id, name FROM qd_indicator_codes WHERE id = ?
                 """, (indicator_id,))
@@ -807,13 +807,13 @@ class CommunityService:
                     cur.close()
                     return False, 'indicator_not_found'
                 
-                # 下架（取消发布）
+                # Remove from shelves (cancel publication)
                 cur.execute("""
                     UPDATE qd_indicator_codes 
                     SET publish_to_community = 0, review_status = 'rejected', 
                         review_note = ?, reviewed_at = NOW(), reviewed_by = ?
                     WHERE id = ?
-                """, (f"下架: {note}" if note else "管理员下架", admin_id, indicator_id))
+                """, (f"Removal: {note}" if note else "Removal by administrator", admin_id, indicator_id))
                 
                 db.commit()
                 cur.close()
@@ -831,7 +831,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 检查指标是否存在
+                # Check if the indicator exists
                 cur.execute("SELECT id, name FROM qd_indicator_codes WHERE id = ?", (indicator_id,))
                 indicator = cur.fetchone()
                 
@@ -839,13 +839,13 @@ class CommunityService:
                     cur.close()
                     return False, 'indicator_not_found'
                 
-                # 删除关联的评论
+                # Delete associated comments
                 cur.execute("DELETE FROM qd_indicator_comments WHERE indicator_id = ?", (indicator_id,))
                 
-                # 删除关联的购买记录
+                # Delete associated purchase history
                 cur.execute("DELETE FROM qd_indicator_purchases WHERE indicator_id = ?", (indicator_id,))
                 
-                # 删除指标
+                # Delete indicator
                 cur.execute("DELETE FROM qd_indicator_codes WHERE id = ?", (indicator_id,))
                 
                 db.commit()
@@ -859,7 +859,7 @@ class CommunityService:
             return False, f'error: {str(e)}'
     
     def get_review_stats(self) -> Dict[str, int]:
-        """获取审核统计"""
+        """Get audit statistics"""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -884,7 +884,7 @@ class CommunityService:
             return {'pending': 0, 'approved': 0, 'rejected': 0}
     
     # ==========================================
-    # 实盘表现（聚合回测 + 实盘交易数据）
+    # Real performance (aggregated backtest + real transaction data)
     # ==========================================
 
     def get_indicator_performance(self, indicator_id: int) -> Dict[str, Any]:
@@ -908,7 +908,7 @@ class CommunityService:
             with get_db_connection() as db:
                 cur = db.cursor()
 
-                # ---------- Part 1: 回测数据（从 result_json 解析） ----------
+                # ---------- Part 1: Backtest data (parsed from result_json) ----------
                 bt_returns = []
                 bt_win_rates = []
                 bt_drawdowns = []
@@ -941,21 +941,21 @@ class CommunityService:
 
                 bt_run_count = len(bt_returns)
 
-                # ---------- Part 2: 实盘交易数据 ----------
+                # ---------- Part 2: Real transaction data ----------
                 live_strategy_count = 0
                 live_trade_count = 0
                 live_win_rate = 0.0
                 live_total_profit = 0.0
 
                 try:
-                    # 找出使用该指标的策略（indicator_config JSON 中 indicator_id 匹配）
+                    # Find the strategy that uses this indicator (matches indicator_id in indicator_config JSON)
                     cur.execute("""
                         SELECT id FROM qd_strategies_trading
                         WHERE indicator_config::text LIKE %s
                     """, (f'%"indicator_id": {indicator_id}%',))
                     strategy_rows = cur.fetchall()
 
-                    # 也尝试匹配无空格的格式
+                    # Also try to match formats without spaces
                     if not strategy_rows:
                         cur.execute("""
                             SELECT id FROM qd_strategies_trading
@@ -993,7 +993,7 @@ class CommunityService:
                 total_strategy_count = bt_run_count + live_strategy_count
                 total_trade_count = sum(bt_trade_counts) + live_trade_count
 
-                # 综合胜率：优先实盘 > 回测平均
+                # Comprehensive winning rate: Prioritize real offer > Backtest average
                 if live_trade_count > 0:
                     combined_win_rate = live_win_rate
                 elif bt_win_rates:
@@ -1001,13 +1001,13 @@ class CommunityService:
                 else:
                     combined_win_rate = 0.0
 
-                # 平均收益率（回测 totalReturn %）
+                # Average return (backtest totalReturn %)
                 avg_return = round(sum(bt_returns) / len(bt_returns), 2) if bt_returns else 0.0
 
-                # 总利润：优先用实盘绝对利润，无实盘则显示回测平均收益率
+                #Total profit: priority is given to the absolute profit of the real offer. If there is no real offer, the average return rate of the backtest will be displayed.
                 combined_profit = live_total_profit if live_trade_count > 0 else avg_return
 
-                # 最大回撤取回测中最差的（maxDrawdown 是负数，取最小即最差）
+                # The maximum drawdown is the worst in the backtest (maxDrawdown is a negative number, the smallest is the worst)
                 avg_drawdown = round(min(bt_drawdowns), 2) if bt_drawdowns else 0.0
 
                 if total_strategy_count == 0 and total_trade_count == 0:
@@ -1027,7 +1027,7 @@ class CommunityService:
             return default_result
 
 
-# 全局单例
+# Global singleton
 _community_service = None
 
 

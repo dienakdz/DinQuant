@@ -1,10 +1,10 @@
 """
-USDT Payment Service (方案B：每单独立地址 + 自动对账)
+USDT Payment Service (Plan B: independent address for each order + automatic reconciliation)
 
 MVP:
-- 只支持 USDT-TRC20
-- 使用 XPUB 派生地址（服务端只保存 xpub，不保存私钥）
-- 后台 Worker 线程自动轮询链上到账 + 前端轮询双保险
+- Only supports USDT-TRC20
+- Use XPUB derived address (the server only saves xpub, not the private key)
+- The background Worker thread automatically polls the on-chain account + front-end polling for double insurance
 """
 
 import os

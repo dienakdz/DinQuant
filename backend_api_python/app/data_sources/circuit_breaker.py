@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
 """
 ===================================
-熔断器模块 (Circuit Breaker)
+Circuit Breaker
 ===================================
 
-参考 daily_stock_analysis 项目实现
-用于管理数据源的熔断/冷却状态，避免连续失败时反复请求
+Refer to daily_stock_analysis project implementation
+Used to manage the fuse/cooling status of data sources to avoid repeated requests when continuous failures occur.
 
-状态机:
-CLOSED（正常） --失败N次--> OPEN（熔断）--冷却时间到--> HALF_OPEN（半开）
-HALF_OPEN --成功--> CLOSED
-HALF_OPEN --失败--> OPEN
+State machine:
+CLOSED (normal) --failed N times --> OPEN (melted) --cooling time expired --> HALF_OPEN (half open)
+HALF_OPEN --Success--> CLOSED
+HALF_OPEN --Failure--> OPEN
 """
 
 import time
@@ -22,38 +22,38 @@ logger = logging.getLogger(__name__)
 
 
 class CircuitState(Enum):
-    """熔断器状态"""
-    CLOSED = "closed"      # 正常状态
-    OPEN = "open"          # 熔断状态（不可用）
-    HALF_OPEN = "half_open"  # 半开状态（试探性请求）
+    """fuse status"""
+    CLOSED = "closed"      # normal state
+    OPEN = "open"          # Fuse status (not available)
+    HALF_OPEN = "half_open"  # Half-open state (exploratory request)
 
 
 class CircuitBreaker:
     """
-    熔断器 - 管理数据源的熔断/冷却状态
+    Circuit Breakers - Manage the blown/cooling status of data sources
     
-    策略：
-    - 连续失败 N 次后进入熔断状态
-    - 熔断期间跳过该数据源
-    - 冷却时间后自动恢复半开状态
-    - 半开状态下单次成功则完全恢复，失败则继续熔断
+    Strategy:
+    - Enter the fuse state after N consecutive failures
+    - Skip this data source during the circuit breaker period
+    - Automatically returns to half-open state after cooling time
+    - In the half-open state, if a single success is successful, it will be fully restored, if it fails, the fuse will continue to be broken.
     """
     
     def __init__(
         self,
-        failure_threshold: int = 3,       # 连续失败次数阈值
-        cooldown_seconds: float = 300.0,  # 冷却时间（秒），默认5分钟
-        half_open_max_calls: int = 1      # 半开状态最大尝试次数
+        failure_threshold: int = 3,       # Continuous failure threshold
+        cooldown_seconds: float = 300.0,  # Cooling time (seconds), default 5 minutes
+        half_open_max_calls: int = 1      # Maximum number of attempts in half-open state
     ):
         self.failure_threshold = failure_threshold
         self.cooldown_seconds = cooldown_seconds
         self.half_open_max_calls = half_open_max_calls
         
-        # 各数据源状态 {source_name: {state, failures, last_failure_time, half_open_calls}}
+        # Status of each data source {source_name: {state, failures, last_failure_time, half_open_calls}}
         self._states: Dict[str, Dict[str, Any]] = {}
     
     def _get_state(self, source: str) -> Dict[str, Any]:
-        """获取或初始化数据源状态"""
+        """Get or initialize data source status"""
         if source not in self._states:
             self._states[source] = {
                 'state': CircuitState.CLOSED,
@@ -66,10 +66,10 @@ class CircuitBreaker:
     
     def is_available(self, source: str) -> bool:
         """
-        检查数据源是否可用
+        Check if the data source is available
         
-        返回 True 表示可以尝试请求
-        返回 False 表示应跳过该数据源
+        Return True to indicate that the request can be attempted
+        Return False to indicate that the data source should be skipped
         """
         state = self._get_state(source)
         current_time = time.time()
@@ -78,10 +78,10 @@ class CircuitBreaker:
             return True
         
         if state['state'] == CircuitState.OPEN:
-            # 检查冷却时间
+            # Check cool down time
             time_since_failure = current_time - state['last_failure_time']
             if time_since_failure >= self.cooldown_seconds:
-                # 冷却完成，进入半开状态
+                # Cooling is completed and enters the half-open state
                 state['state'] = CircuitState.HALF_OPEN
                 state['half_open_calls'] = 0
                 logger.info(f"[熔断器] {source} 冷却完成，进入半开状态")
@@ -92,7 +92,7 @@ class CircuitBreaker:
                 return False
         
         if state['state'] == CircuitState.HALF_OPEN:
-            # 半开状态下限制请求次数
+            # Limit the number of requests in the half-open state
             if state['half_open_calls'] < self.half_open_max_calls:
                 return True
             return False
@@ -100,21 +100,21 @@ class CircuitBreaker:
         return True
     
     def record_success(self, source: str) -> None:
-        """记录成功请求"""
+        """Log successful request"""
         state = self._get_state(source)
         
         if state['state'] == CircuitState.HALF_OPEN:
-            # 半开状态下成功，完全恢复
+            # Successful in half-open state, full recovery
             logger.info(f"[熔断器] {source} 半开状态请求成功，恢复正常")
         
-        # 重置状态
+        # reset state
         state['state'] = CircuitState.CLOSED
         state['failures'] = 0
         state['half_open_calls'] = 0
         state['last_error'] = None
     
     def record_failure(self, source: str, error: Optional[str] = None) -> None:
-        """记录失败请求"""
+        """Logging failed requests"""
         state = self._get_state(source)
         current_time = time.time()
         
@@ -123,12 +123,12 @@ class CircuitBreaker:
         state['last_error'] = error
         
         if state['state'] == CircuitState.HALF_OPEN:
-            # 半开状态下失败，继续熔断
+            # Fails in half-open state and continues to fuse
             state['state'] = CircuitState.OPEN
             state['half_open_calls'] = 0
             logger.warning(f"[熔断器] {source} 半开状态请求失败，继续熔断 {self.cooldown_seconds}s")
         elif state['failures'] >= self.failure_threshold:
-            # 达到阈值，进入熔断
+            # reaches the threshold and enters the circuit breaker
             state['state'] = CircuitState.OPEN
             logger.warning(f"[熔断器] {source} 连续失败 {state['failures']} 次，进入熔断状态 "
                           f"(冷却 {self.cooldown_seconds}s)")
@@ -136,7 +136,7 @@ class CircuitBreaker:
                 logger.warning(f"[熔断器] 最后错误: {error}")
     
     def get_status(self) -> Dict[str, Dict[str, Any]]:
-        """获取所有数据源状态"""
+        """Get all data source status"""
         return {
             source: {
                 'state': info['state'].value,
@@ -147,7 +147,7 @@ class CircuitBreaker:
         }
     
     def reset(self, source: Optional[str] = None) -> None:
-        """重置熔断器状态"""
+        """Reset fuse status"""
         if source:
             if source in self._states:
                 del self._states[source]
@@ -158,17 +158,17 @@ class CircuitBreaker:
 
 
 # ============================================
-# 全局熔断器实例
+# Global circuit breaker example
 # ============================================
 
-# 实时行情熔断器（更严格的策略）
+# Real-time market circuit breaker (more stringent strategy)
 _realtime_circuit_breaker = CircuitBreaker(
-    failure_threshold=2,      # 连续失败2次熔断
-    cooldown_seconds=180.0,   # 冷却3分钟
+    failure_threshold=2,      # Failed 2 times in a row
+    cooldown_seconds=180.0,   # Cool for 3 minutes
     half_open_max_calls=1
 )
 
 
 def get_realtime_circuit_breaker() -> CircuitBreaker:
-    """获取实时行情熔断器"""
+    """Get realtime market breaker"""
     return _realtime_circuit_breaker

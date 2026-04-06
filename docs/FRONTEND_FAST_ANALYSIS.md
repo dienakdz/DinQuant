@@ -1,62 +1,62 @@
-# 快速分析（Fast Analysis）前端对接说明
+# Fast Analysis Frontend Integration Notes
 
-本开源仓库中的 **`frontend/` 仅包含构建产物 `dist/`**，Vue 源码在**私有前端仓库**（见根目录 `.github/workflows/update-frontend.yml`）。因此在本仓库内**无法直接修改** `FastAnalysisReport.vue` 等组件，需要在私有仓库中按下列说明调整。
+**`frontend/` in this open source warehouse only contains the build product `dist/`**, and the Vue source code is in the **private frontend warehouse** (see the root directory `.github/workflows/update-frontend.yml`). Therefore, components such as `FastAnalysisReport.vue` cannot be modified directly in this warehouse. They need to be adjusted in the private warehouse according to the following instructions.
 
-## 1. 止盈 / 止损显示反了（BUY/SELL）
+## 1. Take profit/stop loss display is reversed (BUY/SELL)
 
-### 后端约定（`/api/fast-analysis/analyze`）
+### Backend convention (`/api/fast-analysis/analyze`)
 
-- **`trading_plan.stop_loss` / `trading_plan.take_profit`** 已与 `decision` 对齐几何关系：
-  - **BUY**：`stop_loss < 现价 < take_profit`
-  - **SELL（空）**：`take_profit < 现价 < stop_loss`（止损在上方，止盈在下方）
-- **`indicators.trading_levels.suggested_stop_loss / suggested_take_profit`** 在采集器里是**多单（做多）参考价**，**不能**在 SELL 时直接拿来当界面上的「止损/止盈」两行，否则会和空单几何相反。
+- **`trading_plan.stop_loss` / `trading_plan.take_profit`** Already aligned with `decision`:
+  - **BUY**: `stop_loss < current price < take_profit`
+  - **SELL (empty)**: `take_profit < current price < stop_loss` (stop loss is above, take profit is below)
+- **`indicators.trading_levels.suggested_stop_loss / suggested_take_profit`** is the **reference price for long orders** in the collector. It cannot be used directly as the "stop loss/take profit" lines on the interface during SELL, otherwise it will be geometrically opposite to the short order.
 
-### 前端常见错误
+### Common front-end errors
 
-- 第一行写死绑定 `trading_levels.suggested_stop_loss`、第二行绑定 `suggested_take_profit`。
-- 或把 `stop_loss` / `take_profit` **标签写反**（模板里「止损」绑了 `take_profit`）。
+- The first line is hardcoded to bind `trading_levels.suggested_stop_loss`, and the second line is bound to `suggested_take_profit`.
+- Or reverse the `stop_loss` / `take_profit` ** tags ** ("stop loss" in the template is tied to `take_profit`).
 
-### 推荐写法（私有仓库中修改）
+### Recommended writing method (modify in private warehouse)
 
-只使用接口返回的 **`data.trading_plan`**（或兼容字段 **`stopLoss` / `takeProfit`**）：
+Only use **`data.trading_plan`** (or compatible fields **`stopLoss` / `takeProfit`**) returned by the interface:
 
 ```text
-止损（亏损离场价）: trading_plan.stop_loss  （或 stopLoss）
-止盈（盈利目标价）: trading_plan.take_profit （或 takeProfit）
+Stop loss (loss exit price): trading_plan.stop_loss (or stopLoss)
+Take profit (profit target price): trading_plan.take_profit (or takeProfit)
 ```
 
-可选：根据 `trading_plan.decision === 'SELL'` 在文案旁加一句「空单：止损在现价上方，止盈在现价下方」。
+Optional: According to `trading_plan.decision === 'SELL'`, add a sentence "Short order: Stop loss is above the current price, take profit is below the current price" next to the copy.
 
-### API 兼容字段（后端已加）
+### API compatible fields (added in backend)
 
-`trading_plan` 内额外包含：
+`trading_plan` additionally contains:
 
 - `entryPrice`, `stopLoss`, `takeProfit`, `positionSizePct`
-- `loss_exit_price`, `profit_target_price`（与止损/止盈数值一致，语义更清晰）
-- `decision`：与主结果 `decision` 一致，便于组件内判断
+- `loss_exit_price`, `profit_target_price` (consistent with stop loss/take profit values, with clearer semantics)
+- `decision`: consistent with the main result `decision`, which facilitates judgment within the component
 
-根级另有驼峰：`trendOutlook`, `trendOutlookSummary`（与 `trend_outlook` 等相同内容）。
+There is another camel case at the root level: `trendOutlook`, `trendOutlookSummary` (the same content as `trend_outlook`, etc.).
 
-## 2. 「未来时间段预判」不显示
+## 2. "Future time period prediction" is not displayed
 
-后端字段：
+Backend fields:
 
-- **`trend_outlook`**：对象，含 `next_24h`, `next_3d`, `next_1w`, `next_1m`（每项含 `score`, `trend`, `strength`）。
-- **`trend_outlook_summary`**：一行可读摘要（中文/英文随 `language`）。
-- 若走 **`/api/fast-analysis/analyze-legacy`**：`fast_analysis` 内同样有上述字段；`overview.report` 会追加 **【周期预判】** 段落；顶层也有 `trend_outlook` / `trend_outlook_summary`。
+- **`trend_outlook`**: Object, including `next_24h`, `next_3d`, `next_1w`, `next_1m` (each item contains `score`, `trend`, `strength`).
+- **`trend_outlook_summary`**: One line readable summary (Chinese/English with `language`).
+- If you go to **`/api/fast-analysis/analyze-legacy`**: `fast_analysis` also has the above fields; `overview.report` will append the **[Period Prediction]** paragraph; the top level also has `trend_outlook` / `trend_outlook_summary`.
 
-### 前端需要做的
+### What the front end needs to do
 
-- 在快速分析结果页**单独渲染** `trend_outlook` 或 `trend_outlook_summary`（不要只读 `summary` 正文）。
-- 若请求的是 legacy 接口，请读 **`data.fast_analysis.trend_outlook`** 或顶层 **`data.trend_outlook`**，不要假设只在某一嵌套路径下。
+- **Single rendering** of `trend_outlook` or `trend_outlook_summary` in the quick analysis results page (do not read only the `summary` text).
+- If the request is for the legacy interface, please read **`data.fast_analysis.trend_outlook`** or the top-level **`data.trend_outlook`**. Do not assume that it is only under a certain nested path.
 
-## 3. 自检清单
+## 3. Self-check list
 
-| 检查项 | 说明 |
+| Check items | Description |
 |--------|------|
-| 接口路径 | 确认用的是 `/analyze` 还是 `/analyze-legacy`，字段路径一致 |
-| 绑定来源 | 止损/止盈是否来自 `trading_plan`，而非 `trading_levels` |
-| SELL 几何 | 空单位：`take_profit < current < stop_loss` |
-| 周期预判 | 模板是否包含 `trend_outlook` 或 `trend_outlook_summary` |
+| Interface path | Confirm whether you are using `/analyze` or `/analyze-legacy`, and the field paths are consistent |
+| Binding source | Whether stop loss/take profit comes from `trading_plan` instead of `trading_levels` |
+| SELL Geometry | Empty units: `take_profit < current < stop_loss` |
+| Cycle prediction | Whether the template contains `trend_outlook` or `trend_outlook_summary` |
 
-更新私有前端仓库后，通过 CI 或手动打包替换本仓库的 `frontend/dist/`（参见 `update-frontend.yml`）。
+After updating the private front-end repository, replace `frontend/dist/` of this repository through CI or manual packaging (see `update-frontend.yml`).

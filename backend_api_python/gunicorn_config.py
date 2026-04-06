@@ -1,29 +1,29 @@
 """
-Gunicorn 配置文件（生产环境）
+Gunicorn configuration file (production environment)
 """
 import multiprocessing
 
-# 服务器 socket
+# server socket
 bind = "0.0.0.0:5000"
 backlog = 2048
 
-# Worker 进程
+# Worker process
 workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "sync"
 worker_connections = 1000
 timeout = 600  # 10 minutes for long-running backtests
 keepalive = 5
 
-# 日志
+# log
 accesslog = "logs/access.log"
 errorlog = "logs/error.log"
 loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
-# 进程命名
+# Process naming
 proc_name = "quantdinger_python_api"
 
-# 服务器机制
+# Server mechanism
 daemon = False
 pidfile = "logs/gunicorn.pid"
 umask = 0
@@ -31,7 +31,7 @@ user = None
 group = None
 tmp_upload_dir = None
 
-# SSL（如果需要）
+# SSL (if required)
 # keyfile = None
 # certfile = None
 

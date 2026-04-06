@@ -210,7 +210,7 @@ def save_indicator():
 
         now = _now_ts()  # For BIGINT fields (createtime, updatetime)
 
-        # 检查用户是否是管理员（管理员发布的指标自动通过审核）
+        # Check whether the user is an administrator (indicators published by the administrator automatically pass the review)
         user_role = getattr(g, 'user_role', 'user')
         is_admin = user_role == 'admin'
         
@@ -222,7 +222,7 @@ def save_indicator():
             except Exception:
                 pass
             if indicator_id and indicator_id > 0:
-                # 检查是否从未发布改为发布，需要设置审核状态
+                # Check whether the change from unpublished to published requires setting the review status
                 if publish_to_community:
                     cur.execute(
                         "SELECT publish_to_community, review_status FROM qd_indicator_codes WHERE id = ? AND user_id = ?",
@@ -230,8 +230,8 @@ def save_indicator():
                     )
                     existing = cur.fetchone()
                     was_published = existing and existing.get('publish_to_community')
-                    # 如果之前未发布，现在发布，设置审核状态
-                    # 管理员发布的直接通过，普通用户需要待审核
+                    # If it has not been published before, publish it now and set the review status
+                    # Posted by the administrator, it passes directly, and ordinary users need to wait for review.
                     new_review_status = 'approved' if is_admin else 'pending'
                     if not was_published:
                         cur.execute(
@@ -248,7 +248,7 @@ def save_indicator():
                              new_review_status, user_id if is_admin else None, now, indicator_id, user_id),
                         )
                     else:
-                        # 已发布过的更新，保持原审核状态
+                        # Updates that have been released will remain in their original review status.
                         cur.execute(
                             """
                             UPDATE qd_indicator_codes
@@ -261,7 +261,7 @@ def save_indicator():
                             (name, code, description, publish_to_community, pricing_type, price, preview_image, vip_free, now, indicator_id, user_id),
                         )
                 else:
-                    # 取消发布，清除审核状态
+                    # Unpublish and clear review status
                     cur.execute(
                         """
                         UPDATE qd_indicator_codes
@@ -275,7 +275,7 @@ def save_indicator():
                         (name, code, description, publish_to_community, pricing_type, price, preview_image, now, indicator_id, user_id),
                     )
             else:
-                # 新建指标 - 管理员发布的直接通过，普通用户需要待审核
+                # New indicators - those released by administrators are passed directly, ordinary users need to wait for review
                 review_status = None
                 if publish_to_community:
                     review_status = 'approved' if is_admin else 'pending'
@@ -329,12 +329,12 @@ def delete_indicator():
 @login_required
 def get_indicator_params():
     """
-    获取指标的参数声明
+    Get parameter declaration of indicator
     
-    用于前端在策略创建时显示可配置的参数表单。
+    Used by the front end to display a configurable parameter form when creating a policy.
     
     Query params:
-        indicator_id: 指标ID
+        indicator_id: indicator ID
         
     Returns:
         params: [
@@ -342,7 +342,7 @@ def get_indicator_params():
                 "name": "ma_fast",
                 "type": "int",
                 "default": 5,
-                "description": "短期均线周期"
+                "description": "Short-term moving average cycle"
             },
             ...
         ]
@@ -541,7 +541,7 @@ def ai_generate():
     if not prompt:
         # Keep SSE contract (match PHP behavior) so frontend doesn't look "stuck".
         def _err_stream():
-            yield "data: " + json.dumps({"error": "提示词不能为空"}, ensure_ascii=False) + "\n\n"
+            yield "data: " + json.dumps({"error": "The prompt word cannot be empty"}, ensure_ascii=False) + "\n\n"
             yield "data: [DONE]\n\n"
 
         return Response(
@@ -740,22 +740,22 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
 @login_required
 def call_indicator():
     """
-    调用另一个指标（供前端 Pyodide 环境使用）
+    Call another indicator (for use by the front-end Pyodide environment)
     
     POST /api/indicator/callIndicator
     Body: {
-        "indicatorRef": int | str,  # 指标ID或名称
-        "klineData": List[Dict],      # K线数据
-        "params": Dict,              # 传递给被调用指标的参数（可选）
-        "currentIndicatorId": int     # 当前指标ID（用于循环依赖检测，可选）
+        "indicatorRef": int | str, # indicator ID or name
+        "klineData": List[Dict], # K-line data
+        "params": Dict, # Parameters passed to the called indicator (optional)
+        "currentIndicatorId": int # Current indicator ID (used for circular dependency detection, optional)
     }
     
     Returns:
         {
             "code": 1,
             "data": {
-                "df": List[Dict],    # 执行后的DataFrame（转换为JSON）
-                "columns": List[str]  # DataFrame的列名
+                "df": List[Dict], # DataFrame after execution (converted to JSON)
+                "columns": List[str] # DataFrame column name
             }
         }
     """
@@ -780,32 +780,32 @@ def call_indicator():
                 "data": None
             }), 400
         
-        # 获取用户ID
+        # Get user ID
         user_id = g.user_id
         
-        # 创建 IndicatorCaller
+        # Create IndicatorCaller
         indicator_caller = IndicatorCaller(user_id, current_indicator_id)
         
-        # 将前端传入的K线数据转换为DataFrame
+        # Convert the K-line data passed in from the front end into a DataFrame
         df = pd.DataFrame(kline_data)
         
-        # 确保必要的列存在
+        # Make sure necessary columns exist
         required_columns = ['open', 'high', 'low', 'close', 'volume']
         for col in required_columns:
             if col not in df.columns:
                 df[col] = 0.0
         
-        # 转换数据类型
+        # Convert data type
         df['open'] = df['open'].astype('float64')
         df['high'] = df['high'].astype('float64')
         df['low'] = df['low'].astype('float64')
         df['close'] = df['close'].astype('float64')
         df['volume'] = df['volume'].astype('float64')
         
-        # 调用指标
+        # call indicator
         result_df = indicator_caller.call_indicator(indicator_ref, df, params)
         
-        # 将DataFrame转换为JSON格式（前端可以使用的格式）
+        # Convert the DataFrame to JSON format (a format that the front end can use)
         result_dict = result_df.to_dict(orient='records')
         
         return jsonify({

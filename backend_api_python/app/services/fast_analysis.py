@@ -1,12 +1,12 @@
 """
 Fast Analysis Service 3.0
-系统性重构版本 - 使用统一的数据采集器
+Systematic refactoring version - using unified data collector
 
-核心改进：
-1. 数据源统一 - 使用 MarketDataCollector，与K线模块、自选列表完全一致
-2. 宏观数据 - 新增美元指数、VIX、利率等宏观经济指标
-3. 多维新闻 - 使用结构化API，无需深度阅读
-4. 单次LLM调用 - 强约束prompt，输出结构化分析
+Core improvements:
+1. Unified data sources - use MarketDataCollector, which is completely consistent with the K-line module and watch list
+2. Macroeconomic data - added macroeconomic indicators such as the US dollar index, VIX, and interest rates
+3. Multi-dimensional news - using structured API, no need for in-depth reading
+4. Single LLM call - strong constraint prompt, output structured analysis
 """
 import json
 import os
@@ -185,12 +185,12 @@ def _is_major_geopolitical_news_text(combined_text: str) -> bool:
 
 class FastAnalysisService:
     """
-    快速分析服务 3.0
+    Rapid Analysis Service 3.0
     
-    架构：
-    1. 数据采集层 - MarketDataCollector (统一数据源)
-    2. 分析层 - 单次LLM调用 (强约束prompt)
-    3. 记忆层 - 分析历史存储和检索
+    Architecture:
+    1. Data collection layer - MarketDataCollector (unified data source)
+    2. Analysis layer - single LLM call (strong constraint prompt)
+    3. Memory layer - analysis history storage and retrieval
     """
     
     def __init__(self):
@@ -212,14 +212,14 @@ class FastAnalysisService:
         timeout: int = 45,
     ) -> Dict[str, Any]:
         """
-        使用统一的数据采集器收集市场数据
+        Collect market data using a unified data collector
         
-        数据层次：
-        1. 核心数据: 价格、K线、技术指标
-        2. 基本面: 公司信息、财务数据
-        3. 宏观数据: DXY、VIX、TNX、黄金等
-        4. 情绪数据: 新闻、市场情绪
-        5. 预测市场: 相关预测市场事件（新增）
+        Data level:
+        1. Core data: price, K-line, technical indicators
+        2. Fundamentals: Company information, financial data
+        3. Macro data: DXY, VIX, TNX, gold, etc.
+        4. Sentiment data: news, market sentiment
+        5. Prediction market: related prediction market events (new)
         """
         return self.data_collector.collect_all(
             market=market,
@@ -227,8 +227,8 @@ class FastAnalysisService:
             timeframe=timeframe,
             include_macro=include_macro,
             include_news=include_news,
-            include_polymarket=include_polymarket,  # 包含预测市场数据
-            timeout=timeout,  # 增加超时时间，确保数据收集完成
+            include_polymarket=include_polymarket,  # Contains prediction market data
+            timeout=timeout,  # Increase timeout to ensure data collection is complete
         )
     
     def _calculate_indicators(self, kline_data: List[Dict]) -> Dict[str, Any]:
@@ -678,13 +678,13 @@ IMPORTANT:
         return system_prompt, user_prompt
     
     def _format_financial_statements(self, statements: Dict[str, Any]) -> str:
-        """格式化财务报表数据用于提示词"""
+        """Formatting financial statement data for prompt words"""
         if not statements:
             return "财务报表数据暂不可用"
         
         lines = []
         
-        # 资产负债表
+        # balance sheet
         if 'balance_sheet' in statements:
             bs = statements['balance_sheet']
             lines.append("资产负债表 (Balance Sheet):")
@@ -702,7 +702,7 @@ IMPORTANT:
                 current_ratio = bs['current_assets'] / bs['current_liabilities'] if bs['current_liabilities'] > 0 else 0
                 lines.append(f"  - 流动比率: {current_ratio:.2f}")
         
-        # 利润表
+        # income statement
         if 'income_statement' in statements:
             is_stmt = statements['income_statement']
             lines.append("利润表 (Income Statement):")
@@ -717,7 +717,7 @@ IMPORTANT:
             if is_stmt.get('eps'):
                 lines.append(f"  - 每股收益: ${is_stmt['eps']:.2f}")
         
-        # 现金流量表
+        # cash flow statement
         if 'cash_flow' in statements:
             cf = statements['cash_flow']
             lines.append("现金流量表 (Cash Flow):")
@@ -729,13 +729,13 @@ IMPORTANT:
         return "\n".join(lines) if lines else "财务报表数据暂不可用"
     
     def _format_earnings_data(self, earnings: Dict[str, Any]) -> str:
-        """格式化盈利数据用于提示词"""
+        """Format profit data for prompt words"""
         if not earnings:
             return "盈利数据暂不可用"
         
         lines = []
         
-        # 历史盈利
+        # historical profit
         if 'history' in earnings and earnings['history']:
             lines.append("历史盈利 (Earnings History):")
             for i, hist in enumerate(earnings['history'][:4], 1):
@@ -753,7 +753,7 @@ IMPORTANT:
                         line += f", 超预期={surprise_str}"
                     lines.append(line)
         
-        # 未来盈利
+        # future profit
         if 'upcoming' in earnings:
             upcoming = earnings['upcoming']
             if upcoming.get('next_earnings_date'):
@@ -763,7 +763,7 @@ IMPORTANT:
                 if upcoming.get('revenue_estimate'):
                     lines.append(f"  - 收入预期: ${upcoming['revenue_estimate']:,.0f}")
         
-        # 季度盈利
+        # quarterly profit
         if 'quarterly' in earnings:
             q = earnings['quarterly']
             if q.get('latest_quarter'):
@@ -776,25 +776,25 @@ IMPORTANT:
         return "\n".join(lines) if lines else "盈利数据暂不可用"
     
     def _format_macro_summary(self, macro: Dict[str, Any], market: str) -> str:
-        """格式化宏观数据摘要"""
+        """Format macro data summaries"""
         if not macro:
             return "宏观数据暂不可用"
         
         lines = []
         
-        # 美元指数
+        # dollar index
         if 'DXY' in macro:
             dxy = macro['DXY']
             direction = "↑" if dxy.get('change', 0) > 0 else "↓"
             lines.append(f"- {dxy.get('name', 'USD Index')}: {dxy.get('price', 'N/A')} ({direction}{abs(dxy.get('changePercent', 0)):.2f}%)")
-            # 美元强弱对不同资产的影响
+            # The impact of the strength of the U.S. dollar on different assets
             if market == 'Crypto':
                 impact = "利空加密货币" if dxy.get('change', 0) > 0 else "利好加密货币"
                 lines.append(f"  ⚠️ 美元{direction} {impact}")
             elif market == 'Forex':
                 lines.append(f"  ⚠️ 美元{direction} 直接影响外汇走势")
         
-        # VIX恐慌指数
+        # VIX panic index
         if 'VIX' in macro:
             vix = macro['VIX']
             vix_value = vix.get('price', 0)
@@ -808,7 +808,7 @@ IMPORTANT:
                 level = "低波动 (<15)"
             lines.append(f"- {vix.get('name', 'VIX')}: {vix_value:.2f} - {level}")
         
-        # 美债收益率
+        # U.S. Treasury yields
         if 'TNX' in macro:
             tnx = macro['TNX']
             direction = "↑" if tnx.get('change', 0) > 0 else "↓"
@@ -816,19 +816,19 @@ IMPORTANT:
             if tnx.get('price', 0) > 4.5:
                 lines.append("  ⚠️ 高利率环境，对估值不利")
         
-        # 黄金
+        # gold
         if 'GOLD' in macro:
             gold = macro['GOLD']
             direction = "↑" if gold.get('change', 0) > 0 else "↓"
             lines.append(f"- {gold.get('name', 'Gold')}: ${gold.get('price', 'N/A'):.2f} ({direction}{abs(gold.get('changePercent', 0)):.2f}%)")
         
-        # 标普500
+        # S&P 500
         if 'SPY' in macro:
             spy = macro['SPY']
             direction = "↑" if spy.get('change', 0) > 0 else "↓"
             lines.append(f"- {spy.get('name', 'S&P 500')}: ${spy.get('price', 'N/A'):.2f} ({direction}{abs(spy.get('changePercent', 0)):.2f}%)")
         
-        # 比特币 (作为风险指标)
+        # Bitcoin (as a risk indicator)
         if 'BTC' in macro and market != 'Crypto':
             btc = macro['BTC']
             direction = "↑" if btc.get('change', 0) > 0 else "↓"
@@ -876,8 +876,8 @@ IMPORTANT:
             logger.info(f"Fast analysis starting: {market}:{symbol}")
 
             # Consensus timeframes:
-            # - 默认：用用户传入的 timeframe 作为主周期，再加一个上层周期（1D/4H）提升稳定性
-            # - 也允许通过 env 覆盖（逗号分隔），例如 AI_ANALYSIS_CONSENSUS_TIMEFRAMES=1D,4H
+            # - Default: use the timeframe passed in by the user as the main cycle, and add an upper cycle (1D/4H) to improve stability
+            # - Overriding via env (comma separated) is also allowed, e.g. AI_ANALYSIS_CONSENSUS_TIMEFRAMES=1D,4H
             env_tfs = os.getenv("AI_ANALYSIS_CONSENSUS_TIMEFRAMES", "").strip()
             if env_tfs:
                 consensus_timeframes = [t.strip() for t in env_tfs.split(",") if t.strip()]
@@ -1067,16 +1067,16 @@ IMPORTANT:
             # Validate we have essential data - with fallback to indicators
             current_price = None
             
-            # 优先从 price 数据获取
+            # Get it from price data first
             if data.get("price") and data["price"].get("price"):
                 current_price = data["price"]["price"]
             
-            # Fallback: 从 indicators 获取 (如果 K 线成功计算了)
+            # Fallback: Get from indicators (if the K-line is calculated successfully)
             if not current_price and data.get("indicators"):
                 current_price = data["indicators"].get("current_price")
                 if current_price:
                     logger.info(f"Using price from indicators: ${current_price}")
-                    # 构建简化的 price 数据
+                    # Build simplified price data
                     data["price"] = {
                         "price": current_price,
                         "change": 0,
@@ -1084,7 +1084,7 @@ IMPORTANT:
                         "source": "indicators_fallback"
                     }
             
-            # Fallback: 从 kline 最后一根获取
+            # Fallback: Get from the last kline
             if not current_price and data.get("kline"):
                 klines = data["kline"]
                 if klines and len(klines) > 0:
@@ -1346,13 +1346,13 @@ IMPORTANT:
                     "take_profit": analysis.get("take_profit"),
                     "position_size_pct": analysis.get("position_size_pct", 10),
                     "timeframe": analysis.get("timeframe", "medium"),
-                    # camelCase + 语义别名：供私有前端/旧版组件绑定（勿用 indicators.trading_levels 充当计划）
+                    # camelCase + semantic alias: for private front-end/legacy component binding (do not use indicators.trading_levels as a plan)
                     "entryPrice": analysis.get("entry_price"),
                     "stopLoss": analysis.get("stop_loss"),
                     "takeProfit": analysis.get("take_profit"),
                     "positionSizePct": analysis.get("position_size_pct", 10),
                     "decision": str(analysis.get("decision", "HOLD") or "HOLD").upper(),
-                    # 与 stop_loss / take_profit 数值相同；命名强调「亏损离场 / 盈利目标」避免与多单参考线混淆
+                    # The same value as stop_loss / take_profit; the naming emphasizes "loss exit / profit target" to avoid confusion with the long order reference line
                     "loss_exit_price": analysis.get("stop_loss"),
                     "profit_target_price": analysis.get("take_profit"),
                 },
@@ -1398,12 +1398,12 @@ IMPORTANT:
     
     def _build_decision_guidance(self, rsi_value: float, macd_signal: str, ma_trend: str, change_24h: float) -> str:
         """
-        根据技术指标构建决策指导，帮助AI做出更合理的决策。
-        强调SELL信号是有效的做空机会。
+        Build decision guidance based on technical indicators to help AI make more reasonable decisions.
+        Emphasize that the SELL signal is an effective short selling opportunity.
         """
         guidance_parts = []
         
-        # RSI 指导 - 更积极地识别做空机会
+        # RSI Guidance - Identify shorting opportunities more aggressively
         if rsi_value > 70:
             guidance_parts.append("🔴 RSI > 70 (超买): 强烈建议SELL做空，避免BUY")
         elif rsi_value > 60:
@@ -1415,7 +1415,7 @@ IMPORTANT:
         else:
             guidance_parts.append("⚪ RSI 40-60 (中性): 技术面中性，需要结合其他指标判断")
         
-        # MACD 指导 - 明确做空信号
+        # MACD Guidance - Clear Short Signal
         if macd_signal == "bullish":
             guidance_parts.append("🟢 MACD 看涨: 支持BUY做多")
         elif macd_signal == "bearish":
@@ -1423,7 +1423,7 @@ IMPORTANT:
         else:
             guidance_parts.append("⚪ MACD 中性: 无明显方向")
         
-        # MA 趋势指导 - 识别趋势反转机会
+        # MA Trend Guidance - Identify Trend Reversal Opportunities
         if "uptrend" in ma_trend.lower() or "strong_uptrend" in ma_trend.lower():
             if rsi_value > 60:
                 guidance_parts.append("⚠️ 均线向上但RSI超买: 可能接近顶部，考虑SELL做空")
@@ -1434,13 +1434,13 @@ IMPORTANT:
         else:
             guidance_parts.append("⚪ 均线横盘: 趋势不明确")
         
-        # 24小时涨跌幅指导 - 识别过度波动
+        # 24-hour price range guidance - identifying excessive volatility
         if change_24h > 5:
             guidance_parts.append("🔴 24h涨幅 > 5%: 可能已过度上涨，建议SELL做空或获利了结")
         elif change_24h < -5:
             guidance_parts.append("🟢 24h跌幅 > 5%: 可能已过度下跌，可以考虑BUY做多")
         
-        # 综合建议
+        # Comprehensive suggestions
         sell_signals = sum([
             rsi_value > 60,
             macd_signal == "bearish",
@@ -1465,14 +1465,14 @@ IMPORTANT:
     
     def _has_major_news(self, news_data: List[Dict]) -> bool:
         """
-        检查是否有重大新闻事件。
-        重大新闻包括：监管变化、重大合作、丑闻、重大政策、地缘政治事件等。
-        地缘类使用词边界与分级，避免 toward/extension/us 等子串误判。
+        Check for breaking news events.
+        Breaking news includes: regulatory changes, major collaborations, scandals, major policies, geopolitical events, etc.
+        The geographical category uses word boundaries and classification to avoid misjudgment of substrings such as toward/extension/us.
         """
         if not news_data:
             return False
 
-        # 子串关键词（较长词或中文，避免过短英文误匹配）
+        # Substring keywords (longer words or Chinese to avoid mismatching of too short English)
         major_keywords = [
             "regulation", "regulatory", "approval", "policy", "government", "central bank",
             "监管", "禁令", "批准", "政策", "政府", "央行",
@@ -1481,7 +1481,7 @@ IMPORTANT:
             "sanctions", "embargo", "制裁", "中东", "海湾", "北约",
             "united states", "middle east",
         ]
-        # 短英文词用词边界匹配（不用裸子串）
+        # Use word boundary matching for short English words (without using naked substrings)
         major_short_patterns = [
             re.compile(r"\b(?:ban|banned|banning)\b", re.I),
             re.compile(r"\b(?:crisis|crises)\b", re.I),
@@ -1510,31 +1510,31 @@ IMPORTANT:
     
     def _has_macro_event(self, macro_data: Dict, market: str) -> bool:
         """
-        检查是否有重大宏观事件。
-        重大宏观事件包括：VIX异常高、DXY大幅波动、利率政策变化等。
+        Check for major macro events.
+        Major macro events include: abnormally high VIX, large fluctuations in DXY, changes in interest rate policies, etc.
         """
         if not macro_data:
             return False
         
-        # 检查VIX（恐慌指数）
+        # Check the VIX (fear index)
         if "VIX" in macro_data:
             vix = macro_data["VIX"]
             vix_value = vix.get("price", 0)
-            if vix_value > 30:  # VIX > 30 表示极度恐慌
+            if vix_value > 30:  # VIX > 30 indicates extreme panic
                 return True
         
-        # 检查DXY大幅波动（>1%）
+        # Check for large DXY swings (>1%)
         if "DXY" in macro_data:
             dxy = macro_data["DXY"]
             change_pct = abs(dxy.get("changePercent", 0))
-            if change_pct > 1.0:  # 美元指数波动超过1%
+            if change_pct > 1.0:  # The U.S. dollar index fluctuates more than 1%
                 return True
         
-        # 检查利率变化（对股票和加密货币影响大）
+        # Check for interest rate changes (big impact on stocks and cryptocurrencies)
         if "TNX" in macro_data and market in ["USStock", "Crypto"]:
             tnx = macro_data["TNX"]
             change_pct = abs(tnx.get("changePercent", 0))
-            if change_pct > 2.0:  # 利率变化超过2%
+            if change_pct > 2.0:  # Interest rates change by more than 2%
                 return True
         
         return False
@@ -1688,7 +1688,7 @@ IMPORTANT:
         else:
             analysis["decision"] = decision
         
-        # 基于技术指标验证决策合理性（允许宏观/新闻因素覆盖）
+        # Validate decision-making rationality based on technical indicators (allow macro/news factor coverage)
         if indicators:
             analysis = self._validate_decision_against_indicators(
                 analysis, indicators, confidence, 
@@ -1704,14 +1704,14 @@ IMPORTANT:
     def _validate_decision_against_indicators(self, analysis: Dict, indicators: Dict, confidence: int, 
                                                has_major_news: bool = False, has_macro_event: bool = False) -> Dict:
         """
-        根据技术指标验证决策的合理性，但允许宏观/新闻因素覆盖技术指标。
+        Justify decisions against technical indicators, but allow macro/news factors to override technical indicators.
         
         Args:
-            analysis: AI分析结果
-            indicators: 技术指标数据
-            confidence: 置信度
-            has_major_news: 是否有重大新闻事件
-            has_macro_event: 是否有重大宏观事件
+            analysis: AI analysis results
+            indicators: technical indicator data
+            confidence: confidence
+            has_major_news: Is there a major news event?
+            has_macro_event: Is there a major macro event?
         """
         decision = analysis.get("decision", "HOLD")
         rsi_data = indicators.get("rsi", {})
@@ -1722,70 +1722,70 @@ IMPORTANT:
         macd_signal = macd_data.get("signal", "neutral")
         ma_trend = ma_data.get("trend", "sideways")
         
-        # 如果置信度太低，强制改为HOLD
+        # If the confidence level is too low, force it to HOLD
         if confidence < 60:
             if decision != "HOLD":
                 logger.warning(f"Decision {decision} with low confidence {confidence}, forcing to HOLD")
                 analysis["decision"] = "HOLD"
-                analysis["confidence"] = max(confidence, 45)  # 降低置信度
+                analysis["confidence"] = max(confidence, 45)  # Reduce confidence
             return analysis
         
-        # 如果有重大新闻或宏观事件，允许覆盖技术指标（但记录警告）
+        # Allows technical indicators to be overridden (but logs warnings) if there is major news or macro events
         allow_override = has_major_news or has_macro_event
         
-        # 检查BUY决策是否与技术指标矛盾
+        # Check whether the BUY decision conflicts with technical indicators
         if decision == "BUY":
             conflicts = []
             
-            # RSI > 70 时不应该BUY（除非有重大利好）
+            # You should not buy when RSI > 70 (unless there is a major upside)
             if rsi_value > 70:
                 conflicts.append(f"RSI {rsi_value:.1f} > 70 (超买)")
             
-            # MACD看跌时不应该BUY（除非有重大利好）
+            # You should not BUY when MACD is bearish (unless there is a major upside)
             if macd_signal == "bearish":
                 conflicts.append("MACD bearish")
             
-            # 均线趋势向下时不应该BUY（除非有重大利好）
-            # 只有当趋势非常强烈时才认为是冲突（避免过于敏感）
+            # You should not buy when the moving average trend is downward (unless there is a major benefit)
+            # Only consider a conflict if the trend is very strong (avoid being too sensitive)
             if "strong_downtrend" in ma_trend.lower() or ("downtrend" in ma_trend.lower() and rsi_value > 50):
                 conflicts.append(f"MA trend: {ma_trend}")
             
             if conflicts:
                 if allow_override:
-                    # 允许覆盖，但降低置信度并添加说明
+                    # Allow override, but lower confidence and add description
                     logger.info(f"BUY decision conflicts with indicators but major news/macro event allows override: {', '.join(conflicts)}")
                     analysis["confidence"] = max(confidence - 15, 50)
                     original_summary = analysis.get("summary", "")
                     analysis["summary"] = f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，但重大事件可能改变趋势]"
                 else:
-                    # 没有重大事件，强制改为HOLD
+                    # If there is no major event, it is forced to be changed to HOLD.
                     logger.warning(f"BUY decision conflicts with indicators and no major event: {', '.join(conflicts)}. Forcing to HOLD")
                     analysis["decision"] = "HOLD"
                     analysis["confidence"] = max(confidence - 20, 40)
                     original_summary = analysis.get("summary", "")
                     analysis["summary"] = f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，建议观望]"
         
-        # 检查SELL决策是否与技术指标矛盾（放宽限制，因为SELL是有效的做空机会）
+        # Check whether SELL decisions contradict technical indicators (relax restrictions because SELL is a valid short opportunity)
         elif decision == "SELL":
             conflicts = []
             
-            # 只有在强烈看涨信号时才阻止SELL（放宽条件）
-            # RSI < 30 且 MACD看涨 且 均线向上时，才认为矛盾
+            # Only block SELL (relax conditions) if there is a strong bullish signal
+            # It is considered a contradiction when RSI < 30 and MACD is bullish and the moving average is upward.
             if rsi_value < 30 and macd_signal == "bullish" and "uptrend" in ma_trend.lower():
                 conflicts.append(f"Strong bullish signals (RSI {rsi_value:.1f} < 30, MACD bullish, uptrend)")
-            # 或者 RSI < 30 且 均线强烈向上
+            # Or RSI < 30 and the moving average is strongly upward
             elif rsi_value < 30 and "strong_uptrend" in ma_trend.lower():
                 conflicts.append(f"Very strong uptrend with oversold RSI {rsi_value:.1f}")
             
             if conflicts:
                 if allow_override:
-                    # 允许覆盖，但降低置信度并添加说明
+                    # Allow override, but lower confidence and add description
                     logger.info(f"SELL decision conflicts with strong bullish indicators but major news/macro event allows override: {', '.join(conflicts)}")
                     analysis["confidence"] = max(confidence - 15, 50)
                     original_summary = analysis.get("summary", "")
                     analysis["summary"] = f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，但重大事件可能改变趋势]"
                 else:
-                    # 只有在非常强烈的看涨信号时才改为HOLD
+                    # Only change to HOLD if there is a very strong bullish signal
                     logger.warning(f"SELL decision conflicts with very strong bullish indicators: {', '.join(conflicts)}. Forcing to HOLD")
                     analysis["decision"] = "HOLD"
                     analysis["confidence"] = max(confidence - 20, 40)
@@ -1796,16 +1796,16 @@ IMPORTANT:
     
     def _calculate_objective_score(self, data: Dict[str, Any], current_price: float) -> Dict[str, float]:
         """
-        基于客观数据计算量化评分系统
+        Calculates a quantitative scoring system based on objective data
         
-        返回一个-100到+100的分数：
-        - +100: 强烈利多（强烈BUY）
-        - +70到+100: 强烈利多（强烈BUY）
-        - +40到+70: 利多（BUY）
-        - -40到+40: 中性（HOLD）
-        - -70到-40: 利空（SELL）
-        - -100到-70: 强烈利空（强烈SELL）
-        - -100: 强烈利空（强烈SELL）
+        Return a score between -100 and +100:
+        - +100: Strong bullish (strong BUY)
+        - +70 to +100: Strong bullish (strong BUY)
+        - +40 to +70: BUY
+        - -40 to +40: Neutral (HOLD)
+        - -70 to -40: SELL
+        - -100 to -70: Strongly bearish (strongly SELL)
+        - -100: Strongly bearish (strongly SELL)
         """
         indicators = data.get("indicators") or {}
         fundamental = data.get("fundamental") or {}
@@ -1813,27 +1813,27 @@ IMPORTANT:
         macro = data.get("macro") or {}
         price_data = data.get("price") or {}
         
-        # 1. 技术指标评分 (-100 to +100)
+        # 1. Technical indicator score (-100 to +100)
         technical_score = self._calculate_technical_score(indicators, price_data)
         
-        # 2. 基本面评分 (-100 to +100)
+        # 2. Fundamental score (-100 to +100)
         fundamental_score = self._calculate_fundamental_score(fundamental, data.get("market", ""))
         
-        # 3. 新闻情绪评分 (-100 to +100)
+        # 3. News sentiment score (-100 to +100)
         sentiment_score = self._calculate_sentiment_score(news)
         
-        # 4. 宏观环境评分 (-100 to +100)
+        # 4. Macro environment score (-100 to +100)
         macro_score = self._calculate_macro_score(macro, data.get("market", ""))
         
-        # 5. 综合评分（加权平均）
-        # 优化权重：默认技术35%，基本面20%，情绪25%（包含地缘政治），宏观20%（提高宏观权重）
-        # 但要做“可用信息重加权”：当某些模块缺失（如新闻/宏观没取到），不要用0分去稀释整体强度，
-        # 而是重新归一化权重，让技术信号在缺失时仍可发挥主导作用。
+        # 5. Comprehensive rating (weighted average)
+        # Optimization weight: Default technical 35%, fundamentals 20%, sentiment 25% (including geopolitics), macro 20% (increase macro weight)
+        # But we need to "reweight the available information": when some modules are missing (such as news/macro is not obtained), do not use 0 points to dilute the overall strength.
+        # Instead, the weights are renormalized so that technical signals can still play a leading role in their absence.
         market_type = str(data.get("market") or "")
         fundamental_present = (market_type == "USStock") and bool(fundamental)
         sentiment_present = bool(news)
         macro_present = bool(macro)
-        # indicators 一旦成功计算通常就存在，但这里也做一次保护
+        # indicators usually exist once they are successfully calculated, but they are also protected here.
         technical_present = bool(indicators)
 
         weights = {
@@ -1897,28 +1897,28 @@ IMPORTANT:
         return cfg
     
     def _calculate_technical_score(self, indicators: Dict, price_data: Dict) -> float:
-        """计算技术指标评分 (-100 to +100)"""
+        """Calculate technical indicator score (-100 to +100)"""
         score = 0.0
         weight_sum = 0.0
         
-        # RSI 评分 (-50 to +50)
+        # RSI score (-50 to +50)
         rsi_data = indicators.get("rsi", {})
         rsi_value = rsi_data.get("value", 50)
         if rsi_value > 0:
             if rsi_value > 70:
-                rsi_score = -50  # 超买，强烈利空
+                rsi_score = -50  # Overbought, strongly bearish
             elif rsi_value > 60:
-                rsi_score = -30  # 偏超买，利空
+                rsi_score = -30  # Overbought, negative
             elif rsi_value < 30:
-                rsi_score = +50  # 超卖，强烈利多
+                rsi_score = +50  # Oversold, strongly bullish
             elif rsi_value < 40:
-                rsi_score = +30  # 偏超卖，利多
+                rsi_score = +30  # Oversold, bullish
             else:
-                rsi_score = (50 - rsi_value) * 0.6  # 40-60之间，线性映射
+                rsi_score = (50 - rsi_value) * 0.6  # Between 40-60, linear mapping
             score += rsi_score * 0.30
             weight_sum += 0.30
         
-        # MACD 评分 (-40 to +40)
+        # MACD score (-40 to +40)
         macd_data = indicators.get("macd", {})
         macd_signal = macd_data.get("signal", "neutral")
         if macd_signal == "bullish":
@@ -1930,7 +1930,7 @@ IMPORTANT:
         score += macd_score * 0.25
         weight_sum += 0.25
         
-        # 均线趋势评分 (-40 to +40)
+        # Moving average trend score (-40 to +40)
         ma_data = indicators.get("moving_averages", {})
         ma_trend = ma_data.get("trend", "sideways")
         if "strong_uptrend" in ma_trend.lower():
@@ -1946,36 +1946,36 @@ IMPORTANT:
         score += ma_score * 0.25
         weight_sum += 0.25
         
-        # 24小时涨跌幅评分 (-20 to +20)
+        # 24-hour rise and fall score (-20 to +20)
         change_24h = price_data.get("changePercent", 0)
         if change_24h > 10:
-            change_score = -20  # 过度上涨，利空
+            change_score = -20  # Excessive rise is bad
         elif change_24h > 5:
             change_score = -10
         elif change_24h < -10:
-            change_score = +20  # 过度下跌，利多
+            change_score = +20  # Excessive decline, bullish
         elif change_24h < -5:
             change_score = +10
         else:
-            change_score = change_24h * 2  # 线性映射
+            change_score = change_24h * 2  # linear mapping
         score += change_score * 0.20
         weight_sum += 0.20
 
-        # ========== 额外技术特征（轻量增强，不改变主体结构） ==========
-        # 这些特征来自 MarketDataCollector._calculate_indicators 的输出：
-        # - price_position: 过去20根K线区间位置 0~100
-        # - volume_ratio: 最新成交量 / 20期均量
+        # ========== Additional technical features (lightweight enhancement, no change to the main structure) ==========
+        # These characteristics come from the output of MarketDataCollector._calculate_indicators:
+        # - price_position: range position of the past 20 K-lines 0~100
+        # - volume_ratio: latest trading volume / average volume of 20 periods
         # - bollinger: BB_upper/BB_lower/BB_width
         # - volatility: atr, pct
         extra_score = 0.0
         extra_weight = 0.0
 
-        # 1) 区间位置：接近区间顶部更偏利空，接近区间底部更偏利多
+        # 1) Range position: Close to the top of the range is more bearish, and close to the bottom of the range is more bullish.
         try:
             pp = float(indicators.get("price_position", 50.0))
-            # 0~100 -> -15~+15 (线性映射，中心50为0)
+            # 0~100 -> -15~+15 (linear mapping, center 50 is 0)
             pp_score = (50.0 - pp) * 0.3
-            # 在极端区域增强信号
+            # Boost signal in extreme areas
             if pp >= 85:
                 pp_score -= 5
             elif pp <= 15:
@@ -1985,7 +1985,7 @@ IMPORTANT:
         except Exception:
             pass
 
-        # 2) 布林带触及：突破上轨偏利空，跌破下轨偏利多
+        # 2) The Bollinger Bands are touched: a breakthrough of the upper band is negative, and a fall below the lower band is positive.
         try:
             cur_px = float(indicators.get("current_price") or price_data.get("price") or 0.0)
             bb = indicators.get("bollinger") or {}
@@ -2006,7 +2006,7 @@ IMPORTANT:
         except Exception:
             pass
 
-        # 3) 成交量放大：在趋势方向上加分，逆趋势减分（弱信号）
+        # 3) Trading volume amplification: plus points in the direction of the trend and minus points against the trend (weak signal)
         try:
             vr = float(indicators.get("volume_ratio") or 1.0)
             trend = str(indicators.get("trend") or indicators.get("moving_averages", {}).get("trend") or "").lower()
@@ -2018,22 +2018,22 @@ IMPORTANT:
                     extra_score += -8
                     extra_weight += 0.15
                 else:
-                    # 放量但无趋势：更偏不确定，略微降低（当作偏利空风险）
+                    # Large volume but no trend: more uncertain, slightly lower (considered to be a bearish risk)
                     extra_score += -3
                     extra_weight += 0.10
             elif vr <= 0.6:
-                # 缩量：趋势信号可信度下降（轻微回归到0）
+                # Shrinkage: The credibility of the trend signal decreases (slight return to 0)
                 extra_score += 0
                 extra_weight += 0.05
         except Exception:
             pass
 
-        # 4) 高波动：减少强方向自信（用“缩放”形式实现，避免硬反转）
+        # 4) High volatility: reduce strong directional confidence (implemented in the form of "scaling" to avoid hard reversals)
         try:
             vol = indicators.get("volatility") or {}
             vol_pct = float(vol.get("pct") or 0.0)
             if vol_pct >= 6.0:
-                # 极高波动：把额外分数打折，并轻微把总体拉回0
+                # Extremely High Volatility: Discounts extra points and slightly brings the total back to 0
                 extra_score *= 0.6
                 score *= 0.92
             elif vol_pct >= 3.5:
@@ -2049,29 +2049,29 @@ IMPORTANT:
             score += extra_norm * 0.15
             weight_sum += 0.15
         
-        # 归一化到-100到+100
+        # Normalized to -100 to +100
         if weight_sum > 0:
             score = score / weight_sum * 100
         
         return max(-100, min(100, score))
     
     def _calculate_fundamental_score(self, fundamental: Dict, market: str) -> float:
-        """计算基本面评分 (-100 to +100)"""
+        """Calculate fundamental score (-100 to +100)"""
         if market != "USStock" or not fundamental:
-            return 0.0  # 非美股或无基本面数据，返回中性
+            return 0.0  # Non-U.S. stocks or no fundamental data, return neutral
         
         score = 0.0
         factors = 0
         
-        # PE Ratio 评分
+        # PE Ratio score
         pe_ratio = fundamental.get("pe_ratio")
         if pe_ratio and pe_ratio > 0:
             if pe_ratio < 15:
-                pe_score = +20  # 低PE，利多
+                pe_score = +20  # Low PE, bullish
             elif pe_ratio < 25:
                 pe_score = +10
             elif pe_ratio > 50:
-                pe_score = -20  # 高PE，利空
+                pe_score = -20  # High PE, negative
             elif pe_ratio > 35:
                 pe_score = -10
             else:
@@ -2079,15 +2079,15 @@ IMPORTANT:
             score += pe_score
             factors += 1
         
-        # ROE 评分
+        # ROE score
         roe = fundamental.get("roe")
         if roe:
             if roe > 20:
-                roe_score = +20  # 高ROE，利多
+                roe_score = +20  # High ROE, Rita
             elif roe > 15:
                 roe_score = +10
             elif roe < 5:
-                roe_score = -20  # 低ROE，利空
+                roe_score = -20  # Low ROE, bad news
             elif roe < 10:
                 roe_score = -10
             else:
@@ -2095,15 +2095,15 @@ IMPORTANT:
             score += roe_score
             factors += 1
         
-        # 营收增长评分
+        # revenue growth score
         revenue_growth = fundamental.get("revenue_growth")
         if revenue_growth:
             if revenue_growth > 20:
-                growth_score = +20  # 高增长，利多
+                growth_score = +20  # High growth, good news
             elif revenue_growth > 10:
                 growth_score = +10
             elif revenue_growth < -10:
-                growth_score = -20  # 负增长，利空
+                growth_score = -20  # negative growth, bad
             elif revenue_growth < 0:
                 growth_score = -10
             else:
@@ -2111,15 +2111,15 @@ IMPORTANT:
             score += growth_score
             factors += 1
         
-        # 利润率评分
+        # Profitability score
         profit_margin = fundamental.get("profit_margin")
         if profit_margin:
             if profit_margin > 20:
-                margin_score = +15  # 高利润率，利多
+                margin_score = +15  # High profit margin, profit
             elif profit_margin > 10:
                 margin_score = +7
             elif profit_margin < 0:
-                margin_score = -15  # 亏损，利空
+                margin_score = -15  # loss, bad
             elif profit_margin < 5:
                 margin_score = -7
             else:
@@ -2127,31 +2127,31 @@ IMPORTANT:
             score += margin_score
             factors += 1
         
-        # 债务权益比评分
+        # Debt to Equity Ratio Score
         debt_to_equity = fundamental.get("debt_to_equity")
         if debt_to_equity:
             if debt_to_equity < 0.5:
-                debt_score = +10  # 低负债，利多
+                debt_score = +10  # Low debt, good profits
             elif debt_to_equity > 2.0:
-                debt_score = -10  # 高负债，利空
+                debt_score = -10  # High debt, bad
             else:
                 debt_score = 0
             score += debt_score
             factors += 1
         
-        # 归一化（如果有多个因素）
+        # Normalization (if there are multiple factors)
         if factors > 0:
-            score = score / factors * 100 / 4  # 最大可能分数是4个因素各20分=80，归一化到100
+            score = score / factors * 100 / 4  # The maximum possible score is 20 points for each of the 4 factors = 80, normalized to 100
         
         return max(-100, min(100, score))
     
     def _calculate_sentiment_score(self, news: List[Dict]) -> float:
         """
-        计算新闻情绪评分 (-100 to +100)
-        地缘/冲突类：词边界 + 分级惩罚，单条封顶，避免 extension/toward 等误判叠加。
+        Calculate news sentiment score (-100 to +100)
+        Geographical/conflict category: word boundary + hierarchical punishment, single capping, to avoid superposition of misjudgments such as extension/toward.
         """
         if not news:
-            return 0.0  # 无新闻，中性
+            return 0.0  # No news, neutral
 
         positive_count = 0
         negative_count = 0
@@ -2210,55 +2210,55 @@ IMPORTANT:
     
     def _calculate_macro_score(self, macro: Dict, market: str) -> float:
         """
-        计算宏观环境评分 (-100 to +100)
-        包含VIX、DXY、利率等宏观经济指标
+        Calculate macro environment score (-100 to +100)
+        Contains macroeconomic indicators such as VIX, DXY, interest rates, etc.
         """
         if not macro:
-            return 0.0  # 无宏观数据，中性
+            return 0.0  # No macro data, neutral
         
         score = 0.0
         factors = 0
         
-        # VIX 评分（恐慌指数）- 权重提高
+        # VIX score (fear index) - increased weight
         vix = macro.get("VIX", {})
         vix_value = vix.get("price", 0)
         if vix_value > 0:
             if vix_value > 35:
-                vix_score = -50  # 极高恐慌（如战争期间），严重利空
+                vix_score = -50  # Extremely high panic (such as during a war), severely negative
             elif vix_value > 30:
-                vix_score = -40  # 高恐慌，严重利空
+                vix_score = -40  # High panic, serious negative news
             elif vix_value > 25:
-                vix_score = -30  # 较高恐慌，利空
+                vix_score = -30  # Higher panic, bad news
             elif vix_value > 20:
-                vix_score = -15  # 中等恐慌，轻微利空
+                vix_score = -15  # Moderate panic, slightly negative
             elif vix_value < 12:
-                vix_score = +20  # 低恐慌，利多
+                vix_score = +20  # Low panic, bullish
             elif vix_value < 15:
-                vix_score = +10  # 较低恐慌，轻微利多
+                vix_score = +10  # Lower panic, slightly bullish
             else:
                 vix_score = 0
             score += vix_score
             factors += 1
         
-        # DXY 评分（美元指数）- 权重提高
+        # DXY Score (USD Index) - Increased weighting
         dxy = macro.get("DXY", {})
         dxy_value = dxy.get("price", 0)
         dxy_change = dxy.get("changePercent", 0)
         if dxy_value > 0:
-            # 对于加密货币和商品，强美元通常是利空
+            # For Cryptocurrencies and Commodities, A Strong USD Is Typically Bearish
             if market in ["Crypto", "Forex", "Futures"]:
                 if dxy_change > 2:
-                    dxy_score = -30  # 美元大幅走强，严重利空
+                    dxy_score = -30  # The sharp strengthening of the US dollar is seriously negative
                 elif dxy_change > 1:
-                    dxy_score = -20  # 美元走强，利空
+                    dxy_score = -20  # A stronger U.S. dollar is a negative
                 elif dxy_change < -2:
-                    dxy_score = +30  # 美元大幅走弱，利多
+                    dxy_score = +30  # The U.S. dollar weakens sharply, which is bullish
                 elif dxy_change < -1:
-                    dxy_score = +20  # 美元走弱，利多
+                    dxy_score = +20  # A weaker dollar is bullish
                 else:
                     dxy_score = 0
             else:
-                # 对股票也有影响，但较小
+                # It also has an impact on stocks, but it’s smaller
                 if dxy_change > 2:
                     dxy_score = -10
                 elif dxy_change < -2:
@@ -2268,21 +2268,21 @@ IMPORTANT:
             score += dxy_score
             factors += 1
         
-        # 利率评分（TNX）- 权重提高
+        # Interest Rate Score (TNX) - Increased weighting
         tnx = macro.get("TNX", {})
         tnx_change = tnx.get("changePercent", 0)
         tnx_value = tnx.get("price", 0)
         if tnx_change != 0 or tnx_value > 0:
-            # 利率上升对成长股和加密货币通常是利空
+            # Rising interest rates are generally negative for growth stocks and cryptocurrencies
             if market in ["Crypto", "USStock"]:
                 if tnx_change > 3:
-                    tnx_score = -30  # 利率大幅上升，严重利空
+                    tnx_score = -30  # Interest rates rise sharply, which is seriously negative
                 elif tnx_change > 2:
-                    tnx_score = -20  # 利率上升，利空
+                    tnx_score = -20  # Rising interest rates are bad
                 elif tnx_change < -3:
-                    tnx_score = +30  # 利率大幅下降，利多
+                    tnx_score = +30  # A sharp drop in interest rates is bullish
                 elif tnx_change < -2:
-                    tnx_score = +20  # 利率下降，利多
+                    tnx_score = +20  # Falling interest rates are bullish
                 else:
                     tnx_score = 0
             else:
@@ -2290,7 +2290,7 @@ IMPORTANT:
             score += tnx_score
             factors += 1
 
-        # 恐惧贪婪指数（更适合 Crypto）：极端贪婪偏利空，极端恐惧偏利多（弱信号）
+        # Fear and greed index (more suitable for Crypto): extreme greed is negative, extreme fear is bullish (weak signal)
         try:
             fg = macro.get("FEAR_GREED", {}) or {}
             fg_value = float(fg.get("price") or 0.0)
@@ -2310,12 +2310,12 @@ IMPORTANT:
         except Exception:
             pass
         
-        # 归一化（考虑权重）
+        # Normalization (considering weights)
         if factors > 0:
-            # 最大可能分数：VIX(-50~+20), DXY(-30~+30), TNX(-30~+30) = 约-110到+80
-            # 归一化到-100到+100
-            # 加上 Fear&Greed 的幅度（约 15），给点 buffer
-            max_possible = 125  # 最大绝对值
+            # Maximum possible score: VIX(-50~+20), DXY(-30~+30), TNX(-30~+30) = about -110 to +80
+            # Normalized to -100 to +100
+            # Add the amplitude of Fear&Greed (about 15) and give some buffer
+            max_possible = 125  # maximum absolute value
             score = score / max_possible * 100
         
         return max(-100, min(100, score))
@@ -2330,23 +2330,23 @@ IMPORTANT:
 
     def _score_to_decision(self, score: float, *, market: str = "Crypto") -> str:
         """
-        根据客观评分转换为决策
+        Transformed into decisions based on objective scoring
         
-        优化后的阈值（大幅缩小HOLD区间，使决策更明确）：
-        - score >= +20: BUY（利多）
-        - score <= -20: SELL（利空）
-        - -20 < score < +20: HOLD（中性）
+        Optimized threshold (significantly narrows the HOLD interval to make decisions clearer):
+        - score >= +20: BUY (profit)
+        - score <= -20: SELL (bad)
+        - -20 < score < +20: HOLD (neutral)
         
-        分级决策（用于更细粒度的判断）：
-        - score >= +70: 强烈BUY
-        - +40 <= score < +70: 明显BUY
+        Hierarchical decision-making (for finer-grained judgment):
+        - score >= +70: strong BUY
+        - +40 <= score < +70: obvious BUY
         - +20 <= score < +40: BUY
-        - +10 < score < +20: 弱利多（倾向于BUY，但可HOLD）
-        - -10 <= score <= +10: 中性HOLD（真正的中性区间）
-        - -20 < score < -10: 弱利空（倾向于SELL，但可HOLD）
+        - +10 < score < +20: Weak profit and long (tend to BUY, but can HOLD)
+        - -10 <= score <= +10: Neutral HOLD (true neutral interval)
+        - -20 < score < -10: Weakly bearish (inclined to SELL, but can be HOLD)
         - -40 < score <= -20: SELL
-        - -70 < score <= -40: 明显SELL
-        - score <= -70: 强烈SELL
+        - -70 < score <= -40: obviously SELL
+        - score <= -70: Strong SELL
         """
         cfg = self._get_ai_calibration(market=market)
         buy_thr = float(cfg.get("buy_threshold") or 20.0)
@@ -2361,14 +2361,14 @@ IMPORTANT:
     
     def _calculate_overall_score(self, analysis: Dict) -> int:
         """Calculate weighted overall score (legacy method, now uses objective score if available)."""
-        # 优先使用客观评分
+        # Prioritize objective scoring
         if "objective_score" in analysis:
             objective = analysis["objective_score"]
             overall = objective.get("overall_score", 50)
-            # 转换为0-100格式（原系统使用）
+            # Convert to 0-100 format (used by the original system)
             return max(0, min(100, int(50 + overall * 0.5)))
         
-        # 降级到LLM评分
+        # Downgraded to LLM rating
         tech = analysis.get("technical_score", 50)
         fund = analysis.get("fundamental_score", 50)
         sent = analysis.get("sentiment_score", 50)

@@ -105,7 +105,7 @@ def get_egress_ip():
             "data": {
                 "ipv4": ipv4 or None,
                 "ipv6": ipv6 or None,
-                # 兼容旧前端：优先 IPv4，否则 IPv6
+                # Compatible with old frontends: IPv4 first, otherwise IPv6
                 "ip": ipv4 or ipv6 or None,
             },
         }

@@ -1,17 +1,17 @@
 """
-市场数据采集服务 - AI分析专用
+Market data collection service - dedicated to AI analysis
 
-设计理念：
-1. 数据为王 - 先把数据获取做好、做稳定
-2. 统一数据源 - 完全复用 DataSourceFactory 和 kline_service
-3. 复用全球金融板块 - 宏观数据、情绪数据复用 global_market.py 的缓存
-4. 快速稳定 - 不依赖慢速外部服务（如Jina Reader）
+Design concept:
+1. Data is king - first obtain data well and make it stable
+2. Unified data source - completely reuse DataSourceFactory and kline_service
+3. Reuse the global financial sector - reuse the cache of global_market.py for macro data and sentiment data
+4. Fast and stable - does not rely on slow external services (such as Jina Reader)
 
-数据源映射：
-- 价格/K线: DataSourceFactory (已验证，与K线模块、自选列表一致)
-- 宏观数据: 复用 global_market.py (VIX, DXY, TNX, Fear&Greed等，带缓存)
-- 新闻: Finnhub API (结构化数据，无需深度阅读)
-- 基本面: Finnhub (美股) / 固定描述 (加密)
+Data source mapping:
+- Price/K-line: DataSourceFactory (verified, consistent with K-line module and self-selected list)
+- Macro data: reuse global_market.py (VIX, DXY, TNX, Fear&Greed, etc., with cache)
+- News: Finnhub API (structured data, no in-depth reading required)
+- Fundamentals: Finnhub (US stocks) / Fixed description (crypto)
 """
 
 import time
@@ -32,15 +32,15 @@ logger = get_logger(__name__)
 
 class MarketDataCollector:
     """
-    市场数据采集器
+    Market data collector
     
-    职责：为AI分析提供完整、准确、及时的市场数据
+    Responsibilities: Provide complete, accurate and timely market data for AI analysis
     
-    数据层次：
-    1. 核心数据 (必须成功): 价格、K线
-    2. 分析数据 (增强): 技术指标、基本面
-    3. 宏观数据 (可选): 复用 global_market.py (VIX, DXY, TNX, Fear&Greed等)
-    4. 情绪数据 (可选): 新闻、市场情绪
+    Data level:
+    1. Core data (must succeed): price, K-line
+    2. Analyze data (enhanced): technical indicators, fundamentals
+    3. Macro data (optional): reuse global_market.py (VIX, DXY, TNX, Fear&Greed, etc.)
+    4. Sentiment data (optional): news, market sentiment
     """
     
     def __init__(self):
@@ -50,7 +50,7 @@ class MarketDataCollector:
         self._init_clients()
     
     def _init_clients(self):
-        """初始化外部API客户端"""
+        """Initialize external API client"""
         # Finnhub
         finnhub_key = APIKeys.FINNHUB_API_KEY
         if finnhub_key:
@@ -74,23 +74,23 @@ class MarketDataCollector:
         timeframe: str = "1D",
         include_macro: bool = True,
         include_news: bool = True,
-        include_polymarket: bool = True,  # 新增：是否包含预测市场数据
+        include_polymarket: bool = True,  # New: Whether to include prediction market data
         timeout: int = 30
     ) -> Dict[str, Any]:
         """
-        采集所有市场数据
+        Collect all market data
         
         Args:
-            market: 市场类型 (USStock, Crypto, Forex, Futures)
-            symbol: 标的代码
-            timeframe: K线周期
-            include_macro: 是否包含宏观数据
-            include_news: 是否包含新闻
-            include_polymarket: 是否包含预测市场数据
-            timeout: 总超时时间(秒)
+            market: market type (USStock, Crypto, Forex, Futures)
+            symbol: target code
+            timeframe: K-line cycle
+            include_macro: whether to include macro data
+            include_news: whether to include news
+            include_polymarket: whether to include prediction market data
+            timeout: total timeout (seconds)
             
         Returns:
-            完整的市场数据字典
+            Complete Market Data Dictionary
         """
         start_time = time.time()
         
@@ -99,21 +99,21 @@ class MarketDataCollector:
             "symbol": symbol,
             "timeframe": timeframe,
             "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            # 核心数据
+            # core data
             "price": None,
             "kline": None,
             "indicators": {},
-            # 基本面
+            # Fundamentals
             "fundamental": {},
             "company": {},
-            # 宏观
+            # Macro
             "macro": {},
-            # 情绪
+            # mood
             "news": [],
             "sentiment": {},
-            # 预测市场
+            # prediction market
             "polymarket": [],
-            # 元数据
+            # metadata
             "_meta": {
                 "success_items": [],
                 "failed_items": [],
@@ -121,19 +121,19 @@ class MarketDataCollector:
             }
         }
         
-        # === 阶段1: 核心数据 (并行获取) ===
+        # === Phase 1: Core data (parallel acquisition) ===
         with ThreadPoolExecutor(max_workers=4) as executor:
             core_futures = {
                 executor.submit(self._get_price, market, symbol): "price",
                 executor.submit(self._get_kline, market, symbol, timeframe, 60): "kline",
             }
             
-            # 如果需要基本面，也并行获取
+            # If fundamentals are needed, also obtain them in parallel
             if market == 'USStock':
                 core_futures[executor.submit(self._get_fundamental, market, symbol)] = "fundamental"
                 core_futures[executor.submit(self._get_company, market, symbol)] = "company"
             elif market == 'Crypto':
-                # 加密货币的"基本面"是固定描述
+                # Cryptocurrency 'fundamentals' are fixed description
                 core_futures[executor.submit(self._get_crypto_info, symbol)] = "fundamental"
             
             try:
@@ -152,12 +152,12 @@ class MarketDataCollector:
             except TimeoutError:
                 logger.warning(f"Core data fetch timed out for {market}:{symbol}")
         
-        # 计算技术指标 (本地计算，不需要外部API)
+        # Calculate technical indicators (local calculation, no external API required)
         if data.get("kline"):
             data["indicators"] = self._calculate_indicators(data["kline"])
             data["_meta"]["success_items"].append("indicators")
         
-        # === 阶段2: 宏观数据 (如果需要) ===
+        # === Stage 2: Macro data (if required) ===
         if include_macro:
             try:
                 data["macro"] = self._get_macro_data(market, timeout=10)
@@ -167,10 +167,10 @@ class MarketDataCollector:
                 logger.warning(f"Macro data fetch failed: {e}")
                 data["_meta"]["failed_items"].append("macro")
         
-        # === 阶段3: 新闻/情绪 (如果需要) ===
+        # === Stage 3: News/Sentiment (if needed) ===
         if include_news:
             try:
-                # 获取公司名称以改善搜索
+                # Get company name to improve search
                 company_name = None
                 if data.get("company"):
                     company_name = data["company"].get("name")
@@ -185,7 +185,7 @@ class MarketDataCollector:
                 logger.warning(f"News fetch failed: {e}")
                 data["_meta"]["failed_items"].append("news")
         
-        # === 阶段4: 预测市场数据 (如果需要) ===
+        # === Stage 4: Prediction market data (if required) ===
         if include_polymarket:
             try:
                 polymarket_events = self._get_polymarket_events(symbol, market)
@@ -196,7 +196,7 @@ class MarketDataCollector:
                 logger.debug(f"Polymarket data fetch failed: {e}")
                 data["_meta"]["failed_items"].append("polymarket")
         
-        # 记录总耗时
+        # Record the total time spent
         data["_meta"]["duration_ms"] = int((time.time() - start_time) * 1000)
         logger.info(f"Market data collection completed for {market}:{symbol} in {data['_meta']['duration_ms']}ms")
         logger.info(f"  Success: {data['_meta']['success_items']}")
@@ -204,16 +204,16 @@ class MarketDataCollector:
         
         return data
     
-    # ==================== 核心数据获取 ====================
+    # ==================== Core data acquisition ====================
     
     def _get_price(self, market: str, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        获取实时价格 - 使用 kline_service (与自选列表一致)
+        Get live prices - use kline_service (same as watchlist)
         """
         try:
             price_data = self.kline_service.get_realtime_price(market, symbol, force_refresh=True)
             if price_data and price_data.get('price', 0) > 0:
-                # 安全转换为 float，处理 None 值
+                # Safe conversion to float, handling None values
                 def safe_float(val, default=0.0):
                     if val is None:
                         return default
@@ -236,7 +236,7 @@ class MarketDataCollector:
         except Exception as e:
             logger.warning(f"Price fetch failed for {market}:{symbol}: {e}")
         
-        # 如果 kline_service 失败，尝试从 K 线最后一根获取价格
+        # If kline_service fails, try to get the price from the last K-line
         try:
             klines = DataSourceFactory.get_kline(market, symbol, "1D", 2)
             if klines and len(klines) > 0:
@@ -267,7 +267,7 @@ class MarketDataCollector:
         self, market: str, symbol: str, timeframe: str, limit: int = 60
     ) -> Optional[List[Dict[str, Any]]]:
         """
-        获取K线数据 - 使用 DataSourceFactory (与K线模块一致)
+        Get K-line data - use DataSourceFactory (consistent with K-line module)
         """
         try:
             klines = DataSourceFactory.get_kline(market, symbol, timeframe, limit)
@@ -279,14 +279,14 @@ class MarketDataCollector:
     
     def _calculate_indicators(self, klines: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        计算技术指标 (本地计算，无外部依赖)
+        Calculate technical indicators (local calculation, no external dependencies)
         
-        返回格式符合前端 FastAnalysisReport.vue 的期望。
-        口径说明（与常见行情终端对齐）：
-        - RSI(14)：Wilder 平滑（首段均幅为前 14 期简单平均，其后递推）。
-        - MACD：收盘 EMA12/EMA26（首值=前 N 日 SMA），信号线=MACD 的 EMA9（SMA 种子）。
-        - MA：SMA。枢轴：上一根 K 的 H/L/C。摆动高低：近 20 根 H/L 窗口极值。
-        - 布林：20 收盘 SMA ± 2×总体标准差。ATR(14)：Wilder（首 ATR=前 14 期 TR 简单平均，其后递推）。
+        The return format meets the expectations of the front-end FastAnalysisReport.vue.
+        Caliber description (aligned with common market terminals):
+        - RSI(14): Wilder smoothing (the average amplitude of the first period is the simple average of the previous 14 periods, and then recursively).
+        - MACD: Closing EMA12/EMA26 (first value = SMA of the previous N days), signal line = EMA9 of MACD (SMA seed).
+        - MA: SMA. Pivot: H/L/C of the previous king. Swing High and Low: Near 20 H/L window extremes.
+        - Bollinger: 20 closing SMA ± 2× population standard deviation. ATR(14): Wilder (first ATR = simple average of TR in the first 14 periods, followed by recursion).
         """
         if not klines or len(klines) < 5:
             return {}
@@ -317,7 +317,7 @@ class MarketDataCollector:
                     'signal': rsi_signal,
                 }
             
-            # ========== MACD（SMA 种子 EMA，与常见终端一致）==========
+            # ========== MACD (SMA seed EMA, consistent with common terminals) ==========
             if len(closes) >= 34:
                 macd_raw = self._calc_macd(closes)
                 macd_val = macd_raw.get('MACD', 0)
@@ -342,7 +342,7 @@ class MarketDataCollector:
                     'trend': macd_trend,
                 }
             
-            # ========== 移动平均线 ==========
+            # ========== Moving Average ==========
             ma5 = sum(closes[-5:]) / 5 if len(closes) >= 5 else current_price
             ma10 = sum(closes[-10:]) / 10 if len(closes) >= 10 else current_price
             ma20 = sum(closes[-20:]) / 20 if len(closes) >= 20 else current_price
@@ -365,39 +365,39 @@ class MarketDataCollector:
                 'trend': ma_trend,
             }
 
-            # 先算布林带，供下方合成支撑/阻力使用（键名 BB_upper / BB_lower）
+            # Calculate the Bollinger Bands first and use them to synthesize support/resistance below (key name BB_upper / BB_lower)
             bb_for_levels: Dict[str, Any] = {}
             if len(closes) >= 20:
                 bb_for_levels = self._calc_bollinger(closes, 20, 2) or {}
             
-            # ========== 支撑/阻力位 (多种方法综合) ==========
-            # 方法1: 枢轴点 (Pivot Points) - 使用前一日数据
+            # ========== Support/Resistance Level (Several Methods Comprehensive) ==========
+            # Method 1: Pivot Points - Use previous day's data
             if len(klines) >= 2:
                 prev_high = float(klines[-2].get('high', highs[-2]) if len(highs) >= 2 else current_price * 1.02)
                 prev_low = float(klines[-2].get('low', lows[-2]) if len(lows) >= 2 else current_price * 0.98)
                 prev_close = float(klines[-2].get('close', closes[-2]) if len(closes) >= 2 else current_price)
                 
                 pivot = (prev_high + prev_low + prev_close) / 3
-                r1 = 2 * pivot - prev_low  # 阻力位1
-                s1 = 2 * pivot - prev_high  # 支撑位1
-                r2 = pivot + (prev_high - prev_low)  # 阻力位2
-                s2 = pivot - (prev_high - prev_low)  # 支撑位2
+                r1 = 2 * pivot - prev_low  # Resistance level 1
+                s1 = 2 * pivot - prev_high  # Support level 1
+                r2 = pivot + (prev_high - prev_low)  # Resistance Level 2
+                s2 = pivot - (prev_high - prev_low)  # Support level 2
             else:
                 pivot = current_price
                 r1 = r2 = current_price * 1.02
                 s1 = s2 = current_price * 0.98
             
-            # 方法2: 近期高低点
+            # Method 2: Recent highs and lows
             recent_highs = highs[-20:] if len(highs) >= 20 else highs
             recent_lows = lows[-20:] if len(lows) >= 20 else lows
             swing_high = max(recent_highs) if recent_highs else current_price * 1.05
             swing_low = min(recent_lows) if recent_lows else current_price * 0.95
             
-            # 方法3: 布林上下轨（与 _calc_bollinger 返回字段一致）
+            # Method 3: Bollinger upper and lower rails (consistent with the _calc_bollinger return field)
             bb_upper = bb_for_levels.get('BB_upper', swing_high)
             bb_lower = bb_for_levels.get('BB_lower', swing_low)
             
-            # 综合取值: 取多种方法的平均/加权
+            # Comprehensive value: average/weighted by multiple methods
             resistance = round((r1 + swing_high + bb_upper) / 3, 6)
             support = round((s1 + swing_low + bb_lower) / 3, 6)
             
@@ -411,10 +411,10 @@ class MarketDataCollector:
                 'r2': round(r2, 6),
                 'swing_high': round(swing_high, 6),
                 'swing_low': round(swing_low, 6),
-                'method': 'pivot_swing_bb_avg'  # 标注计算方法
+                'method': 'pivot_swing_bb_avg'  # Label calculation method
             }
             
-            # ========== ATR 和波动率（Wilder ATR，全序列递推至最新一根）==========
+            # ========== ATR and volatility (Wilder ATR, the whole sequence is recursively recursed to the latest one) ==========
             atr = 0.0
             if len(klines) >= 14:
                 atr = float(self._calc_atr_wilder(klines, period=14))
@@ -433,21 +433,21 @@ class MarketDataCollector:
             indicators['volatility'] = {
                 'level': volatility_level,
                 'pct': round(volatility_pct, 2),
-                'atr': round(atr, 6),  # 添加 ATR 绝对值
+                'atr': round(atr, 6),  # Add ATR absolute value
             }
             
-            # ========== 止盈止损建议 (基于 ATR 和支撑/阻力) ==========
-            # 止损: 基于 2x ATR 或支撑位，取更保守的
+            # ========== Take Profit and Stop Loss Recommendations (Based on ATR and Support/Resistance) ==========
+            # Stop Loss: Based on 2x ATR or support, whichever is more conservative
             atr_stop_loss = current_price - (2 * atr) if atr > 0 else current_price * 0.95
             support_stop = indicators['levels']['support']
-            suggested_stop_loss = max(atr_stop_loss, support_stop * 0.99)  # 略低于支撑位
+            suggested_stop_loss = max(atr_stop_loss, support_stop * 0.99)  # Just below support
             
-            # 止盈: 基于 3x ATR 或阻力位，考虑风险回报比
+            # Take Profit: Based on 3x ATR or resistance level, considering risk reward ratio
             atr_take_profit = current_price + (3 * atr) if atr > 0 else current_price * 1.05
             resistance_tp = indicators['levels']['resistance']
-            suggested_take_profit = min(atr_take_profit, resistance_tp * 1.01)  # 略高于阻力位
+            suggested_take_profit = min(atr_take_profit, resistance_tp * 1.01)  # Just above resistance
             
-            # 风险回报比
+            # risk reward ratio
             risk = current_price - suggested_stop_loss
             reward = suggested_take_profit - current_price
             risk_reward_ratio = round(reward / risk, 2) if risk > 0 else 0
@@ -456,21 +456,21 @@ class MarketDataCollector:
                 'suggested_stop_loss': round(suggested_stop_loss, 6),
                 'suggested_take_profit': round(suggested_take_profit, 6),
                 'risk_reward_ratio': risk_reward_ratio,
-                'atr_multiplier_sl': 2.0,  # 止损使用 2x ATR
-                'atr_multiplier_tp': 3.0,  # 止盈使用 3x ATR
+                'atr_multiplier_sl': 2.0,  # Stop loss using 2x ATR
+                'atr_multiplier_tp': 3.0,  # Take profit using 3x ATR
                 'method': 'atr_support_resistance'
             }
             
-            # ========== 布林带 (附加，与 bb_for_levels 同一次计算) ==========
+            # ========== Bollinger Bands (additional, same calculation as bb_for_levels) ==========
             if bb_for_levels:
                 indicators['bollinger'] = bb_for_levels
             
-            # ========== 成交量 (附加) ==========
+            # ========== Volume (Additional) ==========
             if len(volumes) >= 20:
                 avg_vol = sum(volumes[-20:]) / 20
                 indicators['volume_ratio'] = round(volumes[-1] / avg_vol, 2) if avg_vol > 0 else 1.0
             
-            # ========== 价格位置 (附加) ==========
+            # ========== Price Position (Additional) ==========
             if len(closes) >= 20:
                 high_20 = max(highs[-20:])
                 low_20 = min(lows[-20:])
@@ -479,7 +479,7 @@ class MarketDataCollector:
                 else:
                     indicators['price_position'] = 50.0
             
-            # ========== 整体趋势 (附加) ==========
+            # ========== Overall Trends (Additional) ==========
             indicators['trend'] = ma_trend
             indicators['current_price'] = round(current_price, 6)
             
@@ -490,7 +490,7 @@ class MarketDataCollector:
             return {}
     
     def _calc_rsi(self, closes: List[float], period: int = 14) -> float:
-        """Wilder RSI：首段均幅为前 period 期涨跌简单平均，之后按 Wilder 平滑递推。"""
+        """Wilder RSI: The average amplitude of the first period is a simple average of the rise and fall of the previous period, and then it is smoothed by Wilder."""
         if len(closes) < period + 1:
             return 50.0
 
@@ -516,8 +516,8 @@ class MarketDataCollector:
 
     def _ema_series_sma_seed(self, data: List[float], period: int) -> List[Optional[float]]:
         """
-        标准 EMA：首值 = 前 period 根简单平均（SMA），之后 EMA_t = (P_t - EMA_{t-1}) * k + EMA_{t-1}，k=2/(period+1)。
-        前 period-1 根无定义，返回 None。
+        Standard EMA: first value = first period root simple average (SMA), then EMA_t = (P_t - EMA_{t-1}) * k + EMA_{t-1}, k=2/(period+1).
+        The first period-1 root is undefined and None is returned.
         """
         n = len(data)
         out: List[Optional[float]] = [None] * n
@@ -535,7 +535,7 @@ class MarketDataCollector:
     def _calc_macd(self, closes: List[float]) -> Dict[str, float]:
         """
         MACD(12,26,9)：DIF = EMA12(close) − EMA26(close)，DEA = EMA9(DIF)，柱 = DIF − DEA。
-        各 EMA 均采用 SMA 种子；DIF 自第 26 根 K 起有定义，信号线对 DIF 子序列再算 EMA9。
+        Each EMA uses SMA seeds; DIF is defined from the 26th K onwards, and EMA9 is calculated for the DIF subsequence of the signal line pair.
         """
         n = len(closes)
         ema12 = self._ema_series_sma_seed(closes, 12)
@@ -566,7 +566,7 @@ class MarketDataCollector:
         }
 
     def _true_ranges(self, klines: List[Dict[str, Any]]) -> List[float]:
-        """每根 K 的 True Range（首根仅 H−L）。"""
+        """True Range for each root of K (the first root is only H−L)."""
         trs: List[float] = []
         for i, k in enumerate(klines):
             h = float(k.get('high', 0))
@@ -582,7 +582,7 @@ class MarketDataCollector:
         return trs
 
     def _calc_atr_wilder(self, klines: List[Dict[str, Any]], period: int = 14) -> float:
-        """Wilder ATR：首 ATR = 前 period 期 TR 简单平均，之后 ATR_t = (ATR_{t-1}*(period-1)+TR_t)/period。"""
+        """Wilder ATR: First ATR = simple average of TR in the previous period, then ATR_t = (ATR_{t-1}*(period-1)+TR_t)/period."""
         trs = self._true_ranges(klines)
         if len(trs) < period:
             return 0.0
@@ -592,7 +592,7 @@ class MarketDataCollector:
         return atr
     
     def _calc_bollinger(self, closes: List[float], period: int = 20, std_dev: int = 2) -> Dict[str, float]:
-        """布林带：中轨为 period 收盘 SMA，σ 为总体标准差（方差/period），上下轨=中轨±std_dev×σ。"""
+        """Bollinger Bands: The middle rail is the period closing SMA, σ is the overall standard deviation (variance/period), the upper and lower rails = middle rail ±std_dev×σ."""
         if len(closes) < period:
             return {}
         
@@ -609,10 +609,10 @@ class MarketDataCollector:
             'BB_width': round((std_dev * std * 2) / middle * 100, 2) if middle > 0 else 0
         }
     
-    # ==================== 基本面数据 ====================
+    # ==================== Fundamental data ====================
     
     def _get_fundamental(self, market: str, symbol: str) -> Optional[Dict[str, Any]]:
-        """获取基本面数据"""
+        """Get fundamental data"""
         try:
             if market == 'USStock':
                 return self._get_us_fundamental(symbol)
@@ -622,12 +622,12 @@ class MarketDataCollector:
     
     def _get_us_fundamental(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        美股基本面 - Finnhub + yfinance
-        包括：基础财务指标 + 财报数据（资产负债表、利润表、现金流量表）
+        US stock fundamentals - Finnhub + yfinance
+        Includes: basic financial indicators + financial report data (balance sheet, income statement, cash flow statement)
         """
         result = {}
         
-        # === 1. 基础财务指标 (Finnhub) ===
+        # === 1. Basic financial indicators (Finnhub) ===
         if self._finnhub_client:
             try:
                 metrics = self._finnhub_client.company_basic_financials(symbol, 'all')
@@ -653,12 +653,12 @@ class MarketDataCollector:
             except Exception as e:
                 logger.debug(f"Finnhub fundamental failed for {symbol}: {e}")
         
-        # === 2. yfinance 补充基础指标 ===
+        # === 2. yfinance supplements basic indicators ===
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info or {}
             
-            # 补充缺失的基础指标
+            # Supplement missing basic indicators
             if not result.get('pe_ratio'):
                 result['pe_ratio'] = info.get('trailingPE') or info.get('forwardPE')
             if not result.get('pb_ratio'):
@@ -678,7 +678,7 @@ class MarketDataCollector:
             if not result.get('eps'):
                 result['eps'] = info.get('trailingEps')
             
-            # 补充更多财务指标
+            # Add more financial indicators
             result.update({
                 'revenue': info.get('totalRevenue'),
                 'gross_profit': info.get('grossProfits'),
@@ -695,12 +695,12 @@ class MarketDataCollector:
         except Exception as e:
             logger.debug(f"yfinance fundamental failed for {symbol}: {e}")
         
-        # === 3. 获取财报数据（资产负债表、利润表、现金流量表）===
+        # === 3. Obtain financial report data (balance sheet, income statement, cash flow statement) ===
         financial_statements = self._get_financial_statements(symbol)
         if financial_statements:
             result['financial_statements'] = financial_statements
         
-        # === 4. 获取盈利报告（Earnings）===
+        # === 4. Get Earnings ===
         earnings_data = self._get_earnings_data(symbol)
         if earnings_data:
             result['earnings'] = earnings_data
@@ -709,19 +709,19 @@ class MarketDataCollector:
     
     def _get_financial_statements(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        获取财务报表数据（资产负债表、利润表、现金流量表）
+        Obtain financial statement data (balance sheet, income statement, cash flow statement)
         
-        使用 yfinance 获取，包含最近几个季度的数据
+        Use yfinance to obtain, including data for recent quarters
         """
         try:
             ticker = yf.Ticker(symbol)
             statements = {}
             
-            # 资产负债表 (Balance Sheet)
+            # Balance Sheet
             try:
                 balance_sheet = ticker.balance_sheet
                 if balance_sheet is not None and not balance_sheet.empty:
-                    # 获取最近4个季度
+                    # Get the last 4 quarters
                     latest_quarters = balance_sheet.columns[:4] if len(balance_sheet.columns) >= 4 else balance_sheet.columns
                     statements['balance_sheet'] = {
                         'latest_date': str(latest_quarters[0]) if len(latest_quarters) > 0 else None,
@@ -736,7 +736,7 @@ class MarketDataCollector:
             except Exception as e:
                 logger.debug(f"Balance sheet fetch failed for {symbol}: {e}")
             
-            # 利润表 (Income Statement)
+            # Income Statement
             try:
                 income_stmt = ticker.financials
                 if income_stmt is not None and not income_stmt.empty:
@@ -752,7 +752,7 @@ class MarketDataCollector:
             except Exception as e:
                 logger.debug(f"Income statement fetch failed for {symbol}: {e}")
             
-            # 现金流量表 (Cash Flow Statement)
+            # Cash Flow Statement
             try:
                 cashflow = ticker.cashflow
                 if cashflow is not None and not cashflow.empty:
@@ -775,10 +775,10 @@ class MarketDataCollector:
     
     def _get_earnings_data(self, symbol: str) -> Optional[Dict[str, Any]]:
         """
-        获取盈利报告数据（Earnings）
+        Get earnings report data (Earnings)
 
-        使用 quarterly_income_stmt 替代已弃用的 Ticker.earnings / quarterly_earnings，
-        历史季度摘要从利润表推导；盈利日历仍用 ticker.calendar（若可用）。
+        Use quarterly_income_stmt instead of deprecated Ticker.earnings / quarterly_earnings,
+        Historical quarterly summaries are derived from the income statement; the earnings calendar still uses ticker.calendar (if available).
         """
         def _pick_float(stmt: pd.DataFrame, row_names: tuple, col) -> Optional[float]:
             for name in row_names:
@@ -796,7 +796,7 @@ class MarketDataCollector:
             ticker = yf.Ticker(symbol)
             earnings_data: Dict[str, Any] = {}
 
-            # 季度利润表（yfinance 推荐路径，避免 fundamentals.Ticker.earnings 弃用告警）
+            # Quarterly income statement (yfinance recommended path to avoid fundamentals.Ticker.earnings deprecation warning)
             try:
                 q_inc = ticker.quarterly_income_stmt
                 if q_inc is not None and not q_inc.empty and len(q_inc.columns) > 0:
@@ -824,7 +824,7 @@ class MarketDataCollector:
                         "earnings": ni,
                     }
 
-                    # 最近若干季度 EPS（来自利润表行，非一致预期）
+                    # EPS for recent quarters (from income statement lines, not consensus estimates)
                     earnings_data["history"] = []
                     for col in cols:
                         eps = _pick_float(q_inc, ("Diluted EPS", "Basic EPS"), col)
@@ -837,7 +837,7 @@ class MarketDataCollector:
             except Exception as e:
                 logger.debug(f"Quarterly income statement (earnings) fetch failed for {symbol}: {e}")
 
-            # 盈利日历（未来盈利日期与一致预期）
+            # Earnings Calendar (Future Earnings Dates and Consensus Expectations)
             try:
                 earnings_calendar = ticker.calendar
                 if earnings_calendar is not None and not earnings_calendar.empty:
@@ -861,8 +861,8 @@ class MarketDataCollector:
             return None
     
     def _get_crypto_info(self, symbol: str) -> Optional[Dict[str, Any]]:
-        """加密货币信息 (固定描述为主)"""
-        # 常见加密货币的描述
+        """Cryptocurrency information (mainly fixed description)"""
+        # Descriptions of common cryptocurrencies
         crypto_info = {
             'BTC': {
                 'name': 'Bitcoin',
@@ -896,7 +896,7 @@ class MarketDataCollector:
             },
         }
         
-        # 提取基础代币名
+        # Extract base token name
         base = symbol.split('/')[0] if '/' in symbol else symbol
         base = base.upper()
         
@@ -910,7 +910,7 @@ class MarketDataCollector:
         }
     
     def _get_company(self, market: str, symbol: str) -> Optional[Dict[str, Any]]:
-        """获取公司信息"""
+        """Get company information"""
         try:
             if market == 'USStock' and self._finnhub_client:
                 profile = self._finnhub_client.company_profile2(symbol=symbol)
@@ -930,19 +930,19 @@ class MarketDataCollector:
         
         return None
     
-    # ==================== 宏观数据 (复用全球金融板块) ====================
+    # ==================== Macro data (reusing the global financial sector) ====================
     
     def _get_macro_data(self, market: str, timeout: int = 10) -> Dict[str, Any]:
         """
-        获取宏观经济数据 - 复用 global_market.py 的函数和缓存
+        Get macroeconomic data - reuse global_market.py functions and cache
         
-        优势：
-        1. 数据与全球金融页面一致
-        2. 复用30秒/5分钟缓存，降低API调用
-        3. 已有完整的数据解读和级别判断
+        Advantages:
+        1. The data is consistent with the global financial page
+        2. Reuse 30 seconds/5 minutes cache to reduce API calls
+        3. Have complete data interpretation and level judgment
         """
         try:
-            # 复用 global_market.py 的市场情绪数据 (有5分钟缓存)
+            # Reuse market sentiment data from global_market.py (with 5-minute cache)
             from app.routes.global_market import (
                 _fetch_vix, _fetch_dollar_index, _fetch_yield_curve,
                 _fetch_fear_greed_index,
@@ -951,12 +951,12 @@ class MarketDataCollector:
             
             result = {}
             
-            # 1) 尝试从缓存获取 (global_market 的缓存, 6小时有效)
+            # 1) Try to get it from cache (global_market cache, valid for 6 hours)
             MACRO_CACHE_TTL = 21600  # 6 hours
             cached_sentiment = _get_cached("market_sentiment", MACRO_CACHE_TTL)
             if cached_sentiment:
                 logger.info("Using cached sentiment data from global_market (6h cache)")
-                # 转换格式
+                # Convert format
                 if cached_sentiment.get('vix'):
                     vix = cached_sentiment['vix']
                     result['VIX'] = {
@@ -1004,7 +1004,7 @@ class MarketDataCollector:
                 if result:
                     return result
             
-            # 2) 如果没有缓存，快速并行获取关键指标
+            # 2) If there is no cache, quickly obtain key indicators in parallel
             logger.info("Fetching macro data from global_market functions")
             
             with ThreadPoolExecutor(max_workers=4) as executor:
@@ -1021,7 +1021,7 @@ class MarketDataCollector:
                         try:
                             data = future.result(timeout=5)
                             if data:
-                                # 转换为统一格式
+                                # Convert to unified format
                                 if key == 'VIX':
                                     result[key] = {
                                         'name': 'VIX恐慌指数',
@@ -1063,9 +1063,9 @@ class MarketDataCollector:
                 except TimeoutError:
                     logger.warning("Macro data fetch timed out")
             
-            # 注：黄金等大宗商品数据不再作为宏观指标获取
-            # 原因：1) 如果分析的是黄金，价格已在 _get_price 中获取
-            #       2) 减少 API 调用，提高稳定性
+            # Note: Gold and other commodity data are no longer available as macro indicators
+            # Reasons: 1) If the analysis is gold, the price has been obtained in _get_price
+            #       2) Reduce API calls and improve stability
             pass
             
             return result
@@ -1077,23 +1077,23 @@ class MarketDataCollector:
             logger.error(f"_get_macro_data failed: {e}")
             return {}
     
-    # ==================== 新闻/情绪数据 ====================
+    # ==================== News/Sentiment Data ====================
     
     def _get_news(
         self, market: str, symbol: str, company_name: str = None, timeout: int = 8
     ) -> Dict[str, Any]:
         """
-        获取新闻和情绪数据
+        Get news and sentiment data
         
-        策略（按优先级）：
-        1. 结构化API (Finnhub) - 美股首选
-        2. 搜索引擎 (Tavily/Google/Bing/SerpAPI) - 补充搜索
-        3. 情绪分析 - Finnhub 社交媒体情绪
+        Strategies (by priority):
+        1. Structured API (Finnhub) - the first choice for US stocks
+        2. Search Engine (Tavily/Google/Bing/SerpAPI) - Supplementary Search
+        3. Sentiment Analysis - Finnhub Social Media Sentiment
         """
         news_list = []
         sentiment = {}
         
-        # === 1) Finnhub 新闻 (美股首选) ===
+        # === 1) Finnhub News (Preferred for US stocks) ===
         if self._finnhub_client:
             try:
                 end_date = datetime.now().strftime('%Y-%m-%d')
@@ -1104,10 +1104,10 @@ class MarketDataCollector:
                 if market == 'USStock':
                     raw_news = self._finnhub_client.company_news(symbol, _from=start_date, to=end_date)
                 elif market == 'Crypto':
-                    # 加密货币通用新闻
+                    # General Cryptocurrency News
                     raw_news = self._finnhub_client.general_news('crypto', min_id=0)
                 else:
-                    # 其他市场通用新闻
+                    # Other general market news
                     raw_news = self._finnhub_client.general_news('general', min_id=0)
                 
                 if raw_news:
@@ -1126,7 +1126,7 @@ class MarketDataCollector:
             except Exception as e:
                 logger.debug(f"Finnhub news fetch failed: {e}")
         
-        # === 2) Finnhub 情绪分数 (美股社交媒体情绪) ===
+        # === 2) Finnhub Sentiment Score (U.S. stock social media sentiment) ===
         if self._finnhub_client and market == 'USStock':
             try:
                 social = self._finnhub_client.stock_social_sentiment(symbol)
@@ -1136,19 +1136,19 @@ class MarketDataCollector:
             except Exception as e:
                 logger.debug(f"Finnhub sentiment fetch failed: {e}")
         
-        # === 3) 搜索引擎补充 (如果新闻太少) ===
+        # === 3) Search engine supplement (if there is too little news) ===
         if len(news_list) < 5:
             search_news = self._get_news_from_search(market, symbol, company_name)
             news_list.extend(search_news)
         
-        # === 4) 获取全球重大事件新闻（地缘政治、战争等） ===
-        # 这些事件会影响所有市场，特别是加密货币
+        # === 4) Get news on major global events (geopolitics, wars, etc.) ===
+        # These events affect all markets, especially cryptocurrencies
         global_events = self._get_global_major_events()
         if global_events:
             news_list.extend(global_events)
             logger.info(f"Added {len(global_events)} global major events to news list")
         
-        # 去重（按标题）
+        # Remove duplicates (by title)
         seen_titles = set()
         unique_news = []
         for item in news_list:
@@ -1157,11 +1157,11 @@ class MarketDataCollector:
                 seen_titles.add(title)
                 unique_news.append(item)
         
-        # 按时间排序
+        # Sort by time
         unique_news.sort(key=lambda x: x.get('datetime', ''), reverse=True)
         
         return {
-            "news": unique_news[:15],  # 最多15条
+            "news": unique_news[:15],  # Maximum 15 articles
             "sentiment": sentiment,
         }
     
@@ -1169,9 +1169,9 @@ class MarketDataCollector:
         self, market: str, symbol: str, company_name: str = None
     ) -> List[Dict[str, Any]]:
         """
-        从搜索引擎获取新闻
+        Get news from search engines
         
-        使用增强的搜索服务 (Tavily/Google/Bing/SerpAPI)
+        Use enhanced search services (Tavily/Google/Bing/SerpAPI)
         """
         news_list = []
         
@@ -1182,10 +1182,10 @@ class MarketDataCollector:
             if not search_service.is_available:
                 return news_list
             
-            # 构建搜索名称
+            # Build search name
             search_name = company_name or symbol
             
-            # 搜索股票新闻
+            # Search stock news
             response = search_service.search_stock_news(
                 stock_code=symbol,
                 stock_name=search_name,
@@ -1211,11 +1211,11 @@ class MarketDataCollector:
     
     def _get_global_major_events(self) -> List[Dict]:
         """
-        获取全球重大事件新闻（地缘政治、战争、重大政策等）
-        这些事件会影响所有市场，特别是加密货币
+        Get news on major global events (geopolitics, wars, major policies, etc.)
+        These events affect all markets, especially cryptocurrencies
         
         Returns:
-            全球重大事件新闻列表
+            News list of major global events
         """
         news_list = []
         
@@ -1226,10 +1226,10 @@ class MarketDataCollector:
             if not search_service.is_available:
                 return news_list
             
-            # 搜索全球重大事件（最近24小时）
-            # 优化：减少搜索次数，只搜索最重要的查询
+            # Search for major global events (last 24 hours)
+            # Optimize: Reduce the number of searches and search only the most important queries
             global_event_queries = [
-                "war conflict breaking news today"  # 只搜索最重要的查询，减少API调用
+                "war conflict breaking news today"  # Search only the most important queries and reduce API calls
             ]
             
             for query in global_event_queries:
@@ -1237,17 +1237,17 @@ class MarketDataCollector:
                     response = search_service.search_with_fallback(
                         query=query,
                         max_results=2,
-                        days=1  # 只搜索最近1天的新闻
+                        days=1  # Search only the news of the last 1 day
                     )
                     
                     if response.success and response.results:
                         for result in response.results:
-                            # 检查是否是重大事件（包含关键词）
+                            # Check if it is a major event (including keywords)
                             title_lower = result.title.lower()
                             snippet_lower = (result.snippet or "").lower()
                             text = f"{title_lower} {snippet_lower}"
                             
-                            # 重大事件关键词
+                            # Major event keywords
                             major_event_keywords = [
                                 "war", "conflict", "military", "attack", "strike", "sanctions",
                                 "geopolitical", "crisis", "tension", "iran", "israel", "russia",
@@ -1263,14 +1263,14 @@ class MarketDataCollector:
                                     "source": f"全球事件:{result.source}",
                                     "url": result.url,
                                     "sentiment": "negative" if any(kw in text for kw in ["war", "conflict", "attack", "战争", "冲突", "袭击"]) else "neutral",
-                                    "is_global_event": True  # 标记为全球事件
+                                    "is_global_event": True  # Flag as global event
                                 })
                                 logger.info(f"Found global major event: {result.title[:60]}")
                 except Exception as e:
                     logger.debug(f"Failed to search global events with query '{query}': {e}")
                     continue
             
-            # 去重
+            # Remove duplicates
             seen_titles = set()
             unique_events = []
             for item in news_list:
@@ -1279,7 +1279,7 @@ class MarketDataCollector:
                     seen_titles.add(title)
                     unique_events.append(item)
             
-            return unique_events[:5]  # 最多返回5条全球重大事件
+            return unique_events[:5]  # Returns up to 5 major global events
             
         except Exception as e:
             logger.debug(f"Failed to get global major events: {e}")
@@ -1287,33 +1287,33 @@ class MarketDataCollector:
     
     def _get_polymarket_events(self, symbol: str, market: str) -> List[Dict]:
         """
-        获取与资产相关的预测市场事件
-        直接调用Polymarket API获取实时数据，不依赖本地数据库
+        Get prediction market events related to an asset
+        Directly call Polymarket API to obtain real-time data without relying on local database
         
         Args:
-            symbol: 资产符号
-            market: 市场类型
+            symbol: asset symbol
+            market: market type
             
         Returns:
-            相关预测市场事件列表
+            List of related prediction market events
         """
         try:
             from app.data_sources.polymarket import PolymarketDataSource
             
             polymarket_source = PolymarketDataSource()
             
-            # 提取关键词
+            # Extract keywords
             keywords = self._extract_polymarket_keywords(symbol, market)
             logger.info(f"Extracted Polymarket keywords for {symbol}: {keywords}")
             
-            # 优化：使用缓存加速，减少API调用时间
-            # 对于AI分析，使用短期缓存（5分钟）即可，既保证时效性又提升性能
-            # 进一步优化：限制关键词数量，只搜索最重要的关键词（最多2个）
+            # Optimization: Use cache acceleration to reduce API call time
+            # For AI analysis, use short-term cache (5 minutes) to ensure timeliness and improve performance.
+            # Further optimization: limit the number of keywords and search only the most important keywords (up to 2)
             related_markets = []
-            max_keywords = 2  # 最多只搜索2个关键词，减少API调用
+            max_keywords = 2  # Only search for 2 keywords at most, reducing API calls
             for keyword in keywords[:max_keywords]:
                 try:
-                    # 使用use_cache=True启用缓存，减少API调用时间
+                    # Use use_cache=True to enable caching and reduce API call time
                     markets = polymarket_source.search_markets(keyword, limit=5, use_cache=True)
                     logger.info(f"Found {len(markets)} markets for keyword '{keyword}' (cached)")
                     related_markets.extend(markets)
@@ -1321,23 +1321,23 @@ class MarketDataCollector:
                     logger.warning(f"Failed to search Polymarket for keyword '{keyword}': {e}")
                     continue
             
-            # 去重
+            # Remove duplicates
             seen = set()
             result = []
             for market_data in related_markets:
                 market_id = market_data.get('market_id')
                 if market_id and market_id not in seen:
                     seen.add(market_id)
-                    # 构建正确的 Polymarket URL
-                    # 优先使用已有的 polymarket_url，如果没有则根据 slug 或 market_id 构建
+                    # Build the correct Polymarket URL
+                    # Prioritize using the existing polymarket_url, if not, build it based on slug or market_id
                     polymarket_url = market_data.get('polymarket_url')
                     if not polymarket_url:
                         slug = market_data.get('slug')
                         if slug and not str(slug).isdigit() and ('-' in str(slug) or any(c.isalpha() for c in str(slug))):
-                            # 使用有效的 slug
+                            # Use a valid slug
                             polymarket_url = f"https://polymarket.com/event/{slug}"
                         else:
-                            # 使用 markets 端点（更可靠）
+                            # Use markets endpoint (more reliable)
                             polymarket_url = f"https://polymarket.com/markets/{market_id}"
                     
                     result.append({
@@ -1358,19 +1358,19 @@ class MarketDataCollector:
     
     def _extract_polymarket_keywords(self, symbol: str, market: str) -> List[str]:
         """
-        提取用于搜索预测市场的关键词
-        优化：只保留最重要的关键词，减少API调用次数
+        Extract keywords used to search prediction markets
+        Optimization: Only retain the most important keywords and reduce the number of API calls
         """
         keywords = []
         
-        # 基础符号（最重要）
+        # Basic symbols (most important)
         if '/' in symbol:
             base = symbol.split('/')[0]
             keywords.append(base)
         else:
             keywords.append(symbol)
         
-        # 加密货币全名映射（只保留一个最重要的全名，避免重复）
+        # Cryptocurrency full name mapping (retain only the most important full name to avoid duplication)
         crypto_names = {
             'BTC': 'Bitcoin',
             'ETH': 'Ethereum',
@@ -1386,13 +1386,13 @@ class MarketDataCollector:
         
         base_symbol = symbol.split('/')[0] if '/' in symbol else symbol
         if base_symbol in crypto_names:
-            # 只添加一个全名，避免大小写重复
+            # Add only one full name to avoid duplication of upper and lower case
             keywords.append(crypto_names[base_symbol])
         
-        # 优化：移除通用关键词（如 '$100k', 'ETF', 'approval'），这些会匹配到很多不相关的市场
-        # 只保留与资产直接相关的关键词，最多2-3个
+        # Optimization: Remove generic keywords (such as '$100k', 'ETF', 'approval'), which will match many irrelevant markets
+        # Only keep keywords directly related to assets, up to 2-3
         
-        # 去重并限制数量（最多3个关键词）
+        # Remove duplicates and limit the number (maximum 3 keywords)
         unique_keywords = []
         seen = set()
         for kw in keywords:
@@ -1400,18 +1400,18 @@ class MarketDataCollector:
             if kw_lower not in seen:
                 seen.add(kw_lower)
                 unique_keywords.append(kw)
-                if len(unique_keywords) >= 3:  # 最多3个关键词
+                if len(unique_keywords) >= 3:  # Up to 3 keywords
                     break
         
         logger.info(f"Extracted {len(unique_keywords)} Polymarket keywords (optimized from {len(keywords)}): {unique_keywords}")
         return unique_keywords
 
 
-# 全局实例
+# global instance
 _collector: Optional[MarketDataCollector] = None
 
 def get_market_data_collector() -> MarketDataCollector:
-    """获取市场数据采集器单例"""
+    """Get market data collector singleton"""
     global _collector
     if _collector is None:
         _collector = MarketDataCollector()

@@ -600,7 +600,7 @@ def get_positions():
                 pct = _calc_pnl_percent(entry, size, pnl)
 
                 rr = dict(r)
-                # 确保 entry_price 有值（如果数据库中是 NULL，使用计算出的 entry 值）
+                # Make sure entry_price has a value (if it is NULL in the database, use the calculated entry value)
                 if not rr.get("entry_price") or float(rr.get("entry_price") or 0.0) <= 0:
                     rr["entry_price"] = float(entry or 0.0)
                 else:
@@ -818,10 +818,10 @@ def test_connection():
     try:
         data = request.get_json() or {}
         
-        # 记录请求数据（用于调试，但不记录敏感信息）
+        # Log request data (for debugging, but do not log sensitive information)
         logger.debug(f"Connection test request keys: {list(data.keys())}")
         
-        # 获取交易所配置
+        # Get exchange configuration
         exchange_config = data.get('exchange_config', data)
         
         # Local deployment: no encryption/decryption; accept dict or JSON string.
@@ -832,7 +832,7 @@ def test_connection():
             except Exception:
                 pass
         
-        # 验证 exchange_config 是否为字典
+        # Verify exchange_config is a dictionary
         if not isinstance(exchange_config, dict):
             logger.error(f"Invalid exchange_config type: {type(exchange_config)}, data: {str(exchange_config)[:200]}")
             # Frontend expects HTTP 200 with {code:0} for business failures.
@@ -844,21 +844,21 @@ def test_connection():
         user_id = g.user_id if hasattr(g, 'user_id') else 1
         resolved = resolve_exchange_config(exchange_config, user_id=user_id)
 
-        # 验证必要字段 (check resolved config after credential merge)
+        # Verify required fields (check resolved config after credential merge)
         if not resolved.get('exchange_id'):
             return jsonify({'code': 0, 'msg': 'Please select an exchange', 'data': None})
         
         api_key = resolved.get('api_key', '')
         secret_key = resolved.get('secret_key', '')
         
-        # 详细日志排查
+        # Detailed log troubleshooting
         logger.info(f"Testing connection: exchange_id={resolved.get('exchange_id')}")
         if api_key:
             logger.info(f"API Key: {api_key[:5]}... (len={len(api_key)})")
         if secret_key:
             logger.info(f"Secret Key: {secret_key[:5]}... (len={len(secret_key)})")
         
-        # 检查是否有特殊字符
+        # Check if there are special characters
         if api_key and api_key.strip() != api_key:
             logger.warning("API key contains leading/trailing whitespace")
         if secret_key and secret_key.strip() != secret_key:
@@ -1052,7 +1052,7 @@ def get_strategy_notifications():
             created_at = item.get('created_at')
             if created_at:
                 if hasattr(created_at, 'timestamp'):
-                    # 无时区 datetime：连接已 SET TIME ZONE UTC，按 UTC 解释再转 Unix，避免服务端本地 TZ 误判
+                    # No time zone datetime: The connection has SET TIME ZONE UTC, interpret it according to UTC and then transfer to Unix to avoid misjudgment of the local TZ on the server side.
                     if getattr(created_at, 'tzinfo', None) is None:
                         created_at = created_at.replace(tzinfo=_dt_tz.utc)
                     item['created_at'] = int(created_at.timestamp())

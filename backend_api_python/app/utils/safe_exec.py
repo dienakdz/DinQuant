@@ -1,6 +1,6 @@
 """
-安全的代码执行工具
-提供超时、资源限制和沙箱环境
+Secure code execution tools
+Provides timeouts, resource limits and a sandbox environment
 """
 import signal
 import sys
@@ -16,36 +16,36 @@ logger = get_logger(__name__)
 
 
 class TimeoutError(Exception):
-    """代码执行超时异常"""
+    """Code execution timeout exception"""
     pass
 
 
 @contextmanager
 def timeout_context(seconds: int):
     """
-    代码执行超时上下文管理器
+    Code execution timeout context manager
     
-    注意：
-    - 仅在Unix/Linux系统上有效
-    - 仅在主线程中有效，非主线程会降级为不限制超时
-    - Windows上会降级为不限制超时
+    Notice:
+    - Only works on Unix/Linux systems
+    - Only valid in the main thread, non-main threads will be downgraded to unlimited timeout
+    - Will downgrade to unlimited timeout on Windows
     
     Args:
-        seconds: 超时时间（秒）
+        seconds: timeout (seconds)
     """
-    # 检查是否在主线程中
+    # Check if in main thread
     is_main_thread = threading.current_thread() is threading.main_thread()
     
     if sys.platform == 'win32':
-        # Windows不支持signal.alarm，只能记录警告
+        # signal.alarm is not supported on Windows, only warnings can be logged
         logger.warning("Windows does not support signal-based timeouts; execution time limits may not work")
         yield
         return
     
     if not is_main_thread:
-        # 非主线程不能使用signal，记录警告但不限制超时
-        # logger.warning(f"当前在非主线程中运行（线程: {threading.current_thread().name}），"
-        #               f"signal超时不可用，代码执行可能无法限制时间")
+        # Non-main threads cannot use signal. Warnings are logged but timeouts are not limited.
+        # logger.warning(f"Currently running in a non-main thread (thread: {threading.current_thread().name}),"
+        #               f"signal timeout is not available, code execution may not limit the time")
         yield
         return
     
@@ -53,18 +53,18 @@ def timeout_context(seconds: int):
         raise TimeoutError(f"代码执行超时（超过{seconds}秒）")
     
     try:
-        # 设置信号处理器
+        # Set up signal handler
         old_handler = signal.signal(signal.SIGALRM, timeout_handler)
         signal.alarm(seconds)
         
         try:
             yield
         finally:
-            # 恢复原来的信号处理器
+            # Restore original signal handler
             signal.alarm(0)
             signal.signal(signal.SIGALRM, old_handler)
     except ValueError as e:
-        # 如果signal设置失败（比如在某些环境中），记录警告但不中断执行
+        # If signal setup fails (such as in some environments), log a warning but do not interrupt execution
         logger.warning(f"Failed to set signal timeout: {str(e)}; execution will continue without timeout enforcement")
         yield
 
@@ -77,35 +77,35 @@ def safe_exec_code(
     max_memory_mb: Optional[int] = None
 ) -> Dict[str, Any]:
     """
-    安全执行Python代码
+    Safe execution of Python code
     
     Args:
-        code: 要执行的Python代码
-        exec_globals: 全局变量字典
-        exec_locals: 局部变量字典（如果为None，则使用exec_globals）
-        timeout: 超时时间（秒），默认30秒
-        max_memory_mb: 最大内存限制（MB），默认500MB
+        code: Python code to execute
+        exec_globals: dictionary of global variables
+        exec_locals: dictionary of local variables (if None, exec_globals is used)
+        timeout: timeout (seconds), default 30 seconds
+        max_memory_mb: Maximum memory limit (MB), default 500MB
     
     Returns:
-        执行结果字典，包含：
-        - success: bool，是否执行成功
-        - error: str，错误信息（如果失败）
-        - result: Any，执行结果（如果有）
+        Execution result dictionary, including:
+        - success: bool, whether the execution was successful
+        - error: str, error message (if failure)
+        - result: Any, execution result (if any)
     
     Raises:
-        TimeoutError: 如果代码执行超时
+        TimeoutError: If the code execution times out
     """
     if exec_locals is None:
         exec_locals = exec_globals
     
-    # 设置内存限制（如果支持）
+    # Set memory limit (if supported)
     if max_memory_mb is None:
-        max_memory_mb = 500  # 默认500MB
+        max_memory_mb = 500  # Default 500MB
     
     try:
-        # 注意：resource.setrlimit 是进程级别，会影响整个 API 进程。
-        # 之前全局限制为 500MB 可能导致并行策略/线程无法分配内存。
-        # 仅当显式开启 SAFE_EXEC_ENABLE_RLIMIT 时才设置。
+        # Note: resource.setrlimit is process level and affects the entire API process.
+        # The previous global limit of 500MB could prevent parallel strategies/threads from allocating memory.
+        # Only set if SAFE_EXEC_ENABLE_RLIMIT is explicitly turned on.
         if sys.platform != 'win32' and os.getenv('SAFE_EXEC_ENABLE_RLIMIT', 'false').lower() == 'true':
             try:
                 import resource
@@ -117,8 +117,8 @@ def safe_exec_code(
         else:
             logger.debug("No resource memory limit (SAFE_EXEC_ENABLE_RLIMIT disabled or unsupported platform)")
         
-        # 在Windows上，timeout_context不会真正限制时间
-        # 但会记录警告
+        # On Windows, timeout_context doesn't really limit the time
+        # But a warning will be logged
         with timeout_context(timeout):
             exec(code, exec_globals, exec_locals)
         
@@ -157,12 +157,12 @@ def safe_exec_code(
 
 def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
     """
-    验证代码安全性（基本检查）
+    Verify code security (basic check)
     
-    检查代码中是否包含危险的函数调用或导入
+    Check your code for dangerous function calls or imports
     
     Args:
-        code: 要检查的Python代码
+        code: Python code to check
     
     Returns:
         (is_safe: bool, error_message: Optional[str])
@@ -170,9 +170,9 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
     import ast
     import re
     
-    # 危险的关键字和函数名
+    # Dangerous keywords and function names
     dangerous_patterns = [
-        # 系统命令执行
+        # System command execution
         r'\bos\.system\b',
         r'\bos\.popen\b',
         r'\bos\.spawn\b',
@@ -180,16 +180,16 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
         r'\bos\.fork\b',
         r'\bsubprocess\b',
         r'\bcommands\b',
-        # 代码执行
+        # code execution
         r'\b__import__\s*\(',
         r'\beval\s*\(',
         r'\bexec\s*\(',
         r'\bcompile\s*\(',
-        # 文件操作
+        # File operations
         r'\bopen\s*\(',
         r'\bfile\s*\(',
         r'\b__builtins__\b',
-        # 模块导入
+        # module import
         r'\bimport\s+os\b',
         r'\bimport\s+sys\b',
         r'\bimport\s+subprocess\b',
@@ -208,7 +208,7 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
         r'\bimport\s+multiprocessing\b',
         r'\bimport\s+threading\b',
         r'\bimport\s+concurrent\b',
-        # 反射和元编程（可能用于绕过限制）
+        # Reflection and metaprogramming (possibly used to bypass restrictions)
         r'\bgetattr\s*\(.*__import__',
         r'\bgetattr\s*\(.*eval',
         r'\bgetattr\s*\(.*exec',
@@ -219,14 +219,14 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
         r'\bglobals\s*\(',
         r'\blocals\s*\(',
         r'\bdir\s*\(',
-        r'\btype\s*\(.*\)\s*\(',  # type() 可能用于创建新类型
+        r'\btype\s*\(.*\)\s*\(',  # type() may be used to create new types
         r'\b__class__\b',
         r'\b__bases__\b',
         r'\b__subclasses__\b',
         r'\b__mro__\b',
         r'\b__init__\b.*__import__',
         r'\b__new__\b.*__import__',
-        # 其他危险操作
+        # Other dangerous operations
         r'\b__builtins__\s*\[',
         r'\b__builtins__\s*\.',
         r'\b__import__\s*\(',
@@ -234,16 +234,16 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
         r'\bimp\b',
     ]
     
-    # 检查代码中是否包含危险模式
+    # Check your code for dangerous patterns
     for pattern in dangerous_patterns:
         if re.search(pattern, code):
             return False, f"检测到危险代码模式: {pattern}"
     
-    # 尝试解析AST，检查是否有危险的节点
+    # Try parsing the AST, checking for dangerous nodes
     try:
         tree = ast.parse(code)
         
-        # 危险模块列表（扩展）
+        # List of dangerous modules (extended)
         dangerous_modules = [
             'os', 'sys', 'subprocess', 'pymysql', 'sqlite3',
             'requests', 'urllib', 'http', 'socket', 'ftplib', 'telnetlib',
@@ -252,38 +252,38 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
             'importlib', 'imp', 'builtins'
         ]
         
-        # 危险函数列表（扩展）
-        # 注意：hasattr 是安全的，只用于检查属性，不用于访问
+        # List of dangerous functions (extended)
+        # Note: hasattr is safe and is only used to check attributes, not to access
         dangerous_functions = [
             'eval', 'exec', 'compile', '__import__',
-            'getattr', 'setattr', 'delattr',  # hasattr 已移除，它是安全的
+            'getattr', 'setattr', 'delattr',  # hasattr has been removed, it is safe
             'globals', 'locals', 'vars', 'dir', 'type'
         ]
         
-        # 检查是否有危险的函数调用
+        # Check for dangerous function calls
         for node in ast.walk(tree):
-            # 检查是否有对危险函数的调用
+            # Check for calls to dangerous functions
             if isinstance(node, ast.Call):
                 if isinstance(node.func, ast.Name):
                     func_name = node.func.id
                     if func_name in dangerous_functions:
                         return False, f"检测到危险函数调用: {func_name}()"
                 
-                # 检查是否有os.system等调用
+                # Check if there are calls to os.system etc.
                 if isinstance(node.func, ast.Attribute):
                     if isinstance(node.func.value, ast.Name):
                         if node.func.value.id in dangerous_modules:
                             return False, f"检测到危险模块调用: {node.func.value.id}.{node.func.attr}"
                     
-                    # 检查是否有 getattr(builtins, '__import__') 等绕过方式
+                    # Check if there are bypass methods such as getattr(builtins, '__import__')
                     if isinstance(node.func, ast.Name) and node.func.id == 'getattr':
-                        # 检查 getattr 的参数
+                        # Check the parameters of getattr
                         if len(node.args) >= 2:
                             if isinstance(node.args[0], ast.Name) and node.args[0].id in ['builtins', '__builtins__']:
                                 if isinstance(node.args[1], ast.Constant) and node.args[1].value in dangerous_functions:
                                     return False, f"检测到通过 getattr 绕过限制: getattr({node.args[0].id}, '{node.args[1].value}')"
         
-        # 检查导入语句：用户脚本中一律禁止使用 import（统一由平台注入安全依赖）
+        # Check the import statement: the use of import is prohibited in user scripts (security dependencies are uniformly injected by the platform)
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 return False, "不允许在脚本中使用 import 语句，请直接使用平台提供的 pd/np 等对象"
@@ -291,19 +291,19 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
             if isinstance(node, ast.ImportFrom):
                 return False, "不允许在脚本中使用 import 语句，请直接使用平台提供的 pd/np 等对象"
         
-        # 检查是否有访问 __builtins__ 的尝试
+        # Check if there is an attempt to access __builtins__
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute):
                 if isinstance(node.attr, str) and node.attr.startswith('__') and node.attr.endswith('__'):
                     if node.attr in ['__builtins__', '__import__', '__class__', '__bases__', '__subclasses__', '__mro__']:
-                        # 检查是否在危险上下文中使用
+                        # Check if used in dangerous context
                         if isinstance(node.value, ast.Name) and node.value.id in ['builtins', '__builtins__']:
                             return False, f"检测到访问危险属性: {node.value.id}.{node.attr}"
         
     except SyntaxError as e:
         return False, f"代码语法错误: {str(e)}"
     except Exception as e:
-        # 如果AST解析失败，记录警告但允许继续（可能是代码不完整）
+        # If AST parsing fails, log a warning but allow to continue (possibly incomplete code)
         logger.warning(f"AST parse failed; skipping safety checks: {str(e)}")
     
     return True, None

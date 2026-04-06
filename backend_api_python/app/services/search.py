@@ -1,13 +1,13 @@
 """
-Search service v2.0 - 增强版搜索服务
-整合多个搜索引擎，支持 API Key 轮换和故障转移
+Search service v2.0 - Enhanced version of search service
+Integrate multiple search engines and support API Key rotation and failover
 
-支持的搜索引擎（按优先级）：
-1. Tavily - 专为AI设计，免费1000次/月
-2. SerpAPI - Google/Bing 结果抓取
-3. Google CSE - 自定义搜索引擎
+Supported search engines (in order of priority):
+1. Tavily - specially designed for AI, free 1000 times/month
+2. SerpAPI - Google/Bing result crawling
+3. Google CSE – Custom Search Engine
 4. Bing Search API
-5. DuckDuckGo - 免费兜底
+5. DuckDuckGo – Get the scoop for free
 
 参考：daily_stock_analysis-main/src/search_service.py
 """
@@ -34,21 +34,21 @@ _google_quota_reset_time = 0
 
 @dataclass
 class SearchResult:
-    """搜索结果数据类"""
+    """Search result data class"""
     title: str
-    snippet: str  # 摘要
+    snippet: str  # summary
     url: str
-    source: str  # 来源网站
+    source: str  # Source website
     published_date: Optional[str] = None
-    sentiment: str = 'neutral'  # 情绪标签
+    sentiment: str = 'neutral'  # Emotion tags
     
     def to_text(self) -> str:
-        """转换为文本格式"""
+        """Convert to text format"""
         date_str = f" ({self.published_date})" if self.published_date else ""
         return f"【{self.source}】{self.title}{date_str}\n{self.snippet}"
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             'title': self.title,
             'link': self.url,
@@ -61,16 +61,16 @@ class SearchResult:
 
 @dataclass 
 class SearchResponse:
-    """搜索响应"""
+    """search response"""
     query: str
     results: List[SearchResult]
-    provider: str  # 使用的搜索引擎
+    provider: str  # search engine used
     success: bool = True
     error_message: Optional[str] = None
-    search_time: float = 0.0  # 搜索耗时（秒）
+    search_time: float = 0.0  # Search time (seconds)
     
     def to_context(self, max_results: int = 5) -> str:
-        """将搜索结果转换为可用于 AI 分析的上下文"""
+        """Transform search results into context that can be used for AI analysis"""
         if not self.success or not self.results:
             return f"搜索 '{self.query}' 未找到相关结果。"
         
@@ -81,20 +81,20 @@ class SearchResponse:
         return "\n".join(lines)
     
     def to_list(self) -> List[Dict[str, Any]]:
-        """转换为列表格式（兼容旧接口）"""
+        """Convert to list format (compatible with old interface)"""
         return [r.to_dict() for r in self.results]
 
 
 class BaseSearchProvider(ABC):
-    """搜索引擎基类"""
+    """Search engine base class"""
     
     def __init__(self, api_keys: List[str], name: str):
         """
-        初始化搜索引擎
+        Initialize search engine
         
         Args:
-            api_keys: API Key 列表（支持多个 key 负载均衡）
-            name: 搜索引擎名称
+            api_keys: API Key list (supports multiple key load balancing)
+            name: search engine name
         """
         self._api_keys = api_keys
         self._name = name
@@ -108,58 +108,58 @@ class BaseSearchProvider(ABC):
     
     @property
     def is_available(self) -> bool:
-        """检查是否有可用的 API Key"""
+        """Check if there is an available API Key"""
         return bool(self._api_keys)
     
     def _get_next_key(self) -> Optional[str]:
         """
-        获取下一个可用的 API Key（负载均衡）
+        Get the next available API Key (load balancing)
         
-        策略：轮询 + 跳过错误过多的 key
+        Strategy: polling + skip keys with too many errors
         """
         if not self._key_cycle:
             return None
         
-        # 最多尝试所有 key
+        # Try at most all keys
         for _ in range(len(self._api_keys)):
             key = next(self._key_cycle)
-            # 跳过错误次数过多的 key（超过 3 次）
+            # Skip keys with too many errors (more than 3 times)
             if self._key_errors.get(key, 0) < 3:
                 return key
         
-        # 所有 key 都有问题，重置错误计数并返回第一个
+        # There is a problem with all keys, reset the error count and return the first one
         logger.warning(f"[{self._name}] 所有 API Key 都有错误记录，重置错误计数")
         self._key_errors = {key: 0 for key in self._api_keys}
         return self._api_keys[0] if self._api_keys else None
     
     def _record_success(self, key: str) -> None:
-        """记录成功使用"""
+        """Record successful use"""
         self._key_usage[key] = self._key_usage.get(key, 0) + 1
-        # 成功后减少错误计数
+        # Decrement error count on success
         if key in self._key_errors and self._key_errors[key] > 0:
             self._key_errors[key] -= 1
     
     def _record_error(self, key: str) -> None:
-        """记录错误"""
+        """Log errors"""
         self._key_errors[key] = self._key_errors.get(key, 0) + 1
         logger.warning(f"[{self._name}] API Key {key[:8]}... 错误计数: {self._key_errors[key]}")
     
     @abstractmethod
     def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """执行搜索（子类实现）"""
+        """Perform a search (subclass implementation)"""
         pass
     
     def search(self, query: str, max_results: int = 5, days: int = 7) -> SearchResponse:
         """
-        执行搜索
+        Perform a search
         
         Args:
-            query: 搜索关键词
-            max_results: 最大返回结果数
-            days: 搜索最近几天的时间范围（默认7天）
+            query: search keyword
+            max_results: Maximum number of results returned
+            days: Search the time range of the last few days (default 7 days)
             
         Returns:
-            SearchResponse 对象
+            SearchResponse object
         """
         api_key = self._get_next_key()
         if not api_key:
@@ -199,7 +199,7 @@ class BaseSearchProvider(ABC):
     
     @staticmethod
     def _extract_domain(url: str) -> str:
-        """从 URL 提取域名作为来源"""
+        """Extract domain name from URL as source"""
         try:
             parsed = urlparse(url)
             domain = parsed.netloc.replace('www.', '')
@@ -210,31 +210,31 @@ class BaseSearchProvider(ABC):
 
 class TavilySearchProvider(BaseSearchProvider):
     """
-    Tavily 搜索引擎
+    Tavily search engine
     
-    特点：
-    - 专为 AI/LLM 优化的搜索 API
-    - 免费版每月 1000 次请求
-    - 返回结构化的搜索结果
+    Features:
+    - Search API optimized for AI/LLM
+    - Free version 1000 requests per month
+    - Return structured search results
     
-    文档：https://docs.tavily.com/
+    Documentation: https://docs.tavily.com/
     """
     
     def __init__(self, api_keys: List[str]):
         super().__init__(api_keys, "Tavily")
     
     def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """执行 Tavily 搜索"""
+        """Perform a Tavily search"""
         try:
             from tavily import TavilyClient
         except ImportError:
-            # 如果未安装 tavily-python，使用 REST API
+            # If tavily-python is not installed, use the REST API
             return self._do_search_rest(query, api_key, max_results, days)
         
         try:
             client = TavilyClient(api_key=api_key)
             
-            # 执行搜索
+            # Perform a search
             response = client.search(
                 query=query,
                 search_depth="advanced",
@@ -244,7 +244,7 @@ class TavilySearchProvider(BaseSearchProvider):
                 days=days,
             )
             
-            # 解析结果
+            # Parse results
             results = []
             for item in response.get('results', []):
                 results.append(SearchResult(
@@ -276,7 +276,7 @@ class TavilySearchProvider(BaseSearchProvider):
             )
     
     def _do_search_rest(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """使用 REST API 执行 Tavily 搜索（备选方案）"""
+        """Performing Tavily searches using the REST API (alternative)"""
         try:
             url = "https://api.tavily.com/search"
             headers = {
@@ -332,20 +332,20 @@ class TavilySearchProvider(BaseSearchProvider):
 
 class SerpAPISearchProvider(BaseSearchProvider):
     """
-    SerpAPI 搜索引擎
+    SerpAPI search engine
     
-    特点：
-    - 支持 Google、Bing、百度等多种搜索引擎
-    - 免费版每月 100 次请求
+    Features:
+    -Support multiple search engines such as Google, Bing, Baidu, etc.
+    - Free version 100 requests per month
     
-    文档：https://serpapi.com/
+    Documentation: https://serpapi.com/
     """
     
     def __init__(self, api_keys: List[str]):
         super().__init__(api_keys, "SerpAPI")
     
     def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """执行 SerpAPI 搜索"""
+        """Perform a SerpAPI search"""
         try:
             from serpapi import GoogleSearch
         except ImportError:
@@ -405,7 +405,7 @@ class SerpAPISearchProvider(BaseSearchProvider):
             )
     
     def _do_search_rest(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """使用 REST API 执行 SerpAPI 搜索"""
+        """Performing SerpAPI searches using the REST API"""
         try:
             tbs = "qdr:w"
             if days <= 1:
@@ -467,14 +467,14 @@ class SerpAPISearchProvider(BaseSearchProvider):
 
 
 class GoogleSearchProvider(BaseSearchProvider):
-    """Google Custom Search (CSE) 搜索引擎"""
+    """Google Custom Search (CSE) search engine"""
     
     def __init__(self, api_key: str, cx: str):
         super().__init__([api_key] if api_key else [], "Google")
         self._cx = cx
     
     def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """执行 Google 搜索"""
+        """Perform a Google search"""
         global _google_quota_exhausted, _google_quota_reset_time
         
         if not self._cx:
@@ -495,7 +495,7 @@ class GoogleSearchProvider(BaseSearchProvider):
                 'num': min(max_results, 10),
             }
             
-            # 添加时间限制
+            # Add time limit
             if days <= 1:
                 params['dateRestrict'] = 'd1'
             elif days <= 7:
@@ -550,13 +550,13 @@ class GoogleSearchProvider(BaseSearchProvider):
 
 
 class BingSearchProvider(BaseSearchProvider):
-    """Bing Search API 搜索引擎"""
+    """Bing Search API search engine"""
     
     def __init__(self, api_key: str):
         super().__init__([api_key] if api_key else [], "Bing")
     
     def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """执行 Bing 搜索"""
+        """Perform a Bing search"""
         try:
             url = "https://api.bing.microsoft.com/v7.0/search"
             headers = {"Ocp-Apim-Subscription-Key": api_key}
@@ -600,15 +600,15 @@ class BingSearchProvider(BaseSearchProvider):
 
 
 class DuckDuckGoSearchProvider(BaseSearchProvider):
-    """DuckDuckGo 搜索引擎（免费，无需 API Key）"""
+    """DuckDuckGo search engine (free, no API Key required)"""
     
     def __init__(self):
         super().__init__(['free'], "DuckDuckGo")
     
     def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
-        """执行 DuckDuckGo 搜索"""
+        """Perform a DuckDuckGo search"""
         try:
-            # 使用 DuckDuckGo Instant Answer API
+            # Using DuckDuckGo Instant Answer API
             url = "https://api.duckduckgo.com/"
             params = {
                 'q': query,
@@ -623,7 +623,7 @@ class DuckDuckGoSearchProvider(BaseSearchProvider):
             
             results = []
             
-            # 获取 RelatedTopics
+            # Get RelatedTopics
             related_topics = data.get('RelatedTopics', [])
             for topic in related_topics[:max_results]:
                 if isinstance(topic, dict):
@@ -646,7 +646,7 @@ class DuckDuckGoSearchProvider(BaseSearchProvider):
                                     source='DuckDuckGo',
                                 ))
             
-            # 检查 AbstractURL
+            # Check AbstractURL
             if data.get('AbstractURL') and len(results) < max_results:
                 results.insert(0, SearchResult(
                     title=data.get('Heading', query),
@@ -655,7 +655,7 @@ class DuckDuckGoSearchProvider(BaseSearchProvider):
                     source='DuckDuckGo',
                 ))
             
-            # 如果没有结果，尝试 HTML 版本
+            # If no results, try the HTML version
             if not results:
                 results = self._search_html(query, max_results)
             
@@ -676,7 +676,7 @@ class DuckDuckGoSearchProvider(BaseSearchProvider):
             )
     
     def _search_html(self, query: str, max_results: int) -> List[SearchResult]:
-        """DuckDuckGo HTML 搜索备选"""
+        """DuckDuckGo HTML search alternatives"""
         try:
             url = "https://lite.duckduckgo.com/lite/"
             headers = {
@@ -715,12 +715,12 @@ class DuckDuckGoSearchProvider(BaseSearchProvider):
 
 class SearchService:
     """
-    搜索服务
+    Search service
     
-    功能：
-    1. 管理多个搜索引擎
-    2. 自动故障转移
-    3. 结果聚合和格式化
+    Function:
+    1. Manage multiple search engines
+    2. Automatic failover
+    3. Result aggregation and formatting
     """
     
     def __init__(self):
@@ -730,17 +730,17 @@ class SearchService:
         self._init_providers()
     
     def _load_config(self):
-        """加载配置"""
+        """Load configuration"""
         config = load_addon_config()
         self._config = config.get('search', {})
         self.provider = self._config.get('provider', 'google')
         self.max_results = int(self._config.get('max_results', 10))
     
     def _init_providers(self):
-        """初始化搜索引擎（按优先级排序）"""
+        """Initialize search engines (sorted by priority)"""
         from app.config import APIKeys
         
-        # 1. Tavily（AI优化搜索）
+        # 1. Tavily (AI optimized search)
         tavily_keys = APIKeys.TAVILY_API_KEYS
         if tavily_keys:
             self._providers.append(TavilySearchProvider(tavily_keys))
@@ -765,7 +765,7 @@ class SearchService:
             self._providers.append(BingSearchProvider(bing_api_key))
             logger.info("已配置 Bing 搜索")
         
-        # 5. DuckDuckGo（免费兜底）
+        # 5. DuckDuckGo (Free Tips)
         self._providers.append(DuckDuckGoSearchProvider())
         logger.info("已配置 DuckDuckGo 搜索（免费兜底）")
         
@@ -774,25 +774,25 @@ class SearchService:
     
     @property
     def is_available(self) -> bool:
-        """检查是否有可用的搜索引擎"""
+        """Check if a search engine is available"""
         return any(p.is_available for p in self._providers)
     
     def search(self, query: str, num_results: int = None, date_restrict: str = None, days: int = 7) -> List[Dict[str, Any]]:
         """
-        执行搜索（兼容旧接口）
+        Perform a search (compatible with old interface)
         
         Args:
-            query: 搜索关键词
-            num_results: 最大返回结果数
-            date_restrict: 时间限制（Google 格式，如 'd7'）
-            days: 搜索最近几天（优先级高于 date_restrict）
+            query: search keyword
+            num_results: Maximum number of results returned
+            date_restrict: time restriction (Google format, such as 'd7')
+            days: Search the last few days (priority higher than date_restrict)
             
         Returns:
-            搜索结果列表
+            Search result list
         """
         limit = num_results if num_results else self.max_results
         
-        # 解析 date_restrict 为 days
+        # Parse date_restrict to days
         if date_restrict and not days:
             if date_restrict.startswith('d'):
                 days = int(date_restrict[1:])
@@ -806,17 +806,17 @@ class SearchService:
     
     def search_with_fallback(self, query: str, max_results: int = 5, days: int = 7) -> SearchResponse:
         """
-        执行搜索（带自动故障转移）
+        Perform a search (with automatic failover)
         
         Args:
-            query: 搜索关键词
-            max_results: 最大返回结果数
-            days: 搜索最近几天
+            query: search keyword
+            max_results: Maximum number of results returned
+            days: Search the last few days
             
         Returns:
-            SearchResponse 对象
+            SearchResponse object
         """
-        # 依次尝试各个搜索引擎
+        # Try each search engine in sequence
         for provider in self._providers:
             if not provider.is_available:
                 continue
@@ -828,7 +828,7 @@ class SearchService:
             else:
                 logger.warning(f"{provider.name} 搜索失败: {response.error_message}，尝试下一个引擎")
         
-        # 所有引擎都失败
+        # all engines fail
         return SearchResponse(
             query=query,
             results=[],
@@ -845,27 +845,27 @@ class SearchService:
         max_results: int = 5
     ) -> SearchResponse:
         """
-        搜索股票相关新闻
+        Search stock related news
         
         Args:
-            stock_code: 股票代码
-            stock_name: 股票名称
-            market: 市场类型
-            max_results: 最大返回结果数
+            stock_code: stock code
+            stock_name: stock name
+            market: market type
+            max_results: Maximum number of results returned
             
         Returns:
-            SearchResponse 对象
+            SearchResponse object
         """
-        # 智能确定搜索时间范围
+        # Intelligently determine search time range
         today_weekday = datetime.now().weekday()
-        if today_weekday == 0:  # 周一
+        if today_weekday == 0:  # on Monday
             search_days = 3
-        elif today_weekday >= 5:  # 周末
+        elif today_weekday >= 5:  # weekend
             search_days = 2
         else:
             search_days = 1
         
-        # 根据市场类型构建搜索查询
+        # Build search queries based on market type
         if market == "USStock":
             query = f"{stock_name} {stock_code} stock news latest"
         elif market == "Crypto":
@@ -886,7 +886,7 @@ class SearchService:
         event_types: Optional[List[str]] = None
     ) -> SearchResponse:
         """
-        搜索股票特定事件（年报预告、减持等）
+        Search for specific stock events (annual report preview, shareholding reduction, etc.)
         """
         if event_types is None:
             event_types = ["年报预告", "减持公告", "业绩快报"]
@@ -897,12 +897,12 @@ class SearchService:
         return self.search_with_fallback(query, max_results=5, days=30)
 
 
-# 单例实例
+# Singleton instance
 _search_service: Optional[SearchService] = None
 
 
 def get_search_service() -> SearchService:
-    """获取搜索服务单例"""
+    """Get the search service singleton"""
     global _search_service
     if _search_service is None:
         _search_service = SearchService()
@@ -910,6 +910,6 @@ def get_search_service() -> SearchService:
 
 
 def reset_search_service() -> None:
-    """重置搜索服务（用于测试或配置更新后）"""
+    """Reset the search service (for testing or after configuration updates)"""
     global _search_service
     _search_service = None

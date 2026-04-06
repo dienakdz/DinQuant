@@ -69,7 +69,7 @@ app = create_app()
 
 
 def main():
-    """启动应用"""
+    """Start application"""
     # Keep startup messages ASCII-only and short.
     print("QuantDinger Python API v2.2.2")
     

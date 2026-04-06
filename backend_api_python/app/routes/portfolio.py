@@ -42,8 +42,8 @@ def _now_ts() -> int:
 
 def _serialize_monitor_ts(value):
     """
-    JSON 序列化监控时间字段。PostgreSQL TIMESTAMP 无 tz 时按 UTC 解释（与 Docker 默认一致），
-    输出带 Z 的 ISO，避免前端把无时区字符串当本地时间而偏差 8 小时。
+    JSON serialized monitoring time field. PostgreSQL TIMESTAMP is interpreted in UTC when there is no tz (consistent with Docker's default),
+    Output the ISO with Z to prevent the front end from treating the non-time zone string as local time and deviating by 8 hours.
     """
     if value is None:
         return None
@@ -85,17 +85,17 @@ def _get_single_price(market: str, symbol: str, force_refresh: bool = False) -> 
     """
     Get price data for a single symbol.
     
-    优先使用实时报价 API（ticker），降级使用分钟/日线 K 线数据。
-    这样可以在交易时段获取更实时的价格，而不是只显示日线收盘价。
+    Priority is given to using the real-time quotation API (ticker), and downgrading to minute/daily K-line data.
+    This allows for more real-time prices during the trading session, rather than just showing daily closing prices.
     
-    内置速率限制：同一市场的请求间隔至少 REQUEST_INTERVAL 秒，
-    避免触发 API 限制（如 yfinance、Tiingo、Finnhub 等）。
+    Built-in rate limit: requests for the same market must be at least REQUEST_INTERVAL seconds apart,
+    Avoid triggering API limits (like yfinance, Tiingo, Finnhub, etc.).
     
     Args:
-        force_refresh: 是否强制刷新（跳过缓存）
+        force_refresh: whether to force refresh (skip cache)
     """
     try:
-        # 速率限制：同一市场的请求间隔
+        # Rate Limit: Interval between requests for the same market
         with _request_lock:
             now = time.time()
             last_time = _last_request_time.get(market, 0)
@@ -104,7 +104,7 @@ def _get_single_price(market: str, symbol: str, force_refresh: bool = False) -> 
                 time.sleep(wait_time)
             _last_request_time[market] = time.time()
         
-        # 使用新的 get_realtime_price 方法获取实时价格
+        # Get real-time prices using the new get_realtime_price method
         price_data = kline_service.get_realtime_price(market, symbol, force_refresh=force_refresh)
         
         return {
@@ -113,7 +113,7 @@ def _get_single_price(market: str, symbol: str, force_refresh: bool = False) -> 
             'price': price_data.get('price', 0),
             'change': price_data.get('change', 0),
             'changePercent': price_data.get('changePercent', 0),
-            'source': price_data.get('source', 'unknown')  # 记录数据来源，便于调试
+            'source': price_data.get('source', 'unknown')  # Record data sources for easy debugging
         }
     except Exception as e:
         logger.error(f"Failed to fetch price {market}:{symbol} - {str(e)}")
@@ -598,7 +598,7 @@ def add_monitor():
             db.commit()
             cur.close()
 
-        # 创建后立即在后台跑一轮：立刻发通知，并以完成时刻为基准写入 next_run_at（间隔后再次执行）
+        # Run one round in the background immediately after creation: send a notification immediately, and write next_run_at based on the completion time (execute again after the interval)
         if is_active and monitor_id:
             try:
                 from app.services.portfolio_monitor import run_single_monitor as _run_single_monitor

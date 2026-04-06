@@ -291,10 +291,10 @@ def remove_watchlist():
 
 
 def get_single_price(market: str, symbol: str) -> dict:
-    """获取单个标的的价格数据"""
+    """Get price data of a single target"""
     try:
-        # 使用 get_realtime_price 获取实时价格（内部已有30秒缓存）
-        # 相比原先的 '1D' K线逻辑，这能更及时地反映 Crypto 等 24h 市场的变化
+        # Use get_realtime_price to get the real-time price (30 seconds cached internally)
+        # Compared with the original '1D' K-line logic, this can reflect changes in 24h markets such as Crypto in a more timely manner
         price_data = kline_service.get_realtime_price(market, symbol)
         
         return {
@@ -318,7 +318,7 @@ def get_single_price(market: str, symbol: str) -> dict:
 @market_bp.route('/watchlist/prices', methods=['GET'])
 def get_watchlist_prices():
     """
-    批量获取自选股价格
+    Get the prices of self-selected stocks in batches
     
     Params (Query String):
         watchlist: JSON string of list of {market, symbol} objects
@@ -338,11 +338,11 @@ def get_watchlist_prices():
                 'data': []
             }), 400
         
-        # logger.info(f"开始获取 {len(watchlist)} 个自选股价格数据")
+        # logger.info(f"Start getting {len(watchlist)} self-selected stock price data")
         
         results = []
         
-        # 使用线程池并行获取价格
+        # Fetch prices in parallel using thread pool
         futures = {}
         for item in watchlist:
             market = item.get('market', '')
@@ -352,7 +352,7 @@ def get_watchlist_prices():
                 future = executor.submit(get_single_price, market, symbol)
                 futures[future] = (market, symbol)
         
-        # 收集结果（带超时保护）
+        # Collect results (with timeout protection)
         completed_futures = set()
         try:
             for future in as_completed(futures, timeout=30):
@@ -371,7 +371,7 @@ def get_watchlist_prices():
                         'changePercent': 0
                     })
         except TimeoutError:
-            # 超时时，为未完成的任务添加默认结果
+            # Add default results for unfinished tasks on timeout
             for future, (market, symbol) in futures.items():
                 if future not in completed_futures:
                     logger.warning(f"Price fetch timed out: {market}:{symbol}")
@@ -406,11 +406,11 @@ def get_watchlist_prices():
 @market_bp.route('/price', methods=['GET'])
 def get_price():
     """
-    获取单个标的价格
+    Get the price of a single target
     
-    参数:
-        market: 市场类型
-        symbol: 交易标的
+    parameter:
+        market: market type
+        symbol: transaction target
     """
     try:
         market = request.args.get('market', '')
@@ -443,15 +443,15 @@ def get_price():
 @market_bp.route('/stock/name', methods=['POST'])
 def get_stock_name():
     """
-    获取股票名称
+    Get stock name
     
-    请求体:
+    Request body:
     {
         "market": "USStock",
         "symbol": "AAPL"
     }
     
-    响应:
+    response:
     {
         "code": 1,
         "msg": "success",
@@ -479,7 +479,7 @@ def get_stock_name():
                 'data': None
             }), 400
         
-        # 尝试从缓存获取（1天缓存）
+        # Try to get from cache (1 day cache)
         cache_key = f"stock_name:{market}:{symbol}"
         cached_name = cache.get(cache_key)
         
@@ -491,30 +491,30 @@ def get_stock_name():
                 'data': {'name': cached_name}
             })
         
-        # 根据不同市场获取股票名称
-        stock_name = symbol  # 默认使用代码
+        # Get stock names based on different markets
+        stock_name = symbol  # Default use code
         
         try:
             if market == 'USStock':
-                # 对于股票，尝试获取基本信息
+                # For stocks, try to get basic information
                 import yfinance as yf
                 
                 yf_symbol = symbol
                 ticker = yf.Ticker(yf_symbol)
                 info = ticker.info
                 
-                # 尝试获取名称
+                # Try to get the name
                 stock_name = info.get('longName') or info.get('shortName') or symbol
                 
             elif market == 'Crypto':
-                # 加密货币，使用交易对格式
+                # Cryptocurrency, using trading pair format
                 if '/' in symbol:
                     stock_name = symbol
                 else:
                     stock_name = f"{symbol}/USDT"
             
             elif market == 'Forex':
-                # 外汇
+                # Forex
                 forex_names = {
                     'XAUUSD': '黄金',
                     'XAGUSD': '白银',
@@ -528,7 +528,7 @@ def get_stock_name():
                 stock_name = forex_names.get(symbol, symbol)
             
             elif market == 'Futures':
-                # 期货
+                # futures
                 futures_names = {
                     'GC': '黄金期货',
                     'SI': '白银期货',
@@ -545,7 +545,7 @@ def get_stock_name():
             logger.warning(f"Failed to fetch stock name; falling back to symbol: {market}:{symbol} - {str(e)}")
             stock_name = symbol
         
-        # 缓存1天
+        # Cache for 1 day
         cache.set(cache_key, stock_name, 86400)
         
         return jsonify({

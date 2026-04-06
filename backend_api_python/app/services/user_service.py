@@ -189,13 +189,13 @@ class UserService:
     
     def get_token_version(self, user_id: int) -> int:
         """
-        获取用户当前的 token 版本号。
+        Get the user's current token version number.
         
         Args:
-            user_id: 用户ID
+            user_id: user ID
         
         Returns:
-            当前 token 版本号，默认为 1
+            Current token version number, default is 1
         """
         try:
             with get_db_connection() as db:
@@ -215,19 +215,19 @@ class UserService:
     
     def increment_token_version(self, user_id: int) -> int:
         """
-        递增用户的 token 版本号，使旧的 token 失效。
-        用于实现单一客户端登录（踢出其他设备）。
+        Increment the user's token version number and invalidate the old token.
+        Used to implement single client login (kick out other devices).
         
         Args:
-            user_id: 用户ID
+            user_id: user ID
         
         Returns:
-            新的 token 版本号
+            New token version number
         """
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
-                # 递增 token_version
+                # Increment token_version
                 cur.execute(
                     """
                     UPDATE qd_users 
@@ -238,7 +238,7 @@ class UserService:
                 )
                 db.commit()
                 
-                # 获取新的 token_version
+                # Get new token_version
                 cur.execute(
                     "SELECT token_version FROM qd_users WHERE id = ?",
                     (user_id,)

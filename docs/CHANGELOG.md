@@ -6,9 +6,9 @@ This document records version updates, new features, bug fixes, and database mig
 
 ## V3.0.1 (2026-04-05) — Frontend / docs
 
-- **前端版本**：`QuantDinger-Vue-src/package.json`、页脚展示与 `frontend/VERSION` 统一为 **3.0.1**。
-- **文档**：根目录 `README.md` 与 `docs/README_CN.md` 补充 QuantDinger 专属交易所邀请注册链接表（与个人中心「开户」一致），版本徽章更新为 3.0.1。
-- **回测中心**：暗黑主题下图标与「添加标的」等弹窗样式对齐（`a-icon`、图表标题区、Modal 挂载层）。
+- **Front-end version**: `QuantDinger-Vue-src/package.json`, footer display and `frontend/VERSION` are unified to **3.0.1**.
+- **Documentation**: The root directories `README.md` and `docs/README_CN.md` are added to the QuantDinger exclusive exchange invitation registration link table (consistent with the personal center "Account Opening"), and the version badge is updated to 3.0.1.
+- **Backtest Center**: Under the dark theme, icons are aligned with pop-up window styles such as "Add Target" (`a-icon`, chart title area, Modal mounting layer).
 
 ---
 
@@ -16,25 +16,25 @@ This document records version updates, new features, bug fixes, and database mig
 
 ### 🚀 New Features
 
-- **真实策略回测主链路**: 新增基于 `strategyId` 的策略回测入口，支持已保存的 `IndicatorStrategy` 与 `ScriptStrategy`，不再只是“取指标再跑一次指标回测”。
-- **策略快照解析层**: 后端新增统一策略快照解析逻辑，把 `indicator_config`、`trading_config`、`strategy_code` 解析为可回测的标准输入。
-- **策略回测历史与详情**: 回测记录现在可区分 `indicator` / `strategy_indicator` / `strategy_script`，并支持策略回测历史、详情查看和 AI 修正建议链路。
-- **交易助手联动回测中心**: 交易助手中的策略项新增回测跳转入口，可直接带 `strategy_id` 进入回测中心。
+- **Real strategy backtest main link**: Added new strategy backtest entrance based on `strategyId`, supporting saved `IndicatorStrategy` and `ScriptStrategy`, no longer just "get the indicator and run another indicator backtest".
+- **Strategy Snapshot Parsing Layer**: New unified strategy snapshot parsing logic is added to the backend to parse `indicator_config`, `trading_config`, and `strategy_code` into backtestable standard input.
+- **Strategy backtest history and details**: Backtest records can now distinguish `indicator` / `strategy_indicator` / `strategy_script`, and support strategy backtest history, detailed viewing and AI correction suggestion links.
+- **Trading Assistant Linked Backtesting Center**: A new backtesting jump entrance is added to the strategy items in the Trading Assistant, and you can directly enter the backtesting center with `strategy_id`.
 
 ### 🐛 Bug Fixes
 
-- Fixed the previous “策略回测” pseudo-flow that only reused `/api/indicator/backtest` and could not faithfully replay stored strategies.
+- Fixed the previous “strategy backtest” pseudo-flow that only reused `/api/indicator/backtest` and could not faithfully replay stored strategies.
 - Fixed strategy backtest history semantics so records can be linked to concrete strategies instead of only relying on `indicator_id`.
 - Fixed strategy backtest UI entry restoration in Backtest Center and wired the strategy selector/history drawer to real backend endpoints.
 
 ### 🎨 UI/UX Improvements
 
-- Restored the `回测中心 -> 策略回测` tab with strategy summary cards and environment override controls.
+- Restored the `Backtest Center -> Strategy Backtest` tab with strategy summary cards and environment override controls.
 - Unified strategy backtest history display with the existing run viewer and AI suggestion modal.
 
 ### 📋 Database Migration
 
-**在已有 PostgreSQL 库上执行（新库若已通过更新后的 `migrations/init.sql` 初始化则无需再执行）：**
+**Execute on the existing PostgreSQL library (if the new library has been initialized through the updated `migrations/init.sql`, there is no need to execute it again): **
 
 ```sql
 -- ============================================================
@@ -97,15 +97,15 @@ CREATE INDEX IF NOT EXISTS idx_backtest_equity_points_run_id ON qd_backtest_equi
 
 ### 🚀 New Features
 
-- **User profile IANA timezone (`qd_users.timezone`)**: 个人资料可保存时区（IANA 标识，如 `Asia/Shanghai`）；为空表示跟随浏览器。登录态 `/api/auth/info`、资料接口与前端 AI 分析页等时间展示会按该时区调用 `toLocaleString(..., { timeZone })`（非法或空则回退本机时区）。
+- **User profile IANA timezone (`qd_users.timezone`)**: Profile can save time zone (IANA identifier, such as `Asia/Shanghai`); empty means following the browser. Login state `/api/auth/info`, data interface and front-end AI analysis page and other time display will call `toLocaleString(..., { timeZone })` according to the time zone (if illegal or empty, it will fall back to the local time zone).
 
 ### 📋 Database Migration
 
-**在已有 PostgreSQL 库上执行（新库若已通过更新后的 `migrations/init.sql` 初始化则无需再执行）：**
+**Execute on the existing PostgreSQL library (if the new library has been initialized through the updated `migrations/init.sql`, there is no need to execute it again): **
 
 ```sql
 -- ============================================================
--- QuantDinger V2.2.3 — qd_users.timezone（用户资料时区）
+-- QuantDinger V2.2.3 — `qd_users.timezone` (user profile timezone)
 -- ============================================================
 
 DO $$
@@ -122,13 +122,13 @@ BEGIN
 END $$;
 ```
 
-**仅当列不存在时的一行式写法（自行确认无列后再执行）：**
+**One-line writing method only when the column does not exist (confirm that there is no column before executing): **
 
 ```sql
 ALTER TABLE qd_users ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) DEFAULT '';
 ```
 
-> 说明：`ALTER TABLE ... ADD COLUMN IF NOT EXISTS` 需 **PostgreSQL 11+**（本仓库 Docker 默认 `postgres:16` 可用）；与上面 `DO` 块二选一即可。
+> Note: `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` requires **PostgreSQL 11+** (the default `postgres:16` is available for Docker in this warehouse); just choose one of the two above `DO` blocks.
 
 ---
 
@@ -167,24 +167,24 @@ ALTER TABLE qd_users ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) DEFAULT '';
 -- Polymarket Prediction Markets Integration
 -- ============================================================
 
--- 预测市场表（缓存）
+-- Prediction market table (cache)
 CREATE TABLE IF NOT EXISTS qd_polymarket_markets (
     id SERIAL PRIMARY KEY,
     market_id VARCHAR(255) UNIQUE NOT NULL,
     question TEXT,
     category VARCHAR(100),  -- crypto, politics, economics, sports
-    current_probability DECIMAL(5,2),  -- YES概率（0-100）
+    current_probability DECIMAL(5,2),  -- YES probability (0-100)
     volume_24h DECIMAL(20,2),
     liquidity DECIMAL(20,2),
     end_date_iso TIMESTAMP,
     status VARCHAR(50),  -- active, closed, resolved
-    outcome_tokens JSONB,  -- YES/NO价格和交易量
-    slug VARCHAR(255),  -- Polymarket事件slug，用于构建URL
+    outcome_tokens JSONB,  -- YES/NO price and volume
+    slug VARCHAR(255),  -- Polymarket event slug used to build the URL
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 添加slug字段（如果表已存在但字段不存在）
+-- Add the slug field if the table exists but the column does not
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -200,20 +200,20 @@ CREATE INDEX IF NOT EXISTS idx_polymarket_category ON qd_polymarket_markets(cate
 CREATE INDEX IF NOT EXISTS idx_polymarket_status ON qd_polymarket_markets(status);
 CREATE INDEX IF NOT EXISTS idx_polymarket_updated ON qd_polymarket_markets(updated_at DESC);
 
--- AI分析记录表
+-- AI analysis records table
 CREATE TABLE IF NOT EXISTS qd_polymarket_ai_analysis (
     id SERIAL PRIMARY KEY,
     market_id VARCHAR(255) NOT NULL,
-    user_id INTEGER,  -- 可选：用户特定的分析
+    user_id INTEGER,  -- Optional: user-specific analysis
     ai_predicted_probability DECIMAL(5,2),
     market_probability DECIMAL(5,2),
-    divergence DECIMAL(5,2),  -- AI - 市场
+    divergence DECIMAL(5,2),  -- AI minus market
     recommendation VARCHAR(20),  -- YES/NO/HOLD
     confidence_score DECIMAL(5,2),
     opportunity_score DECIMAL(5,2),
     reasoning TEXT,
     key_factors JSONB,
-    related_assets TEXT[],  -- 相关资产列表
+    related_assets TEXT[],  -- Related asset list
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -221,7 +221,7 @@ CREATE INDEX IF NOT EXISTS idx_polymarket_analysis_market ON qd_polymarket_ai_an
 CREATE INDEX IF NOT EXISTS idx_polymarket_analysis_opportunity ON qd_polymarket_ai_analysis(opportunity_score DESC);
 CREATE INDEX IF NOT EXISTS idx_polymarket_analysis_user ON qd_polymarket_ai_analysis(user_id);
 
--- 资产交易机会表（基于预测市场生成）
+-- Asset trading opportunities table (generated from prediction markets)
 CREATE TABLE IF NOT EXISTS qd_polymarket_asset_opportunities (
     id SERIAL PRIMARY KEY,
     market_id VARCHAR(255) NOT NULL,
@@ -230,7 +230,7 @@ CREATE TABLE IF NOT EXISTS qd_polymarket_asset_opportunities (
     signal VARCHAR(20),  -- BUY/SELL/HOLD
     confidence DECIMAL(5,2),
     reasoning TEXT,
-    entry_suggestion JSONB,  -- 入场建议
+    entry_suggestion JSONB,  -- Entry suggestion
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -295,7 +295,7 @@ END $$;
 - **Market Order Default**: Changed default order mode to market order for reliable execution
 - **Billing Config i18n**: All billing configuration items fully multi-language supported
 
-#### Quick Trade Panel (闪电交易) 🆕
+#### Quick Trade Panel (Lightning Trading) 🆕
 - **Side-Sliding Drawer**: Professional trading panel slides in from the right, allowing instant order placement without leaving the analysis page
 - **Multi-Exchange Support**: Select from saved exchange credentials (Binance, OKX, Bitget, Bybit, etc.) with real-time balance display
 - **Long/Short Toggle**: Color-coded direction buttons with one-click switching

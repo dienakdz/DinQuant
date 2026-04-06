@@ -35,7 +35,7 @@ def generate_token(user_id: int, username: str, role: str = 'user', token_versio
             'sub': username,
             'user_id': user_id,
             'role': role,
-            'token_version': token_version,  # 用于单一客户端登录控制
+            'token_version': token_version,  # For single client login control
         }
         return jwt.encode(
             payload,
@@ -60,12 +60,12 @@ def verify_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, Config.SECRET_KEY, algorithms=['HS256'])
         
-        # 验证 token_version（单一客户端登录控制）
+        # Verify token_version (single client login control)
         user_id = payload.get('user_id')
         token_version = payload.get('token_version')
         
         if user_id and token_version is not None:
-            # 检查数据库中的 token_version 是否匹配
+            # Check if token_version in database matches
             if not _verify_token_version(user_id, token_version):
                 logger.debug(f"Token version mismatch for user {user_id}: expected current, got {token_version}")
                 return None
@@ -81,12 +81,12 @@ def verify_token(token: str) -> dict:
 
 def _verify_token_version(user_id: int, token_version: int) -> bool:
     """
-    验证 token 版本是否与数据库中存储的版本匹配。
-    用于实现单一客户端登录（踢出重复登录）。
+    Verify that the token version matches the version stored in the database.
+    Used to implement single client login (kick out duplicate logins).
     
     Args:
-        user_id: 用户ID
-        token_version: Token中的版本号
+        user_id: user ID
+        token_version: version number in Token
     
     Returns:
         True if version matches, False otherwise
@@ -109,7 +109,7 @@ def _verify_token_version(user_id: int, token_version: int) -> bool:
             return int(token_version) == int(db_token_version)
     except Exception as e:
         logger.error(f"_verify_token_version failed: {e}")
-        # 如果验证失败，为了安全起见，返回 False
+        # If validation fails, for security reasons, return False
         return False
 
 

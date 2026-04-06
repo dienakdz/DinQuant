@@ -1,6 +1,6 @@
 """
-外汇数据源
-使用 Tiingo 获取外汇数据
+Forex data source
+Get Forex Data with Tiingo
 """
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta
@@ -14,39 +14,39 @@ from app.config import TiingoConfig, APIKeys
 
 logger = get_logger(__name__)
 
-# 全局缓存 - 减少 Tiingo API 调用
+# Global Cache - Reduce Tiingo API calls
 _forex_cache: Dict[str, Dict[str, Any]] = {}
 _forex_cache_lock = threading.Lock()
-_FOREX_CACHE_TTL = 60  # 外汇价格缓存 60 秒 (Tiingo 免费 API 限制严格)
+_FOREX_CACHE_TTL = 60  # Forex price caching for 60 seconds (Tiingo free API has strict limits)
 
 
 class ForexDataSource(BaseDataSource):
-    """外汇数据源 (Tiingo)"""
+    """Forex data source (Tiingo)"""
     
     name = "Forex/Tiingo"
     
-    # Tiingo resampleFreq 映射
-    # Tiingo 免费账户支持: 5min, 15min, 30min, 1hour, 4hour, 1day
-    # 注意: 1min 需要付费订阅, 1week/1month 不被 Tiingo FX API 支持
+    # Tiingo resampleFreq mapping
+    # Tiingo free account support: 5min, 15min, 30min, 1hour, 4hour, 1day
+    # Note: 1min requires paid subscription, 1week/1month is not supported by Tiingo FX API
     TIMEFRAME_MAP = {
-        '1m': '1min',      # 需要付费订阅
+        '1m': '1min',      # Paid subscription required
         '5m': '5min',
         '15m': '15min',
         '30m': '30min',
         '1H': '1hour',
         '4H': '4hour',
         '1D': '1day',
-        '1W': None,        # Tiingo 不支持，需要聚合
-        '1M': None         # Tiingo 不支持，需要聚合
+        '1W': None,        # Tiingo does not support it and needs to be aggregated.
+        '1M': None         # Tiingo does not support it and needs to be aggregated.
     }
     
-    # 外汇对映射 (Tiingo 使用标准 ticker，如 eurusd, audusd)
-    # 大写也可以，Tiingo 通常不区分大小写，但建议统一
+    # Forex pair mapping (Tiingo uses standard tickers such as eurusd, audusd)
+    # Uppercase letters are also acceptable. Tiingo is usually not case-sensitive, but uniformity is recommended.
     SYMBOL_MAP = {
-        # 贵金属 (Tiingo 不一定支持所有 OANDA 格式的贵金属，通常是 XAUUSD)
+        # Precious metals (Tiingo does not necessarily support all precious metals in OANDA format, usually XAUUSD)
         'XAUUSD': 'xauusd',
         'XAGUSD': 'xagusd',
-        # 主要货币对
+        # major currency pairs
         'EURUSD': 'eurusd',
         'GBPUSD': 'gbpusd',
         'USDJPY': 'usdjpy',
@@ -63,18 +63,18 @@ class ForexDataSource(BaseDataSource):
     
     def get_ticker(self, symbol: str) -> Dict[str, Any]:
         """
-        获取外汇实时报价
+        Get realtime quotes for foreign exchange
         
-        使用 Tiingo FX Top-of-Book API 获取实时报价
-        带有 60 秒缓存以避免频繁触发 Tiingo 速率限制
+        Get realtime quotes using the Tiingo FX Top-of-Book API
+        Comes with 60 second cache to avoid triggering Tiingo rate limit frequently
         
         Returns:
             dict: {
-                'last': 当前价格 (mid price),
-                'bid': 买价,
-                'ask': 卖价,
-                'change': 涨跌额,
-                'changePercent': 涨跌幅
+                'last': current price (mid price),
+                'bid': buying price,
+                'ask': selling price,
+                'change': change amount,
+                'changePercent': increase or decrease
             }
         """
         api_key = APIKeys.TIINGO_API_KEY
@@ -82,7 +82,7 @@ class ForexDataSource(BaseDataSource):
             logger.warning("Tiingo API key not configured")
             return {'last': 0, 'symbol': symbol}
         
-        # 检查缓存
+        # Check cache
         cache_key = f"ticker_{symbol}"
         with _forex_cache_lock:
             cached = _forex_cache.get(cache_key)
@@ -93,7 +93,7 @@ class ForexDataSource(BaseDataSource):
                     return cached
         
         try:
-            # 解析 symbol
+            # parse symbol
             tiingo_symbol = self.SYMBOL_MAP.get(symbol)
             if not tiingo_symbol:
                 tiingo_symbol = symbol.lower()
@@ -106,7 +106,7 @@ class ForexDataSource(BaseDataSource):
                 'token': api_key
             }
             
-            # 重试逻辑：处理 429 速率限制
+            # Retry logic: Handling 429 rate limiting
             for attempt in range(3):
                 response = requests.get(url, params=params, timeout=TiingoConfig.TIMEOUT)
                 if response.status_code == 429:
@@ -119,7 +119,7 @@ class ForexDataSource(BaseDataSource):
             if response.status_code == 429:
                 logger.warning("Tiingo rate limit exceeded for ticker request")
                 logger.info("Note: Tiingo 1-minute forex data requires a paid subscription")
-                # 返回缓存数据（如果有的话，即使已过期）
+                # Return cached data (if available, even if expired)
                 with _forex_cache_lock:
                     if cache_key in _forex_cache:
                         logger.info(f"Returning stale cache for {symbol} due to rate limit")
@@ -136,19 +136,19 @@ class ForexDataSource(BaseDataSource):
                 ask = float(item.get('askPrice', 0) or 0)
                 mid = float(item.get('midPrice', 0) or 0)
                 
-                # 如果没有 midPrice，计算中间价
+                # If there is no midPrice, calculate the mid price
                 if not mid and bid and ask:
                     mid = (bid + ask) / 2
                 
                 last_price = mid or bid or ask
                 
-                # 获取前一天收盘价来计算涨跌（需要额外请求日线数据）
+                # Get the closing price of the previous day to calculate the rise and fall (additional request for daily data is required)
                 prev_close = 0
                 change = 0
                 change_pct = 0
                 
                 try:
-                    # 获取昨日收盘价
+                    # Get yesterday's closing price
                     yesterday = (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
                     today = datetime.now().strftime('%Y-%m-%d')
                     price_url = f"{self.base_url}/fx/{tiingo_symbol}/prices"
@@ -167,7 +167,7 @@ class ForexDataSource(BaseDataSource):
                                 change = last_price - prev_close
                                 change_pct = (change / prev_close) * 100
                 except Exception:
-                    pass  # 涨跌计算失败不影响主要功能
+                    pass  # Failure to calculate the rise or fall does not affect the main functions
                 
                 result = {
                     'last': round(last_price, 5),
@@ -179,7 +179,7 @@ class ForexDataSource(BaseDataSource):
                     '_cache_time': time.time()
                 }
                 
-                # 缓存结果
+                # cache results
                 with _forex_cache_lock:
                     _forex_cache[cache_key] = result
                 
@@ -191,7 +191,7 @@ class ForexDataSource(BaseDataSource):
         return {'last': 0, 'symbol': symbol}
     
     def _get_timeframe_seconds(self, timeframe: str) -> int:
-        """获取时间周期对应的秒数"""
+        """Get the number of seconds corresponding to the time period"""
         return TIMEFRAME_SECONDS.get(timeframe, 86400)
     
     def get_kline(
@@ -202,80 +202,80 @@ class ForexDataSource(BaseDataSource):
         before_time: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
-        获取外汇K线数据
+        Get foreign exchange K-line data
         
         Args:
-            symbol: 外汇对代码（如 XAUUSD, EURUSD）
-            timeframe: 时间周期
-            limit: 数据条数
-            before_time: 结束时间戳
+            symbol: Forex pair symbol (such as XAUUSD, EURUSD)
+            timeframe: time period
+            limit: number of data items
+            before_time: end timestamp
         """
-        # 动态获取 API Key
+        # Dynamically obtain API Key
         api_key = APIKeys.TIINGO_API_KEY
         if not api_key:
             logger.error("Tiingo API key is not configured")
             return []
             
         try:
-            # 1. 解析 Symbol
+            # 1. Parse Symbol
             tiingo_symbol = self.SYMBOL_MAP.get(symbol)
             if not tiingo_symbol:
-                # 尝试智能转换: EURUSD -> eurusd
+                # Try smart conversion: EURUSD -> eurusd
                 tiingo_symbol = symbol.lower()
 
-            # 2. 解析 Resolution (resampleFreq)
+            # 2. Analysis Resolution (resampleFreq)
             resample_freq = self.TIMEFRAME_MAP.get(timeframe)
             
-            # 特殊处理：1W/1M 需要用日线聚合
+            # Special treatment: 1W/1M requires daily aggregation
             aggregate_to_weekly = (timeframe == '1W')
             aggregate_to_monthly = (timeframe == '1M')
-            original_limit = limit  # 保存原始请求数量
+            original_limit = limit  # Save original request quantity
             
             if aggregate_to_weekly or aggregate_to_monthly:
-                # 用日线数据聚合
+                # Aggregate using daily data
                 resample_freq = '1day'
-                # 限制周线/月线的最大请求数量（Tiingo 免费 API 有数据量限制）
-                # 周线最多请求 100 周 = 700 天 ≈ 2年
-                # 月线最多请求 36 月 = 1080 天 ≈ 3年
+                # Limit the maximum number of weekly/monthly requests (Tiingo free API has data volume limit)
+                # The maximum weekly request is 100 weeks = 700 days ≈ 2 years
+                # The maximum monthly request is 36 months = 1080 days ≈ 3 years
                 max_limit = 100 if aggregate_to_weekly else 36
                 original_limit = min(original_limit, max_limit)
-                # 需要更多日线数据来聚合（周线需要7天，月线需要30天）
+                # More daily data is needed to aggregate (weekly lines require 7 days, monthly lines require 30 days)
                 limit = original_limit * (7 if aggregate_to_weekly else 30)
             
             if not resample_freq:
                 logger.warning(f"Tiingo does not support timeframe: {timeframe}")
                 return []
             
-            # 1分钟数据需要付费订阅提示
+            # 1 minute data requires paid subscription reminder
             if timeframe == '1m':
                 logger.info(f"Note: Tiingo 1-minute forex data requires a paid subscription")
             
-            # 3. 计算时间范围
+            # 3. Calculation time range
             if before_time:
                 end_dt = datetime.fromtimestamp(before_time)
             else:
                 end_dt = datetime.now()
             
-            # 根据周期和数量计算开始时间
-            # 注意：聚合模式下使用日线秒数计算
+            # Calculate start time based on period and quantity
+            # Note: Use daily seconds calculation in aggregation mode
             if aggregate_to_weekly or aggregate_to_monthly:
-                tf_seconds = 86400  # 日线秒数
+                tf_seconds = 86400  # daily seconds
             else:
                 tf_seconds = self._get_timeframe_seconds(timeframe)
-            # 多取一些缓冲时间（1.5倍，外汇周末不交易）
+            # Get more buffer time (1.5 times, foreign exchange does not trade on weekends)
             start_dt = end_dt - timedelta(seconds=limit * tf_seconds * 1.5)
             
-            # Tiingo 免费 API 最多支持约 5 年数据，限制最大时间范围
-            max_days = 365 * 3  # 最多 3 年
+            # Tiingo free API supports up to about 5 years of data, limiting the maximum time range
+            max_days = 365 * 3  # up to 3 years
             if (end_dt - start_dt).days > max_days:
                 start_dt = end_dt - timedelta(days=max_days)
                 logger.info(f"Tiingo: Limited date range to {max_days} days")
             
-            # 格式化日期为 YYYY-MM-DD (Tiingo 支持该格式)
+            # Format the date as YYYY-MM-DD (Tiingo supports this format)
             start_date_str = start_dt.strftime('%Y-%m-%d')
             end_date_str = end_dt.strftime('%Y-%m-%d')
             
-            # 4. API 请求（带重试逻辑）
+            # 4. API request (with retry logic)
             # URL: https://api.tiingo.com/tiingo/fx/{ticker}/prices
             url = f"{self.base_url}/fx/{tiingo_symbol}/prices"
             
@@ -289,9 +289,9 @@ class ForexDataSource(BaseDataSource):
             
             # logger.info(f"Tiingo Request: {url} params={params}")
             
-            # 重试逻辑：处理 429 速率限制
+            # Retry logic: Handling 429 rate limiting
             max_retries = 3
-            retry_delay = 2  # 秒
+            retry_delay = 2  # Second
             response = None
             
             for attempt in range(max_retries):
@@ -299,13 +299,13 @@ class ForexDataSource(BaseDataSource):
                     response = requests.get(url, params=params, timeout=TiingoConfig.TIMEOUT)
                     
                     if response.status_code == 429:
-                        # 速率限制，等待后重试
+                        # Rate limit, wait and try again
                         wait_time = retry_delay * (attempt + 1)
                         logger.warning(f"Tiingo rate limit (429), waiting {wait_time}s before retry ({attempt + 1}/{max_retries})")
                         time.sleep(wait_time)
                         continue
                     
-                    break  # 成功或其他错误，退出重试循环
+                    break  # Success or other errors, exit the retry loop
                     
                 except requests.exceptions.Timeout:
                     if attempt < max_retries - 1:
@@ -329,7 +329,7 @@ class ForexDataSource(BaseDataSource):
             response.raise_for_status()
             data = response.json()
             
-            # 5. 处理响应
+            # 5. Process the response
             # Tiingo returns a list of dicts:
             # [
             #   {
@@ -350,15 +350,15 @@ class ForexDataSource(BaseDataSource):
                 
             klines = []
             for item in data:
-                # 解析时间: "2023-01-01T00:00:00.000Z"
+                # Parsing time: "2023-01-01T00:00:00.000Z"
                 dt_str = item.get('date')
-                # Tiingo 返回的是 UTC 时间 ISO 格式，需要正确处理时区
-                # 将 UTC 时间转换为本地时间戳
+                # Tiingo returns UTC time in ISO format and needs to handle the time zone correctly.
+                # Convert UTC time to local timestamp
                 if dt_str.endswith('Z'):
-                    dt_str = dt_str[:-1] + '+00:00'  # 替换 Z 为 +00:00 表示 UTC
+                    dt_str = dt_str[:-1] + '+00:00'  # Replace Z with +00:00 for UTC
                 
                 dt = datetime.fromisoformat(dt_str)
-                ts = int(dt.timestamp())  # 现在会正确处理 UTC 时区
+                ts = int(dt.timestamp())  # UTC time zone is now handled correctly
                 
                 klines.append({
                     'time': ts,
@@ -366,13 +366,13 @@ class ForexDataSource(BaseDataSource):
                     'high': float(item.get('high')),
                     'low': float(item.get('low')),
                     'close': float(item.get('close')),
-                    'volume': 0.0 # Tiingo FX 通常没有 volume
+                    'volume': 0.0 # Tiingo FX usually does not have volume
                 })
             
-            # 按时间排序
+            # Sort by time
             klines.sort(key=lambda x: x['time'])
             
-            # 如果需要聚合到周线或月线
+            # If you need to aggregate to weekly or monthly lines
             if aggregate_to_weekly:
                 klines = self._aggregate_to_weekly(klines)
                 logger.debug(f"Aggregated {len(klines)} weekly candles from daily data")
@@ -380,11 +380,11 @@ class ForexDataSource(BaseDataSource):
                 klines = self._aggregate_to_monthly(klines)
                 logger.debug(f"Aggregated {len(klines)} monthly candles from daily data")
             
-            # 过滤到原始请求数量
+            # Filter to original request count
             if len(klines) > original_limit:
                 klines = klines[-original_limit:]
             
-            # logger.info(f"获取到 {len(klines)} 条 Tiingo 外汇数据")
+            # logger.info(f"obtained {len(klines)} pieces of Tiingo foreign exchange data")
             return klines
             
         except requests.exceptions.RequestException as e:
@@ -395,7 +395,7 @@ class ForexDataSource(BaseDataSource):
             return []
     
     def _aggregate_to_weekly(self, daily_klines: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """将日线数据聚合为周线"""
+        """Aggregate daily data into weekly data"""
         if not daily_klines:
             return []
         
@@ -405,15 +405,15 @@ class ForexDataSource(BaseDataSource):
         
         for kline in daily_klines:
             dt = datetime.fromtimestamp(kline['time'])
-            # 获取该日期所在周的周一
+            # Get the Monday of the week in which the date is located
             week_start = dt - timedelta(days=dt.weekday())
             week_key = week_start.strftime('%Y-%W')
             
             if week_key != current_week:
-                # 保存上一周的数据
+                # Save data from last week
                 if week_data:
                     weekly_klines.append(week_data)
-                # 开始新的一周
+                # start a new week
                 current_week = week_key
                 week_data = {
                     'time': int(week_start.timestamp()),
@@ -424,20 +424,20 @@ class ForexDataSource(BaseDataSource):
                     'volume': kline['volume']
                 }
             else:
-                # 更新本周数据
+                # Update this week's data
                 week_data['high'] = max(week_data['high'], kline['high'])
                 week_data['low'] = min(week_data['low'], kline['low'])
                 week_data['close'] = kline['close']
                 week_data['volume'] += kline['volume']
         
-        # 添加最后一周
+        # Add last week
         if week_data:
             weekly_klines.append(week_data)
         
         return weekly_klines
     
     def _aggregate_to_monthly(self, daily_klines: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """将日线数据聚合为月线"""
+        """Aggregate daily data into monthly data"""
         if not daily_klines:
             return []
         
@@ -450,10 +450,10 @@ class ForexDataSource(BaseDataSource):
             month_key = dt.strftime('%Y-%m')
             
             if month_key != current_month:
-                # 保存上个月的数据
+                # Save last month’s data
                 if month_data:
                     monthly_klines.append(month_data)
-                # 开始新的一月
+                # start a new month
                 current_month = month_key
                 month_start = dt.replace(day=1, hour=0, minute=0, second=0)
                 month_data = {
@@ -465,13 +465,13 @@ class ForexDataSource(BaseDataSource):
                     'volume': kline['volume']
                 }
             else:
-                # 更新本月数据
+                # Update this month's data
                 month_data['high'] = max(month_data['high'], kline['high'])
                 month_data['low'] = min(month_data['low'], kline['low'])
                 month_data['close'] = kline['close']
                 month_data['volume'] += kline['volume']
         
-        # 添加最后一月
+        # Add last month
         if month_data:
             monthly_klines.append(month_data)
         

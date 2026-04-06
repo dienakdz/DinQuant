@@ -1,6 +1,6 @@
 """
-Polymarket预测市场数据源
-从Polymarket获取预测市场数据
+Polymarket prediction market data source
+Get prediction market data from Polymarket
 """
 import time
 import requests
@@ -15,17 +15,17 @@ logger = get_logger(__name__)
 
 
 class PolymarketDataSource:
-    """Polymarket预测市场数据源"""
+    """Polymarket prediction market data source"""
     
     def __init__(self):
-        # Polymarket官方API端点（根据官方文档）
-        # Gamma API: 市场、事件、标签、搜索等（完全公开，无需认证）
+        # Polymarket official API endpoint (according to official documentation)
+        # Gamma API: markets, events, tags, searches, etc. (fully public, no authentication required)
         self.gamma_api = "https://gamma-api.polymarket.com"
-        # Data API: 用户持仓、交易、活动等（完全公开，无需认证）
+        # Data API: User positions, transactions, activities, etc. (fully public, no authentication required)
         self.data_api = "https://data-api.polymarket.com"
-        # CLOB API: 订单簿、价格、交易操作（公开端点无需认证）
+        # CLOB API: Order book, prices, trading operations (public endpoints require no authentication)
         self.clob_api = "https://clob.polymarket.com"
-        self.cache_ttl = 300  # 5分钟缓存
+        self.cache_ttl = 300  # 5 minutes cache
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -34,36 +34,36 @@ class PolymarketDataSource:
         
     def get_trending_markets(self, category: str = None, limit: int = 50) -> List[Dict]:
         """
-        获取热门预测市场
+        Get popular prediction markets
         
         Args:
-            category: 类别筛选 (crypto, politics, economics, sports, all)
-            limit: 返回数量限制
+            category: category filter (crypto, politics, economics, sports, all)
+            limit: return quantity limit
             
         Returns:
-            预测市场列表
+            Prediction market list
         """
         try:
-            # 先从数据库缓存读取
+            # Read from database cache first
             cached = self._get_cached_markets(category, limit)
             if cached:
                 return cached
             
-            # 从真实API获取 - 获取多个分类的数据以确保多样性
+            # Fetch from real API - Fetch data from multiple categories to ensure diversity
             all_markets = []
             
             if category and category != "all":
-                # 如果指定了类别，只获取该类别的数据
+                # If a category is specified, only data for that category will be obtained
                 markets = self._fetch_markets_from_api(category, limit * 2)
                 all_markets.extend(markets)
             else:
-                # 如果没有指定类别或指定了"all"，获取多个分类的数据
+                # If no category is specified or "all" is specified, get data from multiple categories
                 categories_to_fetch = ["crypto", "politics", "economics", "sports"]
                 for cat in categories_to_fetch:
                     markets = self._fetch_markets_from_api(cat, limit // len(categories_to_fetch) + 10)
                     all_markets.extend(markets)
             
-            # 去重（按market_id）
+            # Deduplication (by market_id)
             seen = set()
             unique_markets = []
             for market in all_markets:
@@ -72,15 +72,15 @@ class PolymarketDataSource:
                     seen.add(market_id)
                     unique_markets.append(market)
             
-            # 按交易量排序
+            # Sort by transaction volume
             unique_markets.sort(key=lambda x: x.get('volume_24h', 0), reverse=True)
             
-            # 保存到数据库缓存
+            # Save to database cache
             if unique_markets:
                 self._save_markets_to_db(unique_markets)
                 return unique_markets[:limit]
             
-            # 如果API失败，返回空列表（不再使用示例数据）
+            # If the API fails, an empty list is returned (sample data is no longer used)
             logger.warning("Polymarket API unavailable, returning empty list")
             return []
             
@@ -89,15 +89,15 @@ class PolymarketDataSource:
             return []
     
     def get_market_details(self, market_id: str) -> Optional[Dict]:
-        """获取单个市场详情"""
+        """Get individual market details"""
         try:
-            # 确保market_id是字符串
+            # Make sure market_id is a string
             market_id = str(market_id).strip()
             if not market_id:
                 logger.warning("Empty market_id provided")
                 return None
             
-            # 先从数据库读取
+            # Read from database first
             try:
                 with get_db_connection() as db:
                     cur = db.cursor()
@@ -111,9 +111,9 @@ class PolymarketDataSource:
                     cur.close()
                     
                     if row:
-                        # RealDictCursor返回字典，使用键访问
+                        #RealDictCursor returns the dictionary, accessed using keys
                         db_market_id = str(row.get('market_id') or market_id)
-                        # 解析outcome_tokens（可能是JSON字符串）
+                        # Parse outcome_tokens (may be a JSON string)
                         outcome_tokens = {}
                         outcome_tokens_raw = row.get('outcome_tokens')
                         if outcome_tokens_raw:
@@ -140,9 +140,9 @@ class PolymarketDataSource:
                         }
             except Exception as db_error:
                 logger.warning(f"Database query failed for market {market_id}: {db_error}")
-                # 继续尝试从API获取
+                # Continue trying to get it from the API
             
-            # 如果数据库没有，从API获取
+            # If the database does not exist, get it from the API
             logger.info(f"Market {market_id} not in database, fetching from API")
             market = self._fetch_market_from_api(market_id)
             if market:
@@ -161,34 +161,34 @@ class PolymarketDataSource:
     
     def get_market_history(self, market_id: str, days: int = 30) -> List[Dict]:
         """获取市场历史价格数据"""
-        # 这里需要实现历史数据获取逻辑
-        # 暂时返回空列表
+        # Here you need to implement historical data acquisition logic
+        # Temporarily returns an empty list
         return []
     
     def search_markets(self, keyword: str, limit: int = 20, use_cache: bool = True) -> List[Dict]:
         """
-        搜索相关预测市场
-        优先从API获取实时数据，数据库仅作为可选缓存
+        Search related prediction markets
+        Priority is given to obtaining real-time data from the API, and the database is only used as an optional cache.
         
         Args:
-            keyword: 搜索关键词
-            limit: 返回结果数量限制
-            use_cache: 是否使用数据库缓存（AI分析时应设为False以获取最新数据）
+            keyword: search keyword
+            limit: limit on the number of returned results
+            use_cache: whether to use database cache (should be set to False during AI analysis to obtain the latest data)
         """
         try:
             logger.info(f"Searching Polymarket markets for keyword: '{keyword}' (limit={limit}, use_cache={use_cache})")
             
-            # 如果允许使用缓存，先尝试从数据库搜索
+            # If caching is allowed, try searching from the database first
             if use_cache:
                 with get_db_connection() as db:
                     cur = db.cursor()
-                    # 改进搜索：同时搜索question和slug字段，也支持market_id精确匹配
+                    # Improved search: search question and slug fields at the same time, also support market_id exact matching
                     keyword_lower = keyword.lower()
                     is_numeric = keyword_lower.isdigit()
                     has_hyphens = '-' in keyword_lower
                     
                     if is_numeric:
-                        # 如果是纯数字，可能是market_id，精确匹配
+                        # If it is a pure number, it may be market_id, an exact match
                         cur.execute("""
                             SELECT market_id, question, category, current_probability, 
                                    volume_24h, liquidity, end_date_iso, status, slug
@@ -198,7 +198,7 @@ class PolymarketDataSource:
                             LIMIT %s
                         """, (keyword, limit))
                     elif has_hyphens:
-                        # 如果包含连字符，可能是slug，优先匹配slug
+                        # If it contains a hyphen, it may be a slug, and the slug will be matched first.
                         cur.execute("""
                             SELECT market_id, question, category, current_probability, 
                                    volume_24h, liquidity, end_date_iso, status, slug
@@ -210,7 +210,7 @@ class PolymarketDataSource:
                             LIMIT %s
                         """, (f"%{keyword}%", f"%{keyword}%", f"%{keyword}%", limit))
                     else:
-                        # 普通文本搜索
+                        # Normal text search
                         cur.execute("""
                             SELECT market_id, question, category, current_probability, 
                                    volume_24h, liquidity, end_date_iso, status, slug
@@ -238,58 +238,58 @@ class PolymarketDataSource:
                             "slug": row.get('slug') if row.get('slug') and not str(row.get('slug', '')).isdigit() else None
                         } for row in rows]
             
-            # 直接从Gamma API获取并过滤（AI分析时使用）
+            # Obtain and filter directly from Gamma API (used during AI analysis)
             logger.info(f"Fetching from API for keyword '{keyword}' (use_cache={use_cache})...")
             
-            # 优化：如果关键词看起来像slug，先尝试直接查询（避免全量获取）
+            # Optimization: If the keyword looks like a slug, try direct query first (avoid fetching the full amount)
             import re
             keyword_lower = keyword.lower().strip()
             is_slug_like = '-' in keyword_lower and not keyword_lower.isdigit()
             
             if is_slug_like:
-                # 尝试直接通过slug查询（最高效，根据Polymarket API文档）
+                # Try to query directly through slug (most efficient, according to Polymarket API documentation)
                 direct_market = self._fetch_market_by_slug(keyword_lower)
                 if direct_market:
                     logger.info(f"Found market directly by slug (no need to fetch all markets): {keyword_lower}")
                     return [direct_market]
             
-            # 如果直接查询失败，获取更多数据以便有足够的选择空间
-            # 进行多次请求以获取更多市场（每次最多100个事件，但每个事件可能包含多个市场）
+            # If direct query fails, get more data so that there is enough room for selection
+            # Make multiple requests to get more markets (up to 100 events each time, but each event may contain multiple markets)
             all_markets = []
-            max_requests = 3  # 最多请求3次，获取300个事件（约4500个市场）
+            max_requests = 3 # Request up to 3 times to get 300 events (about 4500 markets)
             for page in range(max_requests):
                 page_markets = self._fetch_from_gamma_api(category=None, limit=100)
                 if not page_markets:
                     break
                 all_markets.extend(page_markets)
-                # 如果已经获取了足够多的市场，可以提前停止
-                if len(all_markets) >= 3000:  # 最多获取3000个市场
+                # If enough markets have been acquired, you can stop early
+                if len(all_markets) >= 3000: # Get up to 3000 markets
                     break
                 logger.info(f"Fetched page {page + 1}/{max_requests}, total markets: {len(all_markets)}")
-                # 短暂延迟，避免API限流
+                # Short delay to avoid API current limit
                 if page < max_requests - 1:
                     time.sleep(0.5)
             logger.info(f"Fetched {len(all_markets)} markets from API, filtering for keyword '{keyword}'...")
             
-            # 按关键词过滤（支持多个关键词匹配）
-            # 如果关键词看起来像slug（包含连字符），也尝试匹配slug
+            # Filter by keyword (supports multiple keyword matching)
+            # If the keyword looks like a slug (contains a hyphen), also try to match the slug
             keyword_is_slug = '-' in keyword_lower
-            # 提取关键词（去除常见停用词和标点）
-            # 提取关键词：去除标点，保留字母数字和连字符
+            # Extract keywords (remove common stop words and punctuation)
+            # Extract keywords: remove punctuation, retain alphanumeric characters and hyphens
             keyword_words = re.findall(r'\b\w+\b', keyword_lower)
-            # 过滤掉太短的词（少于3个字符）和常见停用词
+            # Filter out words that are too short (less than 3 characters) and common stop words
             stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'will', 'would', 'should', 'could', 'may', 'might', 'can', 'must'}
             keyword_words = [w for w in keyword_words if len(w) >= 3 and w not in stop_words]
             
-            # 如果没有提取到关键词，使用原始关键词
+            # If no keywords are extracted, use the original keywords
             if not keyword_words:
                 keyword_words = [keyword_lower]
             
             logger.info(f"Extracted keywords: {keyword_words} from '{keyword}'")
             
             filtered = []
-            scored_markets = []  # 用于存储带评分的结果
-            top_candidates = []  # 用于存储接近匹配的候选（用于调试）
+            scored_markets = [] # Used to store scored results
+            top_candidates = [] # Used to store close matching candidates (for debugging)
             
             for market in all_markets:
                 question = market.get("question", "").lower()
@@ -299,7 +299,7 @@ class PolymarketDataSource:
                 score = 0
                 match_reason = ""
                 
-                # 1. 完全匹配（最高优先级，分数100）
+                # 1. Exact match (highest priority, score 100)
                 if keyword_lower in question:
                     score = 100
                     match_reason = "exact_match_question"
@@ -307,7 +307,7 @@ class PolymarketDataSource:
                     score = 100
                     match_reason = "exact_match_slug"
                 
-                # 2. 如果关键词看起来像slug，检查slug字段
+                # 2. If the keyword looks like a slug, check the slug field
                 if score < 100 and keyword_is_slug:
                     if keyword_lower == slug:
                         score = 100
@@ -316,49 +316,49 @@ class PolymarketDataSource:
                         score = 90
                         match_reason = "partial_slug_match"
                 
-                # 3. 如果关键词是纯数字，检查market_id
+                # 3. If the keyword is a pure number, check market_id
                 if score < 90 and keyword_lower.isdigit():
                     if keyword_lower == market_id:
                         score = 100
                         match_reason = "market_id_match"
                 
-                # 4. 关键词匹配：检查所有关键词是否都在问题中
+                # 4. Keyword matching: Check whether all keywords are in the question
                 if score < 90 and keyword_words:
-                    # 计算匹配的关键词数量
+                    # Calculate the number of matching keywords
                     matched_words = sum(1 for word in keyword_words if word in question or word in slug)
                     if matched_words > 0:
-                        # 匹配率
+                        # Match rate
                         match_ratio = matched_words / len(keyword_words)
-                        # 降低阈值：从60%降到40%，提高匹配率
+                        # Lower the threshold: from 60% to 40% to improve the matching rate
                         if match_ratio >= 0.4:
-                            score = int(60 + match_ratio * 30)  # 60-90分
+                            score = int(60 + match_ratio * 30) # 60-90 minutes
                             match_reason = f"keyword_match_{matched_words}/{len(keyword_words)}"
                         else:
-                            # 记录接近匹配的候选（用于调试）
+                            # Log close matching candidates (for debugging)
                             if matched_words >= 1 and len(top_candidates) < 5:
                                 top_candidates.append((match_ratio, market.get('question', '')[:80], matched_words, len(keyword_words)))
                 
-                # 5. 部分匹配：检查关键词的主要部分是否在问题中
+                # 5. Partial matching: Check whether the main part of the keyword is in the question
                 if score < 60 and keyword_words:
-                    # 如果关键词包含多个词，尝试匹配主要部分
+                    # If the keyword contains multiple words, try to match the main part
                     if len(keyword_words) > 1:
-                        # 取前3个最重要的词（通常是名词）
+                        # Take the first 3 most important words (usually nouns)
                         important_words = keyword_words[:3]
                         matched_important = sum(1 for word in important_words if word in question or word in slug)
-                        # 降低要求：至少匹配1个重要词即可
+                        # Lower the requirement: match at least 1 important word
                         if matched_important >= 1:
                             score = 50
                             match_reason = f"important_words_match_{matched_important}/{len(important_words)}"
                 
-                if score >= 50:  # 降低最低分数要求从60到50
+                if score >= 50: # Lower the minimum score requirement from 60 to 50
                     scored_markets.append((score, market, match_reason))
                     logger.debug(f"Matched (score={score}, reason={match_reason}): {market.get('question', '')[:60]}")
             
-            # 按分数排序，取前limit个
+            # Sort by score, take the first limit
             scored_markets.sort(key=lambda x: x[0], reverse=True)
             filtered = [market for score, market, reason in scored_markets[:limit]]
             
-            # 输出调试信息
+            # Output debugging information
             if len(scored_markets) == 0 and top_candidates:
                 logger.warning(f"No exact matches found. Top candidates (partial matches):")
                 for ratio, question, matched, total in top_candidates:
@@ -379,7 +379,7 @@ class PolymarketDataSource:
             with get_db_connection() as db:
                 cur = db.cursor()
                 
-                # 检查缓存是否新鲜（5分钟内）
+                # Check cache is fresh (within 5 minutes)
                 cutoff_time = datetime.now() - timedelta(seconds=self.cache_ttl)
                 
                 query = """
@@ -406,7 +406,7 @@ class PolymarketDataSource:
                     for row in rows:
                         market_id = str(row.get('market_id') or '')
                         slug = row.get('slug')
-                        # 确保使用正确的URL构建方法
+                        # Make sure to use the correct URL building method
                         polymarket_url = self._build_polymarket_url(slug, market_id)
                         result.append({
                             "market_id": market_id,
@@ -430,19 +430,19 @@ class PolymarketDataSource:
     
     def _fetch_markets_from_api(self, category: str = None, limit: int = 50) -> List[Dict]:
         """
-        从Polymarket Gamma API获取市场数据
-        使用官方推荐的 /events 端点
+        Retrieve market data from the Polymarket Gamma API
+        Use the officially recommended /events endpoint
         """
         try:
-            # 使用Gamma API的/events端点（官方推荐方式）
+            # Use the /events endpoint of Gamma API (official recommended method)
             markets = self._fetch_from_gamma_api(category, limit)
             if markets:
-                # 按volume_24h降序排序（因为API不支持order参数，需要本地排序）
+                # Sort by volume_24h in descending order (because the API does not support the order parameter, local sorting is required)
                 markets.sort(key=lambda x: x.get('volume_24h', 0), reverse=True)
-                return markets[:limit]  # 返回排序后的前limit个
+                return markets[:limit] # Return the first limit after sorting
             
-            # 如果API返回空列表，记录警告（可能是API暂时不可用、网络问题或限流）
-            logger.warning(f"Gamma API failed to fetch markets for category '{category}' (可能原因: API暂时不可用、网络问题、限流或返回空数据)")
+            # If the API returns an empty list, record a warning (it may be that the API is temporarily unavailable, network problems or throttling)
+            logger.warning(f"Gamma API failed to fetch markets for category '{category}' (possible reasons: API is temporarily unavailable, network problems, current limiting or returning empty data)")
             return []
             
         except Exception as e:
@@ -451,30 +451,30 @@ class PolymarketDataSource:
     
     def _fetch_from_gamma_api(self, category: str = None, limit: int = 50) -> List[Dict]:
         """
-        使用Gamma API的/events端点获取市场数据（官方推荐方式）
-        参考: https://docs.polymarket.com/market-data/fetching-markets
+        Retrieve market data from the Polymarket Gamma API
+        Use the officially recommended /events endpoint
         """
         try:
-            # 使用/events端点获取活跃市场（推荐方式）
-            # 根据官方文档：https://docs.polymarket.com/market-data/fetching-markets
-            # order参数支持的值：volume_24hr, volume, liquidity, competitive, start_date, end_date
-            # 但某些端点可能不支持，先尝试不带order参数
+            # Use the /events endpoint to obtain active markets (recommended method)
+            # According to official documentation: https://docs.polymarket.com/market-data/fetching-markets
+            # Supported values ​​for the order parameter: volume_24hr, volume, liquidity, competitive, start_date, end_date
+            # But some endpoints may not support it, try without the order parameter first.
             url = f"{self.gamma_api}/events"
             params = {
                 "active": "true",
                 "closed": "false",
-                "limit": min(limit * 2, 100)  # 获取更多数据以便排序和筛选
+                "limit": min(limit * 2, 100) # Get more data for sorting and filtering
             }
             
-            # 尝试添加排序参数（如果API支持）
-            # 根据文档，可能的排序字段：volume_24hr, volume, liquidity等
-            # 如果API不支持，会在422错误后移除
+            # Try adding sorting parameters (if supported by API)
+            # According to the documentation, possible sorting fields: volume_24hr, volume, liquidity, etc.
+            # If the API is not supported, it will be removed after a 422 error.
             
-            # 如果指定了类别，需要通过tag_id筛选
-            # 注意：需要先获取tag_id，这里先用关键词推断
+            # If a category is specified, it needs to be filtered by tag_id
+            # Note: You need to get the tag_id first, and use keywords to infer it here.
             if category:
-                # 可以尝试通过搜索或标签来筛选
-                # 暂时先获取所有，然后在解析时过滤
+                # You can try filtering by search or tags
+                # Get them all temporarily, then filter when parsing
                 pass
             
             logger.info(f"Fetching from Gamma API: {url} with params: {params}")
@@ -487,21 +487,21 @@ class PolymarketDataSource:
                     data = response.json()
                     logger.debug(f"Gamma API returned data type: {type(data)}, keys: {list(data.keys()) if isinstance(data, dict) else 'list'}")
                     
-                    # Gamma API返回的可能是列表或包含data字段的对象
+                    #The Gamma API may return a list or an object containing a data field
                     if isinstance(data, list):
                         logger.info(f"Gamma API returned list with {len(data)} items")
                         markets = self._parse_gamma_events(data, category)
                         logger.info(f"Parsed {len(markets)} markets from Gamma API")
                         return markets
                     elif isinstance(data, dict):
-                        # 可能是 {"data": [...]} 格式
+                        # Possibly {"data": [...]} format
                         if "data" in data:
                             events_list = data["data"]
                             logger.info(f"Gamma API returned dict with 'data' field containing {len(events_list) if isinstance(events_list, list) else 'non-list'} items")
                             markets = self._parse_gamma_events(events_list, category)
                             logger.info(f"Parsed {len(markets)} markets from Gamma API")
                             return markets
-                        # 或者直接是事件对象
+                        # Or directly the event object
                         elif "id" in data or "slug" in data:
                             logger.info("Gamma API returned single event object")
                             markets = self._parse_gamma_events([data], category)
@@ -518,14 +518,14 @@ class PolymarketDataSource:
                     logger.error(f"Response text (first 500 chars): {response.text[:500]}")
                     return []
             
-            # 非200状态码
+            # Non-200 status code
             status_code = response.status_code
             if status_code == 429:
-                logger.warning(f"Gamma API rate limited (429). 建议: 稍后重试或减少请求频率")
+                logger.warning(f"Gamma API rate limited (429). Suggestion: Try again later or reduce the request frequency")
             elif status_code == 503:
-                logger.warning(f"Gamma API service unavailable (503). Polymarket API可能正在维护")
+                logger.warning(f"Gamma API service unavailable (503). Polymarket API may be under maintenance")
             elif status_code >= 500:
-                logger.warning(f"Gamma API server error ({status_code}). Polymarket服务器可能暂时不可用")
+                logger.warning(f"Gamma API server error ({status_code}). The Polymarket server may be temporarily unavailable")
             else:
                 logger.warning(f"Gamma API returned status {status_code}")
             logger.debug(f"Response headers: {dict(response.headers)}")
@@ -533,23 +533,23 @@ class PolymarketDataSource:
             return []
             
         except requests.exceptions.Timeout:
-            logger.warning("Gamma API request timeout after 15 seconds (可能原因: 网络延迟或API响应慢)")
+            logger.warning("Gamma API request timeout after 15 seconds (possible reason: network delay or slow API response)")
             return []
         except requests.exceptions.ConnectionError as ce:
-            logger.warning(f"Gamma API connection error: {ce} (可能原因: 网络连接问题或Polymarket API不可达)")
+            logger.warning(f"Gamma API connection error: {ce} (Possible reason: network connection problem or Polymarket API is unreachable)")
             return []
         except Exception as e:
-            logger.warning(f"Gamma API failed: {e} (可能原因: API格式变更、网络问题或服务异常)")
+            logger.warning(f"Gamma API failed: {e} (Possible reasons: API format change, network problem or service abnormality)")
             return []
     
     def _parse_gamma_events(self, events_data: List[Dict], category_filter: str = None) -> List[Dict]:
         """
-        解析Gamma API返回的事件数据
-        Gamma API的/events端点返回事件对象，每个事件包含关联的市场数据
+        Parse event data returned by the Gamma API
+        The /events endpoint of the Gamma API returns event objects, each containing associated market data
         
-        根据官方文档，事件对象结构：
-        - event对象包含markets数组
-        - 每个market包含clobTokenIds、outcomePrices等字段
+        According to the official documentation, the event object structure is:
+        - The event object contains a markets array
+        - Each market contains fields such as clobTokenIds and outcomePrices
         """
         parsed = []
         if not events_data:
@@ -558,7 +558,7 @@ class PolymarketDataSource:
             
         logger.info(f"Parsing {len(events_data)} events from Gamma API")
         
-        # 记录第一个事件的键，用于调试
+        # Record the key of the first event for debugging
         if events_data:
             first_event_keys = list(events_data[0].keys())[:10]
             logger.info(f"First event keys: {first_event_keys}")
@@ -566,29 +566,29 @@ class PolymarketDataSource:
         
         for idx, event in enumerate(events_data):
             try:
-                # Gamma API的事件对象结构
-                # 事件可能有多个市场（markets字段），或者直接包含市场信息
+                #Gamma API event object structure
+                # The event may have multiple markets (markets field), or directly contain market information
                 markets = event.get("markets", [])
                 
-                # 如果事件没有markets字段，可能事件本身就是市场数据
+                # If the event does not have a markets field, the event itself may be market data.
                 if not markets:
-                    # 检查是否直接是市场对象（有question或title字段）
+                    # Check whether it is a market object directly (with question or title field)
                     if "question" in event or "title" in event or "slug" in event:
                         markets = [event]
                     else:
-                        if idx < 3:  # 只记录前3个的详细信息
+                        if idx < 3: # Only record the details of the first 3
                             logger.debug(f"Event {idx} has no markets and doesn't look like a market. Keys: {list(event.keys())[:10]}")
                         continue
                 
-                if idx < 3:  # 只记录前3个的详细信息
+                if idx < 3: # Only record the details of the first 3
                     logger.debug(f"Processing event {idx} with {len(markets)} markets")
                 
                 for market_idx, market in enumerate(markets):
-                    # 提取市场基本信息
+                    # Extract basic market information
                     market_id = market.get("id") or market.get("slug") or event.get("id") or event.get("slug", "")
                     question = market.get("question") or event.get("question") or market.get("title") or event.get("title", "")
                     
-                    if idx < 3 and market_idx < 2:  # 记录前几个市场的详细信息
+                    if idx < 3 and market_idx < 2: # Record detailed information of the first few markets
                         logger.info(f"Event {idx}, Market {market_idx}: id={market_id}, question={question[:50] if question else 'None'}, event_slug={event.get('slug')}, market_slug={market.get('slug')}, keys={list(market.keys())[:10]}")
                     
                     if not question:
@@ -596,18 +596,18 @@ class PolymarketDataSource:
                             logger.warning(f"Event {idx}, Market {market_idx}: No question found, skipping. Market keys: {list(market.keys())[:10]}")
                         continue
                     
-                    # 推断类别
+                    # Infer category
                     inferred_category = self._infer_category(question)
                     
-                    # 如果指定了类别筛选，进行过滤
+                    # If category filtering is specified, filter
                     if category_filter and inferred_category != category_filter:
                         continue
                     
-                    # 获取概率和outcome数据
+                    # Get probability and outcome data
                     current_probability = 50.0
                     outcome_tokens = {}
                     
-                    # 方法1: 从CLOB API获取实时价格（最准确）
+                    # Method 1: Get real-time prices from CLOB API (most accurate)
                     try:
                         condition_id = market.get("conditionId") or event.get("conditionId")
                         if condition_id:
@@ -623,7 +623,7 @@ class PolymarketDataSource:
                     except Exception as e:
                         logger.debug(f"Failed to get prices from CLOB API: {e}")
                     
-                    # 方法2: 处理outcomePrices字段（可能是JSON字符串）
+                    # Method 2: Process the outcomePrices field (may be a JSON string)
                     if current_probability == 50.0:
                         outcome_prices_str = market.get("outcomePrices") or event.get("outcomePrices")
                         if outcome_prices_str:
@@ -633,7 +633,7 @@ class PolymarketDataSource:
                                 else:
                                     outcome_prices = outcome_prices_str
                                 
-                                # outcomePrices通常是["0.65", "0.35"]格式，对应YES和NO
+                                # outcomePrices is usually in the format ["0.65", "0.35"], corresponding to YES and NO
                                 if isinstance(outcome_prices, list) and len(outcome_prices) >= 2:
                                     yes_price = float(outcome_prices[0]) if outcome_prices[0] else 0
                                     no_price = float(outcome_prices[1]) if outcome_prices[1] else 0
@@ -643,16 +643,16 @@ class PolymarketDataSource:
                             except Exception as e:
                                 logger.debug(f"Failed to parse outcomePrices: {e}")
                     
-                    # 从market或event中获取outcomes
-                    # outcomes可能是对象数组、字符串数组，或者需要从其他字段解析
+                    # Get outcomes from market or event
+                    #outcomes may be an object array, a string array, or need to be parsed from other fields
                     outcomes = market.get("outcomes") or market.get("tokens") or event.get("outcomes") or []
                     
-                    # 处理outcomes数组（可能是对象或字符串）
+                    # Process the outcomes array (may be an object or a string)
                     for outcome in outcomes:
                         try:
-                            # 如果outcome是字符串，跳过或尝试解析
+                            # If outcome is a string, skip or try to parse
                             if isinstance(outcome, str):
-                                # 可能是简单的字符串标识，如"YES"或"NO"
+                                # May be a simple string identifier such as "YES" or "NO"
                                 outcome_upper = outcome.upper()
                                 if "YES" in outcome_upper:
                                     if "YES" not in outcome_tokens:
@@ -662,12 +662,12 @@ class PolymarketDataSource:
                                         outcome_tokens["NO"] = {"price": 0.5, "volume": 0}
                                 continue
                             
-                            # outcome是对象
+                            # outcome is an object
                             if not isinstance(outcome, dict):
                                 continue
                                 
                             title = str(outcome.get("title") or outcome.get("name", "")).upper()
-                            # 获取价格（可能是price、probability或currentPrice）
+                            # Get the price (may be price, probability or currentPrice)
                             price = float(outcome.get("price") or outcome.get("probability") or outcome.get("currentPrice") or 0)
                             
                             if "YES" in title or title == "YES" or outcome.get("outcome") == "Yes":
@@ -685,14 +685,14 @@ class PolymarketDataSource:
                             logger.debug(f"Failed to parse outcome: {e}")
                             continue
                     
-                    # 如果没有找到outcomes，尝试从其他字段获取概率
+                    # If outcomes are not found, try to get probabilities from other fields
                     if current_probability == 50.0:
-                        # 尝试从market的probability字段获取
+                        # Try to get it from the probability field of the market
                         prob = market.get("probability") or market.get("yesProbability") or event.get("probability")
                         if prob:
                             current_probability = float(prob) * 100 if float(prob) <= 1 else float(prob)
                     
-                    # 获取交易量和流动性
+                    # Get trading volume and liquidity
                     volume_24h = float(
                         market.get("volume_24hr") or 
                         market.get("volume24hr") or 
@@ -709,7 +709,7 @@ class PolymarketDataSource:
                         0
                     )
                     
-                    # 解析结束日期
+                    # Parse end date
                     end_date_iso = None
                     end_date = market.get("endDate") or market.get("end_date") or event.get("endDate") or event.get("end_date")
                     if end_date:
@@ -717,34 +717,34 @@ class PolymarketDataSource:
                             if isinstance(end_date, (int, float)):
                                 end_date_iso = datetime.fromtimestamp(end_date).isoformat() + "Z"
                             elif isinstance(end_date, str):
-                                # 尝试解析ISO格式字符串
+                                # Try to parse the ISO format string
                                 end_date_iso = end_date
                         except:
                             pass
                     
-                    # 获取slug用于构建URL
-                    # 根据Polymarket API文档：slug应该直接从API返回的数据中获取
-                    # URL格式: https://polymarket.com/event/{slug}
-                    # slug是字符串标识符，不是数字ID
+                    # Get the slug used to build the URL
+                    # According to Polymarket API documentation: slug should be obtained directly from the data returned by the API
+                    # URL format: https://polymarket.com/event/{slug}
+                    # slug is a string identifier, not a numeric ID
                     slug = None
                     
-                    # 优先从event获取slug（因为event包含markets）
+                    # Get the slug from the event first (because the event contains markets)
                     if event.get("slug"):
                         slug_str = str(event.get("slug", "")).strip()
-                        # 如果slug不是纯数字，且包含字母或连字符，则是有效slug
+                        # If the slug is not a pure number and contains letters or hyphens, it is a valid slug
                         if slug_str and not slug_str.isdigit() and ('-' in slug_str or any(c.isalpha() for c in slug_str)):
                             slug = slug_str
                     
-                    # 如果event没有有效slug，尝试从market获取
+                    # If the event does not have a valid slug, try to get it from the market
                     if not slug and market.get("slug"):
                         slug_str = str(market.get("slug", "")).strip()
                         if slug_str and not slug_str.isdigit() and ('-' in slug_str or any(c.isalpha() for c in slug_str)):
                             slug = slug_str
                     
-                    # 如果仍然没有有效slug，尝试通过API查询获取
+                    # If there is still no valid slug, try to obtain it through API query
                     if not slug and market_id:
                         try:
-                            # 使用markets端点通过ID查询，获取完整的slug信息
+                            # Use the markets endpoint to query by ID to obtain complete slug information
                             detail_market = self._fetch_market_detail_by_id(market_id)
                             if detail_market and detail_market.get("slug"):
                                 slug_str = str(detail_market.get("slug", "")).strip()
@@ -753,7 +753,7 @@ class PolymarketDataSource:
                         except Exception as e:
                             logger.debug(f"Failed to fetch slug for market {market_id}: {e}")
                     
-                    # 构建URL（使用统一的辅助方法）
+                    # Build URL (using unified helper methods)
                     polymarket_url = self._build_polymarket_url(slug, market_id)
                     if not slug:
                         logger.warning(f"Market {market_id} has no valid slug, using markets endpoint as fallback")
@@ -769,12 +769,12 @@ class PolymarketDataSource:
                         "status": "active" if market.get("active", event.get("active", True)) else "closed",
                         "outcome_tokens": outcome_tokens,
                         "polymarket_url": polymarket_url,
-                        "slug": slug if slug else None  # 保存slug（如果不是数字）
+                        "slug": slug if slug else None # Save slug (if not a number)
                     }
                     
                     parsed.append(market_data)
                     
-                    if idx < 3 and market_idx < 2:  # 记录成功解析的市场
+                    if idx < 3 and market_idx < 2: # Record successfully parsed markets
                         logger.info(f"Successfully parsed market: {question[:50]}, prob={current_probability:.1f}%, volume={volume_24h}")
                     
             except Exception as e:
@@ -785,15 +785,15 @@ class PolymarketDataSource:
         return parsed
     
     def _parse_rest_markets(self, markets_data: List[Dict]) -> List[Dict]:
-        """解析REST API返回的市场数据"""
+        """Parse REST API data"""
         parsed = []
         for market in markets_data:
             try:
-                # 提取基本信息
+                # Extract basic information
                 market_id = market.get("id") or market.get("slug") or market.get("market_id", "")
                 question = market.get("question") or market.get("title", "")
                 
-                # 计算概率
+                # Calculate probability
                 current_probability = 50.0
                 outcome_tokens = {}
                 
@@ -816,10 +816,10 @@ class PolymarketDataSource:
                 volume_24h = float(market.get("volume_24h", market.get("volume", 0)) or 0)
                 liquidity = float(market.get("liquidity", 0) or 0)
                 
-                # 推断类别
+                # inferred category
                 category = self._infer_category(question)
                 
-                # 解析结束日期
+                # parse end date
                 end_date_iso = market.get("end_date") or market.get("endDate")
                 if isinstance(end_date_iso, (int, float)):
                     try:
@@ -827,15 +827,15 @@ class PolymarketDataSource:
                     except:
                         end_date_iso = None
                 
-                # 获取slug用于构建URL
+                # Get the slug used to build the URL
                 slug = None
                 slug_str = str(market.get('slug', '')).strip() if market.get('slug') else ''
                 
-                # 检查slug是否有效（不是数字，且包含字母或连字符）
+                # Check if the slug is valid (not a number and contains letters or hyphens)
                 if slug_str and not slug_str.isdigit() and ('-' in slug_str or any(c.isalpha() for c in slug_str)):
                     slug = slug_str
                 else:
-                    # 如果slug无效，尝试通过API查询获取
+                    # If the slug is invalid, try to obtain it through API query
                     try:
                         detail_market = self._fetch_market_detail_by_id(market_id)
                         if detail_market and detail_market.get("slug"):
@@ -845,7 +845,7 @@ class PolymarketDataSource:
                     except Exception as e:
                         logger.debug(f"Failed to fetch slug for market {market_id}: {e}")
                 
-                # 构建URL（使用统一的辅助方法）
+                # Build URL (using unity helper methods)
                 polymarket_url = self._build_polymarket_url(slug, market_id)
                 if not slug:
                     logger.warning(f"Market {market_id} has no valid slug, using markets endpoint as fallback")
@@ -870,55 +870,55 @@ class PolymarketDataSource:
         return parsed
     
     def _infer_category(self, question: str) -> str:
-        """从问题中推断类别"""
+        """Infer categories from questions"""
         question_lower = question.lower()
         
-        # 加密货币关键词
+        # Cryptocurrency Keywords
         crypto_keywords = ['btc', 'bitcoin', 'eth', 'ethereum', 'sol', 'solana', 'crypto', 'token', 'coin', 'defi', 'nft']
         if any(kw in question_lower for kw in crypto_keywords):
             return "crypto"
         
-        # 政治关键词
+        # political keywords
         politics_keywords = ['election', 'president', 'trump', 'biden', 'senate', 'congress', 'vote', 'political', 'democrat', 'republican']
         if any(kw in question_lower for kw in politics_keywords):
             return "politics"
         
-        # 经济关键词
+        # economic keywords
         economics_keywords = ['gdp', 'inflation', 'unemployment', 'fed', 'federal reserve', 'interest rate', 'economic', 'economy', 'recession', 'gdp growth', 'cpi', 'ppi']
         if any(kw in question_lower for kw in economics_keywords):
             return "economics"
         
-        # 体育关键词
+        # Sports keywords
         sports_keywords = ['nfl', 'nba', 'mlb', 'soccer', 'football', 'basketball', 'baseball', 'championship', 'world cup', 'olympics', 'super bowl', 'stanley cup', 'world series']
         if any(kw in question_lower for kw in sports_keywords):
             return "sports"
         
-        # 科技关键词
+        # Technology keywords
         tech_keywords = ['ai', 'artificial intelligence', 'chatgpt', 'openai', 'tech', 'technology', 'apple', 'google', 'microsoft', 'meta', 'tesla', 'ipo', 'startup']
         if any(kw in question_lower for kw in tech_keywords):
             return "tech"
         
-        # 金融关键词
+        # financial keywords
         finance_keywords = ['stock', 's&p', 'dow', 'nasdaq', 'market cap', 'earnings', 'revenue', 'profit', 'bank', 'banking', 'financial', 'trading']
         if any(kw in question_lower for kw in finance_keywords):
             return "finance"
         
-        # 地缘政治关键词
+        # geopolitical keywords
         geopolitics_keywords = ['war', 'conflict', 'russia', 'ukraine', 'china', 'taiwan', 'north korea', 'iran', 'israel', 'palestine', 'middle east', 'nato', 'sanctions']
         if any(kw in question_lower for kw in geopolitics_keywords):
             return "geopolitics"
         
-        # 文化关键词
+        # Cultural keywords
         culture_keywords = ['movie', 'film', 'oscar', 'grammy', 'award', 'celebrity', 'music', 'album', 'tv show', 'series', 'netflix', 'disney']
         if any(kw in question_lower for kw in culture_keywords):
             return "culture"
         
-        # 气候关键词
+        # climate keywords
         climate_keywords = ['climate', 'global warming', 'temperature', 'carbon', 'emission', 'renewable', 'solar', 'wind energy', 'paris agreement', 'cop']
         if any(kw in question_lower for kw in climate_keywords):
             return "climate"
         
-        # 娱乐关键词
+        # Entertainment keywords
         entertainment_keywords = ['game', 'gaming', 'esports', 'tournament', 'streaming', 'youtube', 'twitch', 'podcast', 'comic', 'anime', 'manga']
         if any(kw in question_lower for kw in entertainment_keywords):
             return "entertainment"
@@ -927,19 +927,19 @@ class PolymarketDataSource:
     
     def _build_polymarket_url(self, slug: Optional[str], market_id: str) -> str:
         """
-        根据slug构建Polymarket URL
-        参考: https://docs.polymarket.com/market-data/fetching-markets
+        Build Polymarket URL based on slug
+        Reference: https://docs.polymarket.com/market-data/fetching-markets
         
         Args:
-            slug: 从API或数据库获取的slug（可能是None或数字字符串）
-            market_id: 市场ID（作为备选）
+            slug: slug obtained from API or database (may be None or numeric string)
+            market_id: Market ID (as an alternative)
         
         Returns:
-            Polymarket URL字符串
+            Polymarket URL string
         """
         if slug:
             slug_str = str(slug).strip()
-            # 检查slug是否有效（不是数字，且包含字母或连字符）
+            # Check if the slug is valid (not a number and contains letters or hyphens)
             if slug_str and not slug_str.isdigit() and ('-' in slug_str or any(c.isalpha() for c in slug_str)):
                 import re
                 slug_clean = re.sub(r'[^a-zA-Z0-9\-]', '-', slug_str)
@@ -947,12 +947,12 @@ class PolymarketDataSource:
                 if slug_clean:
                     return f"https://polymarket.com/event/{slug_clean}"
         
-        # 如果没有有效slug，尝试通过API获取slug
+        # If there is no valid slug, try to obtain the slug through the API
         if market_id:
             try:
                 detail_market = self._fetch_market_detail_by_id(market_id)
                 if detail_market:
-                    # 尝试从detail中获取slug
+                    # Try to get the slug from detail
                     event_slug = detail_market.get('slug')
                     if event_slug:
                         slug_str = str(event_slug).strip()
@@ -963,7 +963,7 @@ class PolymarketDataSource:
                             if slug_clean:
                                 return f"https://polymarket.com/event/{slug_clean}"
                     
-                    # 如果event没有slug，尝试从markets中获取
+                    # If the event does not have a slug, try to get it from markets
                     markets = detail_market.get('markets', [])
                     if markets:
                         for m in markets:
@@ -979,17 +979,17 @@ class PolymarketDataSource:
             except Exception as e:
                 logger.debug(f"Failed to fetch slug for market {market_id}: {e}")
         
-        # 如果所有方法都失败，返回搜索页面（更可靠）
-        # 注意：Polymarket的URL格式可能已经改变，使用搜索作为fallback
+        # If all else fails, return to the search page (more reliable)
+        # Note: Polymarket's URL format may have changed, use search as fallback
         return f"https://polymarket.com/search?q={market_id}"
     
     def _fetch_market_detail_by_id(self, market_id: str) -> Optional[Dict]:
         """
-        通过market ID从API获取市场详情（用于获取slug）
-        参考: https://docs.polymarket.com/market-data/fetching-markets
+        Get market details from API by market ID (used to get slug)
+        Reference: https://docs.polymarket.com/market-data/fetching-markets
         """
         try:
-            # 方法1: 尝试通过events端点查询（推荐，因为events包含markets）
+            # Method 1: Try querying through the events endpoint (recommended because events include markets)
             url = f"{self.gamma_api}/events"
             params = {"active": "true", "closed": "false", "limit": 100}
             response = self.session.get(url, params=params, timeout=10)
@@ -1005,9 +1005,9 @@ class PolymarketDataSource:
                         for market in markets:
                             m_id = market.get("id") or market.get("slug") or ""
                             e_id = event.get("id") or event.get("slug") or ""
-                            # 匹配market_id或event_id
+                            # Match market_id or event_id
                             if str(m_id) == str(market_id) or str(e_id) == str(market_id):
-                                # 返回event（因为event包含slug）
+                                # Return event (because event contains slug)
                                 return event
                 elif isinstance(events, dict):
                     if "data" in events:
@@ -1023,7 +1023,7 @@ class PolymarketDataSource:
                                 if str(m_id) == str(market_id) or str(e_id) == str(market_id):
                                     return event
             
-            # 方法2: 尝试通过markets端点查询
+            # Method 2: Try querying through the markets endpoint
             url = f"{self.gamma_api}/markets"
             params = {"id": market_id, "limit": 1}
             response = self.session.get(url, params=params, timeout=10)
@@ -1042,12 +1042,12 @@ class PolymarketDataSource:
     
     def _fetch_market_by_slug(self, slug: str) -> Optional[Dict]:
         """
-        直接通过slug查询市场（最高效的方式）
-        根据Polymarket API文档：https://docs.polymarket.com/market-data/fetching-markets
-        可以使用 /markets?slug=xxx 直接查询
+        Query the market directly through slug (the most efficient way)
+        According to Polymarket API documentation: https://docs.polymarket.com/market-data/fetching-markets
+        You can use /markets?slug=xxx to query directly
         """
         try:
-            # 方法1: 尝试通过markets端点直接查询slug
+            # Method 1: Try querying the slug directly through the markets endpoint
             url = f"{self.gamma_api}/markets"
             params = {"slug": slug, "limit": 10}
             logger.info(f"Fetching market by slug from Gamma API: {url} with params: {params}")
@@ -1056,26 +1056,26 @@ class PolymarketDataSource:
             if response.status_code == 200:
                 data = response.json()
                 if isinstance(data, list) and len(data) > 0:
-                    # 解析返回的市场数据
+                    # Parse the returned market data
                     markets = self._parse_gamma_events(data)
-                    # 精确匹配slug
+                    # Exact match slug
                     for market in markets:
                         market_slug = market.get("slug", "").lower()
                         if market_slug == slug.lower() or slug.lower() in market_slug:
                             logger.info(f"Found market by slug: {slug}")
                             return market
-                    # 如果没有精确匹配，返回第一个
+                    # If there is no exact match, return the first
                     if markets:
                         logger.info(f"Found market by slug (fuzzy match): {slug}")
                         return markets[0]
                 elif isinstance(data, dict):
-                    # 单个市场对象
+                    # single market object
                     markets = self._parse_gamma_events([data])
                     if markets:
                         logger.info(f"Found market by slug: {slug}")
                         return markets[0]
             
-            # 方法2: 尝试通过events端点查询（events可能包含slug信息）
+            # Method 2: Try to query through the events endpoint (events may contain slug information)
             url = f"{self.gamma_api}/events"
             params = {"active": "true", "closed": "false", "limit": 100}
             response = self.session.get(url, params=params, timeout=10)
@@ -1084,7 +1084,7 @@ class PolymarketDataSource:
                 data = response.json()
                 events = data if isinstance(data, list) else (data.get("data", []) if isinstance(data, dict) else [])
                 
-                # 在返回的事件中查找匹配的slug
+                # Find the matching slug in the returned event
                 for event in events:
                     event_slug = (event.get("slug") or "").lower()
                     if event_slug == slug.lower() or slug.lower() in event_slug:
@@ -1102,20 +1102,20 @@ class PolymarketDataSource:
     
     def _fetch_market_from_api(self, market_id: str) -> Optional[Dict]:
         """
-        从Gamma API获取单个市场数据
-        支持通过slug或id查询
+        Get individual market data from Gamma API
+        Support query by slug or id
         """
         try:
-            # 判断是slug还是market_id
+            # Determine whether it is slug or market_id
             is_slug = not market_id.isdigit() and ('-' in market_id or any(c.isalpha() for c in market_id))
             
-            # 如果是slug，优先使用直接查询方法
+            # If it is a slug, the direct query method is preferred.
             if is_slug:
                 market = self._fetch_market_by_slug(market_id)
                 if market:
                     return market
             
-            # 方法1: 通过markets端点查询（支持id和slug）
+            # Method 1: Query through markets endpoint (supports id and slug)
             url = f"{self.gamma_api}/markets"
             params = {"id": market_id, "limit": 10} if not is_slug else {"slug": market_id, "limit": 10}
             response = self.session.get(url, params=params, timeout=10)
@@ -1131,7 +1131,7 @@ class PolymarketDataSource:
                     if markets:
                         return markets[0]
             
-            # 方法2: 通过events端点搜索（作为备选）
+            # Method 2: Search via events endpoint (as an alternative)
             url = f"{self.gamma_api}/events"
             params = {
                 "active": "true",
@@ -1144,7 +1144,7 @@ class PolymarketDataSource:
                 data = response.json()
                 events = data if isinstance(data, list) else (data.get("data", []) if isinstance(data, dict) else [])
                 
-                # 在返回的事件中查找匹配的市场
+                # Find matching markets in returned events
                 for event in events:
                     markets = event.get("markets", [])
                     if not markets:
@@ -1164,22 +1164,22 @@ class PolymarketDataSource:
             return None
     
     def _save_markets_to_db(self, markets: List[Dict]):
-        """保存市场数据到数据库"""
+        """Save market data to database"""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
                 for market in markets:
-                    # 获取slug，但如果是数字则不要使用（数字不是有效的slug）
+                    # Get the slug, but don't use it if it's a number (numbers are not valid slugs)
                     slug = market.get('slug') or None
-                    # 如果slug是数字，说明不是有效的slug，设置为None
+                    # If the slug is a number, it means it is not a valid slug and is set to None.
                     if slug and str(slug).isdigit():
                         slug = None
-                    # 清理slug，只保留字母数字和连字符
+                    # Clean slug, keep only alphanumerics and hyphens
                     import re
                     if slug:
                         slug = re.sub(r'[^a-zA-Z0-9\-]', '-', str(slug))
                         slug = slug.strip('-')
-                        # 如果清理后为空或仍然是数字，设置为None
+                        # If it is empty or still a number after cleaning, set to None
                         if not slug or slug.isdigit():
                             slug = None
                     
@@ -1218,9 +1218,9 @@ class PolymarketDataSource:
     
     def _get_sample_markets(self, category: str = None, limit: int = 50) -> List[Dict]:
         """
-        获取示例市场数据（已弃用）
-        现在应该使用真实的API数据
+        Get sample market data (deprecated)
+        You should now use real API data.
         """
-        # 不再返回示例数据，返回空列表
+        # No longer returns sample data, returns an empty list
         logger.warning("Sample data method called, but real API should be used instead")
         return []
