@@ -123,7 +123,7 @@
       </div>
 
       <!-- 运行策略 -->
-      <div class="kpi-card kpi-strategies clickable" @click="$router.push('/trading-assistant')">
+      <div class="kpi-card kpi-strategies clickable" @click="goToStrategyManagement">
         <div class="kpi-content">
           <div class="kpi-header">
             <span class="kpi-icon">
@@ -143,6 +143,24 @@
         <div class="card-arrow">
           <a-icon type="right" />
         </div>
+      </div>
+    </div>
+
+    <div v-if="showSetupGuide && !hideSetupGuide" class="setup-guide-card">
+      <div class="setup-guide-copy">
+        <div class="setup-guide-title">{{ tt('dashboard.setupGuide.title', 'Bring your first live strategy online') }}</div>
+        <div class="setup-guide-desc">{{ tt('dashboard.setupGuide.desc', 'The latest frontend adds a clearer handoff from overview into strategy management. Use this entry point to create, launch, and monitor a strategy flow faster.') }}</div>
+        <div class="setup-guide-path">{{ tt('dashboard.setupGuide.path', 'Overview -> Strategy Manager -> Create Strategy') }}</div>
+      </div>
+      <div class="setup-guide-actions">
+        <a-button @click="goToStrategyManagement">
+          <a-icon type="appstore" />
+          {{ tt('dashboard.setupGuide.secondary', 'Open Strategy Manager') }}
+        </a-button>
+        <a-button type="primary" @click="goToStrategyCreate">
+          <a-icon type="plus" />
+          {{ tt('dashboard.setupGuide.primary', 'Create Strategy') }}
+        </a-button>
       </div>
     </div>
 
@@ -501,6 +519,12 @@ import { mapState } from 'vuex'
 
 export default {
   name: 'Dashboard',
+  props: {
+    hideSetupGuide: {
+      type: Boolean,
+      default: false
+    }
+  },
   data () {
     return {
       summary: {
@@ -548,6 +572,12 @@ export default {
     },
     performance () {
       return this.summary.performance || {}
+    },
+    showSetupGuide () {
+      const strategyCount = Number(this.summary.indicator_strategy_count || 0)
+      const hasPositions = Array.isArray(this.summary.current_positions) && this.summary.current_positions.length > 0
+      const hasRecentTrades = Array.isArray(this.summary.recent_trades) && this.summary.recent_trades.length > 0
+      return strategyCount === 0 || (!hasPositions && !hasRecentTrades)
     },
     strategyStats () {
       return this.summary.strategy_stats || []
@@ -738,6 +768,16 @@ export default {
     if (this.hourlyChart) this.hourlyChart.dispose()
   },
   methods: {
+    tt (key, fallback, params) {
+      const translated = this.$t(key, params)
+      return translated !== key ? translated : fallback
+    },
+    goToStrategyManagement () {
+      this.$router.push('/trading-assistant?tab=strategy')
+    },
+    goToStrategyCreate () {
+      this.$router.push('/trading-assistant?tab=strategy&mode=create')
+    },
     async fetchData () {
       try {
         const res = await getDashboardSummary()
@@ -1446,8 +1486,79 @@ export default {
   background: @bg-light;
   transition: background 0.3s;
 
+  .setup-guide-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 18px;
+    padding: 20px 22px;
+    border-radius: 24px;
+    border: 1px solid #dce7f3;
+    background:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 36%),
+      radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.1), transparent 34%),
+      linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef7ff 100%);
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+  }
+
+  .setup-guide-copy {
+    min-width: 0;
+  }
+
+  .setup-guide-title {
+    color: #0f172a;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .setup-guide-desc {
+    margin-top: 8px;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .setup-guide-path {
+    margin-top: 10px;
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .setup-guide-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
   &.theme-dark {
     background: @bg-dark;
+
+    .setup-guide-card {
+      border-color: rgba(59, 130, 246, 0.16);
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.24), transparent 36%),
+        radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 34%),
+        linear-gradient(135deg, #161b22 0%, #111827 58%, #0f172a 100%);
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.26);
+    }
+
+    .setup-guide-title {
+      color: @text-primary-dark;
+    }
+
+    .setup-guide-desc {
+      color: @text-secondary-dark;
+    }
+
+    .setup-guide-path {
+      color: #60a5fa;
+    }
 
     .kpi-card {
       background: @bg-card-dark;
@@ -1561,6 +1672,24 @@ export default {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 16px;
     margin-bottom: 20px;
+  }
+
+  @media (max-width: 768px) {
+    .setup-guide-card {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 18px;
+      border-radius: 20px;
+    }
+
+    .setup-guide-title {
+      font-size: 20px;
+    }
+
+    .setup-guide-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
   }
 
   .kpi-card {

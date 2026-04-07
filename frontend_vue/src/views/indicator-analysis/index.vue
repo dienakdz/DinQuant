@@ -369,6 +369,13 @@
                                 @click.stop="handlePublishIndicator(indicator)"
                               />
                             </a-tooltip>
+                            <a-tooltip :title="tt('trading-assistant.createStrategy', 'Create Strategy')">
+                              <a-icon
+                                type="rocket"
+                                class="action-icon create-strategy-icon"
+                                @click.stop="handleCreateStrategyFromIndicator(indicator)"
+                              />
+                            </a-tooltip>
                           </div>
                         </div>
                         <span class="card-desc">{{ indicator.description || '' }}</span>
@@ -378,6 +385,69 @@
                     <div v-if="customIndicators.length === 0" class="empty-indicators">
                       <a-icon type="info-circle" />
                       <span>{{ $t('dashboard.indicator.empty') }}</span>
+                    </div>
+                  </div>
+
+                  <div class="indicator-section" :class="{ 'section-empty': purchasedIndicators.length === 0 }">
+                    <div class="section-label">
+                      <div class="section-label-left" @click="purchasedSectionCollapsed = !purchasedSectionCollapsed">
+                        <a-icon :type="purchasedSectionCollapsed ? 'right' : 'down'" class="collapse-icon" />
+                        <span>{{ $t('dashboard.indicator.section.purchased') }} ({{ purchasedIndicators.length }})</span>
+                      </div>
+                      <a-button
+                        type="link"
+                        size="small"
+                        icon="shop"
+                        class="buy-indicator-btn"
+                        @click.stop="goToIndicatorMarket"
+                      >
+                        {{ $t('menu.dashboard.community') }}
+                      </a-button>
+                    </div>
+                    <div v-show="!purchasedSectionCollapsed" class="section-content custom-scrollbar">
+                      <div
+                        v-for="indicator in purchasedIndicators"
+                        :key="'purchased-' + indicator.id"
+                        :class="['indicator-card', 'purchased-indicator', { 'indicator-active': isIndicatorActive('purchased-' + indicator.id) }]"
+                        @click="toggleIndicator(indicator, 'purchased')"
+                      >
+                        <div class="card-content">
+                          <div class="card-header">
+                            <span class="card-name">
+                              <a-icon type="shopping" class="purchased-icon" />
+                              {{ indicator.name }}
+                            </span>
+                            <div class="card-actions">
+                              <a-tooltip :title="isIndicatorActive('purchased-' + indicator.id) ? $t('dashboard.indicator.action.stop') : $t('dashboard.indicator.action.start')">
+                                <a-icon
+                                  :type="isIndicatorActive('purchased-' + indicator.id) ? 'pause-circle' : 'play-circle'"
+                                  :class="['action-icon', 'toggle-icon', { active: isIndicatorActive('purchased-' + indicator.id) }]"
+                                  @click.stop="toggleIndicator(indicator, 'purchased')"
+                                />
+                              </a-tooltip>
+                              <a-tooltip :title="$t('dashboard.indicator.backtest.title')">
+                                <a-icon
+                                  type="experiment"
+                                  class="action-icon backtest-icon"
+                                  @click.stop="handleOpenBacktest(indicator)"
+                                />
+                              </a-tooltip>
+                              <a-tooltip :title="$t('dashboard.indicator.backtest.historyTitle')">
+                                <a-icon
+                                  type="clock-circle"
+                                  class="action-icon backtest-history-icon"
+                                  @click.stop="handleOpenBacktestHistory(indicator)"
+                                />
+                              </a-tooltip>
+                            </div>
+                          </div>
+                          <span class="card-desc">{{ indicator.description || '' }}</span>
+                        </div>
+                      </div>
+                      <div v-if="purchasedIndicators.length === 0" class="empty-indicators">
+                        <a-icon type="shopping" />
+                        <span>{{ $t('dashboard.indicator.emptyPurchased') }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3001,23 +3071,23 @@ getMarketColor,
         }
 
         .mobile-tab-content {
-          flex: 1;
           display: flex;
           flex-direction: column;
-          overflow: hidden; /* 不在这里滚动，让section-content滚动 */
+          overflow-y: auto;
+          overflow-x: hidden;
           min-height: 0;
           height: 100%;
           width: 100%;
+          -webkit-overflow-scrolling: touch;
         }
 
         .section-content {
-          flex: 1;
-          overflow-y: auto !important; /* 只有这里滚动 */
+          flex: none;
+          overflow: visible !important;
           overflow-x: hidden;
           padding: 12px;
-          min-height: 0; /* 使用flex: 1来占据剩余空间 */
-          height: 100%; /* 使用100%高度，让flex生效 */
-          -webkit-overflow-scrolling: touch;
+          min-height: auto;
+          height: auto;
           position: relative;
         }
 

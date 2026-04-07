@@ -17,6 +17,7 @@ const api = {
   trades: '/api/strategies/trades',
   positions: '/api/strategies/positions',
   equityCurve: '/api/strategies/equityCurve',
+  logs: '/api/strategies/logs',
   notifications: '/api/strategies/notifications'
 }
 
@@ -218,6 +219,19 @@ export function getStrategyEquityCurve (id) {
     url: api.equityCurve,
     method: 'get',
     params: { id }
+  })
+}
+
+/**
+ * 获取策略运行日志
+ * @param {number} id - 策略ID
+ * @param {number} limit - 最大日志条数
+ */
+export function getStrategyLogs (id, limit = 200) {
+  return request({
+    url: api.logs,
+    method: 'get',
+    params: { id, limit }
   })
 }
 

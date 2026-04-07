@@ -1,120 +1,292 @@
 <template>
   <div class="trading-assistant" :class="{ 'theme-dark': isDarkTheme }">
-    <a-row :gutter="24" class="strategy-layout">
-      <!-- 左侧：策略列表 -->
-      <a-col
-        :xs="24"
-        :sm="24"
-        :md="10"
-        :lg="8"
-        :xl="8"
-        class="strategy-list-col">
-        <a-card :bordered="false" class="strategy-list-card">
-          <div slot="title" class="card-title">
-            <span>{{ $t('trading-assistant.strategyList') }}</span>
-            <a-button type="primary" size="small" @click="handleCreateStrategy">
-              <a-icon type="plus" />
-              {{ $t('trading-assistant.createStrategy') }}
-            </a-button>
+    <div v-if="showAssistantGuide" class="assistant-guide-bar">
+      <div class="assistant-guide-copy">
+        <div class="assistant-guide-eyebrow">{{ tt('trading-assistant.guide.eyebrow', 'Trading Workflow') }}</div>
+        <div class="assistant-guide-title">{{ tt('trading-assistant.guide.title', 'Build, launch, and monitor strategies from one workspace') }}</div>
+        <div class="assistant-guide-desc">{{ tt('trading-assistant.guide.desc', 'The latest private frontend adds a clearer entry flow for strategy creation and management. This screen now mirrors that structure more closely.') }}</div>
+      </div>
+      <div class="assistant-guide-steps">
+        <div class="assistant-step-card">
+          <div class="assistant-step-index">1</div>
+          <div class="assistant-step-body">
+            <div class="assistant-step-title">{{ tt('trading-assistant.guide.step1Title', 'Choose an indicator') }}</div>
+            <div class="assistant-step-desc">{{ tt('trading-assistant.guide.step1Desc', 'Start from your own or purchased indicator, then define market and symbol scope.') }}</div>
           </div>
-
-          <!-- 分组方式切换 -->
-          <div class="group-mode-switch">
-            <span class="group-mode-label">{{ $t('trading-assistant.groupBy') }}:</span>
-            <a-radio-group v-model="groupByMode" size="small" button-style="solid">
-              <a-radio-button value="strategy">
-                <a-icon type="folder" />
-                {{ $t('trading-assistant.groupByStrategy') }}
-              </a-radio-button>
-              <a-radio-button value="symbol">
-                <a-icon type="stock" />
-                {{ $t('trading-assistant.groupBySymbol') }}
-              </a-radio-button>
-            </a-radio-group>
+        </div>
+        <div class="assistant-step-card">
+          <div class="assistant-step-index">2</div>
+          <div class="assistant-step-body">
+            <div class="assistant-step-title">{{ tt('trading-assistant.guide.step2Title', 'Configure execution') }}</div>
+            <div class="assistant-step-desc">{{ tt('trading-assistant.guide.step2Desc', 'Set notifications, risk controls, and optional live-trading credentials.') }}</div>
           </div>
+        </div>
+        <div class="assistant-step-card">
+          <div class="assistant-step-index">3</div>
+          <div class="assistant-step-body">
+            <div class="assistant-step-title">{{ tt('trading-assistant.guide.step3Title', 'Track runtime data') }}</div>
+            <div class="assistant-step-desc">{{ tt('trading-assistant.guide.step3Desc', 'Review positions, trade history, performance, and runtime logs after launch.') }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="assistant-guide-actions">
+        <a-button @click="goToStrategyTab">
+          <a-icon type="appstore" />
+          {{ tt('trading-assistant.guide.secondary', 'Open Strategy Manager') }}
+        </a-button>
+        <a-button type="primary" @click="openCreateStrategyFromGuide">
+          <a-icon type="plus" />
+          {{ tt('trading-assistant.guide.primary', 'Create Strategy') }}
+        </a-button>
+        <a-button class="assistant-guide-close" @click="dismissAssistantGuide">
+          <a-icon type="close" />
+        </a-button>
+      </div>
+    </div>
 
-          <a-spin :spinning="loading">
-            <a-empty v-if="!loading && strategies.length === 0" :description="$t('trading-assistant.noStrategy')" />
-            <div v-else class="strategy-grouped-list">
-              <!-- 策略组列表 -->
-              <div v-for="group in groupedStrategies.groups" :key="group.id" class="strategy-group">
-                <!-- 策略组头部 -->
-                <div class="strategy-group-header" @click="toggleGroup(group.id)">
-                  <div class="group-header-left">
-                    <a-icon :type="collapsedGroups[group.id] ? 'right' : 'down'" class="collapse-icon" />
-                    <a-icon :type="groupByMode === 'symbol' ? 'stock' : 'folder'" class="group-icon" />
-                    <span class="group-name">{{ group.baseName }}</span>
-                    <a-tag size="small" color="blue">{{ group.strategies.length }} {{
-                      groupByMode === 'symbol' ? $t('trading-assistant.strategyCount') : $t('trading-assistant.symbolCount') }}</a-tag>
+    <a-tabs v-model="topTab" class="top-level-tabs" :animated="false">
+      <a-tab-pane key="overview">
+        <span slot="tab">{{ tt('trading-assistant.tabs.overview', 'Overview') }}</span>
+        <dashboard-overview v-if="topTab === 'overview'" hide-setup-guide />
+      </a-tab-pane>
+
+      <a-tab-pane key="strategy">
+        <span slot="tab">{{ tt('trading-assistant.tabs.strategyManage', 'Strategy Manager') }}</span>
+        <a-row :gutter="24" class="strategy-layout">
+          <!-- 左侧：策略列表 -->
+          <a-col
+            :xs="24"
+            :sm="24"
+            :md="10"
+            :lg="8"
+            :xl="8"
+            class="strategy-list-col">
+            <a-card :bordered="false" class="strategy-list-card">
+              <div slot="title" class="card-title">
+                <span>{{ $t('trading-assistant.strategyList') }}</span>
+                <a-button type="primary" size="small" @click="handleCreateStrategy">
+                  <a-icon type="plus" />
+                  {{ $t('trading-assistant.createStrategy') }}
+                </a-button>
+              </div>
+
+              <!-- 分组方式切换 -->
+              <div class="group-mode-switch">
+                <span class="group-mode-label">{{ $t('trading-assistant.groupBy') }}:</span>
+                <a-radio-group v-model="groupByMode" size="small" button-style="solid">
+                  <a-radio-button value="strategy">
+                    <a-icon type="folder" />
+                    {{ $t('trading-assistant.groupByStrategy') }}
+                  </a-radio-button>
+                  <a-radio-button value="symbol">
+                    <a-icon type="stock" />
+                    {{ $t('trading-assistant.groupBySymbol') }}
+                  </a-radio-button>
+                </a-radio-group>
+              </div>
+
+              <a-spin :spinning="loading">
+                <div v-if="!loading && strategies.length === 0" class="strategy-empty-state">
+                  <a-empty :description="tt('trading-assistant.empty.title', 'No strategy yet')" />
+                  <div class="strategy-empty-desc">
+                    {{ tt('trading-assistant.empty.desc', 'Create a strategy from one of your indicators or open a prefilled strategy from indicator-analysis.') }}
                   </div>
-                  <div class="group-header-right" @click.stop>
-                    <span v-if="group.runningCount > 0" class="group-status running">
-                      {{ group.runningCount }} {{ $t('trading-assistant.status.running') }}
-                    </span>
-                    <span v-if="group.stoppedCount > 0" class="group-status stopped">
-                      {{ group.stoppedCount }} {{ $t('trading-assistant.status.stopped') }}
-                    </span>
-                    <a-dropdown :getPopupContainer="getDropdownContainer" :trigger="['click']">
-                      <a-menu slot="overlay" @click="({ key }) => handleGroupMenuClick(key, group)">
-                        <a-menu-item key="startAll">
-                          <a-icon type="play-circle" />
-                          {{ $t('trading-assistant.startAll') }}
-                        </a-menu-item>
-                        <a-menu-item key="stopAll">
-                          <a-icon type="pause-circle" />
-                          {{ $t('trading-assistant.stopAll') }}
-                        </a-menu-item>
-                        <a-menu-divider />
-                        <a-menu-item key="deleteAll" class="danger-item">
-                          <a-icon type="delete" />
-                          {{ $t('trading-assistant.deleteAll') }}
-                        </a-menu-item>
-                      </a-menu>
-                      <a-button type="link" icon="more" size="small" />
-                    </a-dropdown>
+                  <div class="strategy-empty-path">
+                    {{ tt('trading-assistant.empty.path', 'Indicator Analysis -> Strategy Rocket -> Trading Assistant') }}
                   </div>
+                  <a-button type="primary" @click="openCreateStrategyFromGuide">
+                    <a-icon type="plus" />
+                    {{ tt('trading-assistant.empty.primary', 'Create your first strategy') }}
+                  </a-button>
                 </div>
-                <!-- 策略组内的策略列表（可折叠） -->
-                <div v-show="!collapsedGroups[group.id]" class="strategy-group-content">
+
+                <div v-else class="strategy-grouped-list">
+                  <!-- 策略组列表 -->
+                  <div v-for="group in groupedStrategies.groups" :key="group.id" class="strategy-group">
+                    <!-- 策略组头部 -->
+                    <div class="strategy-group-header" @click="toggleGroup(group.id)">
+                      <div class="group-header-left">
+                        <a-icon :type="collapsedGroups[group.id] ? 'right' : 'down'" class="collapse-icon" />
+                        <a-icon :type="groupByMode === 'symbol' ? 'stock' : 'folder'" class="group-icon" />
+                        <span class="group-name">{{ group.baseName }}</span>
+                        <a-tag size="small" color="blue">{{ group.strategies.length }} {{
+                          groupByMode === 'symbol' ? $t('trading-assistant.strategyCount') : $t('trading-assistant.symbolCount') }}</a-tag>
+                      </div>
+                      <div class="group-header-right" @click.stop>
+                        <span v-if="group.runningCount > 0" class="group-status running">
+                          {{ group.runningCount }} {{ $t('trading-assistant.status.running') }}
+                        </span>
+                        <span v-if="group.stoppedCount > 0" class="group-status stopped">
+                          {{ group.stoppedCount }} {{ $t('trading-assistant.status.stopped') }}
+                        </span>
+                        <a-dropdown :getPopupContainer="getDropdownContainer" :trigger="['click']">
+                          <a-menu slot="overlay" @click="({ key }) => handleGroupMenuClick(key, group)">
+                            <a-menu-item key="startAll">
+                              <a-icon type="play-circle" />
+                              {{ $t('trading-assistant.startAll') }}
+                            </a-menu-item>
+                            <a-menu-item key="stopAll">
+                              <a-icon type="pause-circle" />
+                              {{ $t('trading-assistant.stopAll') }}
+                            </a-menu-item>
+                            <a-menu-divider />
+                            <a-menu-item key="deleteAll" class="danger-item">
+                              <a-icon type="delete" />
+                              {{ $t('trading-assistant.deleteAll') }}
+                            </a-menu-item>
+                          </a-menu>
+                          <a-button type="link" icon="more" size="small" />
+                        </a-dropdown>
+                      </div>
+                    </div>
+                    <!-- 策略组内的策略列表（可折叠） -->
+                    <div v-show="!collapsedGroups[group.id]" class="strategy-group-content">
+                      <div
+                        v-for="item in group.strategies"
+                        :key="item.id"
+                        :class="[
+                          'strategy-list-item',
+                          { active: selectedStrategy && selectedStrategy.id === item.id },
+                          { 'strategy-list-item--strategy-group': groupByMode === 'strategy' }
+                        ]"
+                        @click="handleSelectStrategy(item)">
+                        <div class="strategy-item-content">
+                          <div class="strategy-item-header">
+                            <div :class="['strategy-name-wrapper', { 'strategy-name-wrapper--grouped': groupByMode === 'symbol' }]">
+                              <template v-if="groupByMode === 'strategy'">
+                                <span class="strategy-name">{{ item.strategy_name }}</span>
+                                <a-tag
+                                  v-if="item.strategy_type === 'PromptBasedStrategy'"
+                                  color="purple"
+                                  size="small"
+                                  class="strategy-type-tag">
+                                  <a-icon type="robot" style="margin-right: 2px;" />
+                                  AI
+                                </a-tag>
+                                <a-tag v-if="item.strategy_mode === 'script'" size="small" color="green">
+                                  <a-icon type="code" style="margin-right: 2px;" />
+                                  {{ tt('trading-assistant.strategyMode.script', 'Script Strategy') }}
+                                </a-tag>
+                              </template>
+                              <template v-else>
+                                <span class="info-item strategy-name-text">
+                                  <a-icon type="thunderbolt" />
+                                  {{ item.displayInfo ? item.displayInfo.strategyName : item.strategy_name }}
+                                </span>
+                                <a-tag size="small" color="cyan" v-if="item.displayInfo && item.displayInfo.timeframe">
+                                  <a-icon type="clock-circle" style="margin-right: 2px;" />
+                                  {{ item.displayInfo.timeframe }}
+                                </a-tag>
+                                <a-tag size="small" color="purple" v-if="item.displayInfo && item.displayInfo.indicatorName && item.displayInfo.indicatorName !== '-'">
+                                  <a-icon type="line-chart" style="margin-right: 2px;" />
+                                  {{ item.displayInfo.indicatorName }}
+                                </a-tag>
+                                <a-tag v-if="item.strategy_mode === 'script'" size="small" color="green">
+                                  <a-icon type="code" style="margin-right: 2px;" />
+                                  {{ tt('trading-assistant.strategyMode.script', 'Script Strategy') }}
+                                </a-tag>
+                              </template>
+                            </div>
+                          </div>
+                          <div class="strategy-item-info">
+                            <template v-if="groupByMode === 'strategy'">
+                              <span class="info-item" v-if="item.trading_config && item.trading_config.symbol">
+                                <a-icon type="dollar" />
+                                {{ item.trading_config.symbol }}
+                              </span>
+                              <span class="info-item" v-if="item.exchange_config && item.exchange_config.exchange_id">
+                                <a-icon type="bank" />
+                                {{ getExchangeDisplayName(item.exchange_config.exchange_id) }}
+                              </span>
+                              <span class="info-item" v-if="item.trading_config && item.trading_config.timeframe">
+                                <a-icon type="clock-circle" />
+                                {{ item.trading_config.timeframe }}
+                              </span>
+                            </template>
+                            <span
+                              class="status-label"
+                              :class="[
+                                item.status ? `status-${item.status}` : '',
+                                { 'status-stopped': item.status === 'stopped' }
+                              ]">
+                              {{ getStatusText(item.status) }}
+                            </span>
+                          </div>
+                        </div>
+                        <div class="strategy-item-actions" @click.stop>
+                          <a-dropdown :getPopupContainer="getDropdownContainer" :trigger="['click']">
+                            <a-menu slot="overlay" @click="({ key }) => handleMenuClick(key, item)">
+                              <a-menu-item v-if="item.status === 'stopped'" key="start">
+                                <a-icon type="play-circle" />
+                                {{ $t('trading-assistant.startStrategy') }}
+                              </a-menu-item>
+                              <a-menu-item v-if="item.status === 'running'" key="stop">
+                                <a-icon type="pause-circle" />
+                                {{ $t('trading-assistant.stopStrategy') }}
+                              </a-menu-item>
+                              <a-menu-divider />
+                              <a-menu-item key="edit">
+                                <a-icon type="edit" />
+                                {{ $t('trading-assistant.editStrategy') }}
+                              </a-menu-item>
+                              <a-menu-divider />
+                              <a-menu-item key="delete" class="danger-item">
+                                <a-icon type="delete" />
+                                {{ $t('trading-assistant.deleteStrategy') }}
+                              </a-menu-item>
+                            </a-menu>
+                            <a-button type="link" icon="more" size="small" />
+                          </a-dropdown>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 未分组的策略列表 -->
                   <div
-                    v-for="item in group.strategies"
+                    v-for="item in groupedStrategies.ungrouped"
                     :key="item.id"
                     :class="['strategy-list-item', { active: selectedStrategy && selectedStrategy.id === item.id }]"
                     @click="handleSelectStrategy(item)">
                     <div class="strategy-item-content">
                       <div class="strategy-item-header">
                         <div class="strategy-name-wrapper">
-                          <!-- 按策略分组：显示 Symbol -->
-                          <template v-if="groupByMode === 'strategy'">
-                            <span class="info-item" v-if="item.trading_config && item.trading_config.symbol">
-                              <a-icon type="dollar" />
-                              {{ item.trading_config.symbol }}
-                            </span>
-                          </template>
-                          <!-- 按 Symbol 分组：显示策略名称、周期、指标 -->
-                          <template v-else>
-                            <span class="info-item strategy-name-text">
-                              <a-icon type="thunderbolt" />
-                              {{ item.displayInfo ? item.displayInfo.strategyName : item.strategy_name }}
-                            </span>
-                            <a-tag size="small" color="cyan" v-if="item.displayInfo && item.displayInfo.timeframe">
-                              <a-icon type="clock-circle" style="margin-right: 2px;" />
-                              {{ item.displayInfo.timeframe }}
-                            </a-tag>
-                            <a-tag size="small" color="purple" v-if="item.displayInfo && item.displayInfo.indicatorName && item.displayInfo.indicatorName !== '-'">
-                              <a-icon type="line-chart" style="margin-right: 2px;" />
-                              {{ item.displayInfo.indicatorName }}
-                            </a-tag>
-                          </template>
-                          <span
-                            class="status-label"
-                            :class="[
-                              item.status ? `status-${item.status}` : '',
-                              { 'status-stopped': item.status === 'stopped' }
-                            ]">
-                            {{ getStatusText(item.status) }}
-                          </span>
+                          <a-tag
+                            v-if="item.exchange_config && item.exchange_config.exchange_id"
+                            :color="getExchangeTagColor(item.exchange_config.exchange_id)"
+                            size="small"
+                            class="exchange-tag">
+                            <a-icon type="bank" style="margin-right: 4px;" />
+                            {{ getExchangeDisplayName(item.exchange_config.exchange_id) }}
+                          </a-tag>
+                          <span class="strategy-name">{{ item.strategy_name }}</span>
+                          <a-tag
+                            v-if="item.strategy_type === 'PromptBasedStrategy'"
+                            color="purple"
+                            size="small"
+                            class="strategy-type-tag">
+                            <a-icon type="robot" style="margin-right: 2px;" />
+                            AI
+                          </a-tag>
+                          <a-tag v-if="item.strategy_mode === 'script'" size="small" color="green">
+                            <a-icon type="code" style="margin-right: 2px;" />
+                            {{ tt('trading-assistant.strategyMode.script', 'Script Strategy') }}
+                          </a-tag>
                         </div>
+                      </div>
+                      <div class="strategy-item-info">
+                        <span class="info-item" v-if="item.trading_config && item.trading_config.symbol">
+                          <a-icon type="dollar" />
+                          {{ item.trading_config.symbol }}
+                        </span>
+                        <span
+                          class="status-label"
+                          :class="[
+                            item.status ? `status-${item.status}` : '',
+                            { 'status-stopped': item.status === 'stopped' }
+                          ]">
+                          {{ getStatusText(item.status) }}
+                        </span>
                       </div>
                     </div>
                     <div class="strategy-item-actions" @click.stop>
@@ -144,218 +316,171 @@
                     </div>
                   </div>
                 </div>
-              </div>
+              </a-spin>
+            </a-card>
+          </a-col>
 
-              <!-- 未分组的策略列表 -->
-              <div
-                v-for="item in groupedStrategies.ungrouped"
-                :key="item.id"
-                :class="['strategy-list-item', { active: selectedStrategy && selectedStrategy.id === item.id }]"
-                @click="handleSelectStrategy(item)">
-                <div class="strategy-item-content">
-                  <div class="strategy-item-header">
-                    <div class="strategy-name-wrapper">
-                      <a-tag
-                        v-if="item.exchange_config && item.exchange_config.exchange_id"
-                        :color="getExchangeTagColor(item.exchange_config.exchange_id)"
-                        size="small"
-                        class="exchange-tag">
-                        <a-icon type="bank" style="margin-right: 4px;" />
-                        {{ getExchangeDisplayName(item.exchange_config.exchange_id) }}
-                      </a-tag>
-                      <span class="strategy-name">{{ item.strategy_name }}</span>
-                      <a-tag
-                        v-if="item.strategy_type === 'PromptBasedStrategy'"
-                        color="purple"
-                        size="small"
-                        class="strategy-type-tag">
-                        <a-icon type="robot" style="margin-right: 2px;" />
-                        AI
-                      </a-tag>
-                    </div>
-                  </div>
-                  <div class="strategy-item-info">
-                    <span class="info-item" v-if="item.trading_config && item.trading_config.symbol">
-                      <a-icon type="dollar" />
-                      {{ item.trading_config.symbol }}
-                    </span>
-                    <span
-                      class="status-label"
-                      :class="[
-                        item.status ? `status-${item.status}` : '',
-                        { 'status-stopped': item.status === 'stopped' }
-                      ]">
-                      {{ getStatusText(item.status) }}
-                    </span>
-                  </div>
+          <!-- 右侧：策略详情和交易记录 -->
+          <a-col
+            :xs="24"
+            :sm="24"
+            :md="14"
+            :lg="16"
+            :xl="16"
+            class="strategy-detail-col">
+            <div v-if="!selectedStrategy" class="strategy-empty-detail">
+              <div class="strategy-empty-detail-card">
+                <div class="strategy-empty-detail-icon">
+                  <a-icon type="deployment-unit" />
                 </div>
-                <div class="strategy-item-actions" @click.stop>
-                  <a-dropdown :getPopupContainer="getDropdownContainer" :trigger="['click']">
-                    <a-menu slot="overlay" @click="({ key }) => handleMenuClick(key, item)">
-                      <a-menu-item v-if="item.status === 'stopped'" key="start">
-                        <a-icon type="play-circle" />
-                        {{ $t('trading-assistant.startStrategy') }}
-                      </a-menu-item>
-                      <a-menu-item v-if="item.status === 'running'" key="stop">
-                        <a-icon type="pause-circle" />
-                        {{ $t('trading-assistant.stopStrategy') }}
-                      </a-menu-item>
-                      <a-menu-divider />
-                      <a-menu-item key="edit">
-                        <a-icon type="edit" />
-                        {{ $t('trading-assistant.editStrategy') }}
-                      </a-menu-item>
-                      <a-menu-divider />
-                      <a-menu-item key="delete" class="danger-item">
-                        <a-icon type="delete" />
-                        {{ $t('trading-assistant.deleteStrategy') }}
-                      </a-menu-item>
-                    </a-menu>
-                    <a-button type="link" icon="more" size="small" />
-                  </a-dropdown>
+                <h3 class="strategy-empty-detail-title">
+                  {{ tt('trading-assistant.emptyDetail.title', 'Select a strategy to inspect runtime details') }}
+                </h3>
+                <p class="strategy-empty-detail-hint">
+                  {{ tt('trading-assistant.emptyDetail.hint', 'Open a strategy from the left list to review positions, trades, performance, and logs in one place.') }}
+                </p>
+                <div class="strategy-empty-detail-actions">
+                  <a-button type="primary" @click="handleCreateStrategy">
+                    <a-icon type="plus" />
+                    {{ $t('trading-assistant.createStrategy') }}
+                  </a-button>
                 </div>
               </div>
             </div>
-          </a-spin>
-        </a-card>
-      </a-col>
 
-      <!-- 右侧：策略详情和交易记录 -->
-      <a-col
-        :xs="24"
-        :sm="24"
-        :md="14"
-        :lg="16"
-        :xl="16"
-        class="strategy-detail-col">
-        <div v-if="!selectedStrategy" class="empty-detail">
-          <a-empty :description="$t('trading-assistant.selectStrategy')" />
-        </div>
+            <div v-else class="strategy-detail-panel">
+              <!-- 策略头部信息 -->
+              <a-card :bordered="false" class="strategy-header-card">
+                <div class="strategy-header">
+                  <div class="header-left">
+                    <div class="strategy-title-row">
+                      <h3 class="strategy-title">{{ selectedStrategy.strategy_name }}</h3>
+                      <div class="status-badge" :class="[`status-${selectedStrategy.status}`]">
+                        <span class="status-dot"></span>
+                        {{ getStatusText(selectedStrategy.status) }}
+                      </div>
+                    </div>
 
-        <div v-else class="strategy-detail-panel">
-          <!-- 策略头部信息 -->
-          <a-card :bordered="false" class="strategy-header-card">
-            <div class="strategy-header">
-              <div class="header-left">
-                <div class="strategy-title-row">
-                  <h3 class="strategy-title">{{ selectedStrategy.strategy_name }}</h3>
-                  <div class="status-badge" :class="[`status-${selectedStrategy.status}`]">
-                    <span class="status-dot"></span>
-                    {{ getStatusText(selectedStrategy.status) }}
-                  </div>
-                </div>
+                    <!-- 关键数据卡片 -->
+                    <div class="key-stats-grid">
+                      <div
+                        class="stat-card"
+                        v-if="selectedStrategy.initial_capital || (selectedStrategy.trading_config && selectedStrategy.trading_config.initial_capital)">
+                        <div class="stat-icon investment">
+                          <a-icon type="wallet" />
+                        </div>
+                        <div class="stat-content">
+                          <div class="stat-label">{{ $t('trading-assistant.detail.totalInvestment') }}</div>
+                          <div class="stat-value">${{ ((selectedStrategy.initial_capital ||
+                          selectedStrategy.trading_config?.initial_capital) || 0).toLocaleString() }}</div>
+                        </div>
+                      </div>
+                      <div class="stat-card" v-if="currentEquity !== null">
+                        <div class="stat-icon equity">
+                          <a-icon type="fund" />
+                        </div>
+                        <div class="stat-content">
+                          <div class="stat-label">{{ $t('trading-assistant.detail.currentEquity') }}</div>
+                          <div class="stat-value" :class="getEquityColorClass">{{ formatCurrency(currentEquity) }}</div>
+                        </div>
+                      </div>
+                      <div
+                        class="stat-card pnl-card"
+                        v-if="totalPnl !== null"
+                        :class="{ 'profit': totalPnl > 0, 'loss': totalPnl < 0 }">
+                        <div class="stat-icon pnl">
+                          <a-icon :type="totalPnl >= 0 ? 'rise' : 'fall'" />
+                        </div>
+                        <div class="stat-content">
+                          <div class="stat-label">{{ $t('trading-assistant.detail.totalPnl') }}</div>
+                          <div class="stat-value" :class="getPnlColorClass">
+                            {{ formatPnl(totalPnl) }}
+                            <span class="pnl-percent">({{ formatPnlPercent(totalPnlPercent) }})</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
 
-                <!-- 关键数据卡片 -->
-                <div class="key-stats-grid">
-                  <div
-                    class="stat-card"
-                    v-if="selectedStrategy.initial_capital || (selectedStrategy.trading_config && selectedStrategy.trading_config.initial_capital)">
-                    <div class="stat-icon investment">
-                      <a-icon type="wallet" />
-                    </div>
-                    <div class="stat-content">
-                      <div class="stat-label">{{ $t('trading-assistant.detail.totalInvestment') }}</div>
-                      <div class="stat-value">${{ ((selectedStrategy.initial_capital ||
-                      selectedStrategy.trading_config?.initial_capital) || 0).toLocaleString() }}</div>
-                    </div>
-                  </div>
-                  <div class="stat-card" v-if="currentEquity !== null">
-                    <div class="stat-icon equity">
-                      <a-icon type="fund" />
-                    </div>
-                    <div class="stat-content">
-                      <div class="stat-label">{{ $t('trading-assistant.detail.currentEquity') }}</div>
-                      <div class="stat-value" :class="getEquityColorClass">{{ formatCurrency(currentEquity) }}</div>
-                    </div>
-                  </div>
-                  <div
-                    class="stat-card pnl-card"
-                    v-if="totalPnl !== null"
-                    :class="{ 'profit': totalPnl > 0, 'loss': totalPnl < 0 }">
-                    <div class="stat-icon pnl">
-                      <a-icon :type="totalPnl >= 0 ? 'rise' : 'fall'" />
-                    </div>
-                    <div class="stat-content">
-                      <div class="stat-label">{{ $t('trading-assistant.detail.totalPnl') }}</div>
-                      <div class="stat-value" :class="getPnlColorClass">
-                        {{ formatPnl(totalPnl) }}
-                        <span class="pnl-percent">({{ formatPnlPercent(totalPnlPercent) }})</span>
+                    <!-- 策略详情标签 -->
+                    <div class="strategy-tags">
+                      <div class="tag-item" v-if="selectedStrategy.trading_config">
+                        <a-icon type="stock" />
+                        <span>{{ selectedStrategy.trading_config.symbol }}</span>
+                      </div>
+                      <div
+                        class="tag-item"
+                        v-if="selectedStrategy.indicator_config && selectedStrategy.indicator_config.indicator_name">
+                        <a-icon type="line-chart" />
+                        <span>{{ selectedStrategy.indicator_config.indicator_name }}</span>
+                      </div>
+                      <div class="tag-item" v-if="selectedStrategy.trading_config">
+                        <a-icon type="thunderbolt" />
+                        <span>{{ selectedStrategy.trading_config.leverage || 1 }}x</span>
+                      </div>
+                      <div
+                        class="tag-item"
+                        v-if="selectedStrategy.trading_config && selectedStrategy.trading_config.trade_direction">
+                        <a-icon type="swap" />
+                        <span>{{ getTradeDirectionText(selectedStrategy.trading_config.trade_direction) }}</span>
+                      </div>
+                      <div
+                        class="tag-item"
+                        v-if="selectedStrategy.trading_config && selectedStrategy.trading_config.timeframe">
+                        <a-icon type="clock-circle" />
+                        <span>{{ selectedStrategy.trading_config.timeframe }}</span>
                       </div>
                     </div>
                   </div>
+                  <div class="header-right">
+                    <a-button
+                      v-if="selectedStrategy.status === 'stopped'"
+                      type="primary"
+                      size="large"
+                      class="action-btn start-btn"
+                      @click="handleStartStrategy(selectedStrategy.id)">
+                      <a-icon type="play-circle" />
+                      {{ $t('trading-assistant.startStrategy') }}
+                    </a-button>
+                    <a-button
+                      v-if="selectedStrategy.status === 'running'"
+                      type="danger"
+                      size="large"
+                      class="action-btn stop-btn"
+                      @click="handleStopStrategy(selectedStrategy.id)">
+                      <a-icon type="pause-circle" />
+                      {{ $t('trading-assistant.stopStrategy') }}
+                    </a-button>
+                  </div>
                 </div>
+              </a-card>
 
-                <!-- 策略详情标签 -->
-                <div class="strategy-tags">
-                  <div class="tag-item" v-if="selectedStrategy.trading_config">
-                    <a-icon type="stock" />
-                    <span>{{ selectedStrategy.trading_config.symbol }}</span>
-                  </div>
-                  <div
-                    class="tag-item"
-                    v-if="selectedStrategy.indicator_config && selectedStrategy.indicator_config.indicator_name">
-                    <a-icon type="line-chart" />
-                    <span>{{ selectedStrategy.indicator_config.indicator_name }}</span>
-                  </div>
-                  <div class="tag-item" v-if="selectedStrategy.trading_config">
-                    <a-icon type="thunderbolt" />
-                    <span>{{ selectedStrategy.trading_config.leverage || 1 }}x</span>
-                  </div>
-                  <div
-                    class="tag-item"
-                    v-if="selectedStrategy.trading_config && selectedStrategy.trading_config.trade_direction">
-                    <a-icon type="swap" />
-                    <span>{{ getTradeDirectionText(selectedStrategy.trading_config.trade_direction) }}</span>
-                  </div>
-                  <div
-                    class="tag-item"
-                    v-if="selectedStrategy.trading_config && selectedStrategy.trading_config.timeframe">
-                    <a-icon type="clock-circle" />
-                    <span>{{ selectedStrategy.trading_config.timeframe }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="header-right">
-                <a-button
-                  v-if="selectedStrategy.status === 'stopped'"
-                  type="primary"
-                  size="large"
-                  class="action-btn start-btn"
-                  @click="handleStartStrategy(selectedStrategy.id)">
-                  <a-icon type="play-circle" />
-                  {{ $t('trading-assistant.startStrategy') }}
-                </a-button>
-                <a-button
-                  v-if="selectedStrategy.status === 'running'"
-                  type="danger"
-                  size="large"
-                  class="action-btn stop-btn"
-                  @click="handleStopStrategy(selectedStrategy.id)">
-                  <a-icon type="pause-circle" />
-                  {{ $t('trading-assistant.stopStrategy') }}
-                </a-button>
-              </div>
+              <!-- 策略详情标签页 -->
+              <a-card :bordered="false" class="strategy-content-card">
+                <a-tabs defaultActiveKey="positions">
+                  <a-tab-pane key="positions" :tab="$t('trading-assistant.tabs.positions')">
+                    <position-records
+                      :strategy-id="selectedStrategy.id"
+                      :market-type="(selectedStrategy.trading_config && selectedStrategy.trading_config.market_type) || 'swap'"
+                      :leverage="(selectedStrategy.trading_config && selectedStrategy.trading_config.leverage) || 1"
+                      :loading="loadingRecords"
+                      :is-dark="isDarkTheme" />
+                  </a-tab-pane>
+                  <a-tab-pane key="trades" :tab="$t('trading-assistant.tabs.tradingRecords')">
+                    <trading-records :strategy-id="selectedStrategy.id" :loading="loadingRecords" :is-dark="isDarkTheme" />
+                  </a-tab-pane>
+                  <a-tab-pane key="performance" :tab="tt('trading-assistant.tabs.performance', 'Performance')">
+                    <performance-analysis :strategy-id="selectedStrategy.id" :is-dark="isDarkTheme" />
+                  </a-tab-pane>
+                  <a-tab-pane key="logs" :tab="tt('trading-assistant.tabs.logs', 'Logs')">
+                    <strategy-logs :strategy-id="selectedStrategy.id" :is-dark="isDarkTheme" />
+                  </a-tab-pane>
+                </a-tabs>
+              </a-card>
             </div>
-          </a-card>
-
-          <!-- 策略详情标签页 -->
-          <a-card :bordered="false" class="strategy-content-card">
-            <a-tabs defaultActiveKey="positions">
-              <a-tab-pane key="positions" :tab="$t('trading-assistant.tabs.positions')">
-                <position-records
-                  :strategy-id="selectedStrategy.id"
-                  :market-type="(selectedStrategy.trading_config && selectedStrategy.trading_config.market_type) || 'swap'"
-                  :leverage="(selectedStrategy.trading_config && selectedStrategy.trading_config.leverage) || 1"
-                  :loading="loadingRecords" />
-              </a-tab-pane>
-              <a-tab-pane key="trades" :tab="$t('trading-assistant.tabs.tradingRecords')">
-                <trading-records :strategy-id="selectedStrategy.id" :loading="loadingRecords" />
-              </a-tab-pane>
-            </a-tabs>
-          </a-card>
-        </div>
-      </a-col>
-    </a-row>
+          </a-col>
+        </a-row>
+      </a-tab-pane>
+    </a-tabs>
 
     <!-- 创建/编辑策略弹窗 - 合并版本 -->
     <a-modal
@@ -399,6 +524,7 @@
                     v-decorator="['indicator_id', { rules: [{ required: true, message: $t('trading-assistant.validation.indicatorRequired') }] }]"
                     :placeholder="$t('trading-assistant.placeholders.selectIndicator')"
                     show-search
+                    optionLabelProp="label"
                     :filter-option="filterIndicatorOption"
                     @focus="handleIndicatorSelectFocus"
                     @change="handleIndicatorChange"
@@ -407,9 +533,13 @@
                     <a-select-option
                       v-for="indicator in availableIndicators"
                       :key="String(indicator.id)"
-                      :value="String(indicator.id)">
+                      :value="String(indicator.id)"
+                      :label="getIndicatorOptionLabel(indicator)">
                       <div class="indicator-option">
-                        <span class="indicator-name">{{ indicator.name }}</span>
+                        <div class="indicator-option-main">
+                          <span class="indicator-name">{{ indicator.name }}</span>
+                          <span v-if="indicator.description" class="indicator-option-desc">{{ indicator.description }}</span>
+                        </div>
                         <a-tag v-if="indicator.type" size="small" :color="getIndicatorTypeColor(indicator.type)">
                           {{ getIndicatorTypeName(indicator.type) }}
                         </a-tag>
@@ -419,11 +549,33 @@
                   <div class="form-item-hint">
                     {{ $t('trading-assistant.form.indicatorHint') }}
                   </div>
+                  <a-alert
+                    v-if="!loadingIndicators && availableIndicators.length === 0"
+                    style="margin-top: 12px;"
+                    type="info"
+                    show-icon
+                    :message="tt('trading-assistant.indicatorEmpty.title', 'No indicator available yet')"
+                    :description="tt('trading-assistant.indicatorEmpty.desc', 'Create or purchase an indicator first, then come back to build a strategy from it.')">
+                    <template slot="action">
+                      <a-button type="primary" size="small" @click="goToIndicatorAnalysisCreate">
+                        <a-icon type="rocket" />
+                        {{ tt('trading-assistant.indicatorEmpty.cta', 'Open Indicator Analysis') }}
+                      </a-button>
+                    </template>
+                  </a-alert>
                 </a-form-item>
 
                 <a-form-item v-if="selectedIndicator" :label="$t('trading-assistant.form.indicatorDescription')">
-                  <div class="indicator-description">
-                    {{ selectedIndicator.description || $t('trading-assistant.form.noDescription') }}
+                  <div class="selected-indicator-card">
+                    <div class="selected-indicator-header">
+                      <span class="selected-indicator-name">{{ selectedIndicator.name }}</span>
+                      <a-tag v-if="selectedIndicator.type" size="small" :color="getIndicatorTypeColor(selectedIndicator.type)">
+                        {{ getIndicatorTypeName(selectedIndicator.type) }}
+                      </a-tag>
+                    </div>
+                    <div class="indicator-description">
+                      {{ selectedIndicator.description || $t('trading-assistant.form.noDescription') }}
+                    </div>
                   </div>
                 </a-form-item>
 
@@ -1541,14 +1693,17 @@
 </template>
 
 <script>
-import { getStrategyList, startStrategy, stopStrategy, deleteStrategy, updateStrategy, createStrategy, testExchangeConnection, getStrategyEquityCurve, batchCreateStrategies, batchStartStrategies, batchStopStrategies, batchDeleteStrategies } from '@/api/strategy'
+import { getStrategyList, startStrategy, stopStrategy, deleteStrategy, updateStrategy, createStrategy, testExchangeConnection, getStrategyEquityCurve, getStrategyPositions, batchCreateStrategies, batchStartStrategies, batchStopStrategies, batchDeleteStrategies } from '@/api/strategy'
 import { getWatchlist, addWatchlist, searchSymbols, getHotSymbols } from '@/api/market'
 import { listExchangeCredentials, getExchangeCredential, createExchangeCredential } from '@/api/credentials'
 import { getNotificationSettings } from '@/api/user'
 import { baseMixin } from '@/store/app-mixin'
 import request from '@/utils/request'
+import DashboardOverview from '@/views/dashboard'
 import TradingRecords from './components/TradingRecords.vue'
 import PositionRecords from './components/PositionRecords.vue'
+import PerformanceAnalysis from './components/PerformanceAnalysis.vue'
+import StrategyLogs from './components/StrategyLogs.vue'
 
 // 常见加密货币交易对
 const CRYPTO_SYMBOLS = [
@@ -1593,10 +1748,20 @@ export default {
   name: 'TradingAssistant',
   mixins: [baseMixin],
   components: {
+    DashboardOverview,
     TradingRecords,
-    PositionRecords
+    PositionRecords,
+    PerformanceAnalysis,
+    StrategyLogs
   },
   computed: {
+    showAssistantGuide () {
+      return !this.assistantGuideDismissed
+    },
+    assistantGuideStorageKey () {
+      const userId = (this.$store.getters.userInfo && this.$store.getters.userInfo.id) || 'guest'
+      return `trading-assistant-guide-dismissed:${userId}`
+    },
     isAdvancedMode () {
       return this.creationMode === 'advanced'
     },
@@ -1656,17 +1821,19 @@ export default {
       })
     },
     totalPnl () {
-      if (this.currentEquity === null || !this.selectedStrategy || !this.selectedStrategy.initial_capital) {
+      const initialCapital = this.selectedStrategy?.initial_capital || this.selectedStrategy?.trading_config?.initial_capital
+      if (this.currentEquity === null || !this.selectedStrategy || !initialCapital) {
         return null
       }
-      return this.currentEquity - (this.selectedStrategy.initial_capital || 0)
+      return this.currentEquity - initialCapital
     },
     totalPnlPercent () {
-      if (this.totalPnl === null || !this.selectedStrategy || !this.selectedStrategy.initial_capital) {
+      const initialCapital = this.selectedStrategy?.initial_capital || this.selectedStrategy?.trading_config?.initial_capital
+      if (this.totalPnl === null || !this.selectedStrategy || !initialCapital) {
         return null
       }
-      if (this.selectedStrategy.initial_capital === 0) return 0
-      return (this.totalPnl / this.selectedStrategy.initial_capital) * 100
+      if (initialCapital === 0) return 0
+      return (this.totalPnl / initialCapital) * 100
     },
     getEquityColorClass () {
       if (this.totalPnl === null) return ''
@@ -1906,6 +2073,7 @@ export default {
   },
   data () {
     return {
+      topTab: 'overview',
       loading: false,
       loadingRecords: false,
       strategies: [],
@@ -1989,7 +2157,9 @@ export default {
       addingSymbol: false,
       hotSymbols: [],
       loadingHotSymbols: false,
-      searchTimer: null
+      searchTimer: null,
+      lastAutoStrategyName: '',
+      assistantGuideDismissed: false
       // Market category is inferred from Step 1 watchlist symbol ("Market:SYMBOL").
     }
   },
@@ -1997,6 +2167,17 @@ export default {
     this.form = this.$form.createForm(this)
   },
   mounted () {
+    this.restoreAssistantGuidePreference()
+    if (
+      this.$route &&
+      (
+        (this.$route.query && this.$route.query.tab === 'strategy') ||
+        (this.$route.query && this.$route.query.open === 'from-indicator') ||
+        (this.$route.query && this.$route.query.mode === 'create')
+      )
+    ) {
+      this.topTab = 'strategy'
+    }
     this.loadStrategies()
     this.loadUserNotificationSettings()
     this.handleRouteCreateStrategyPrefill()
@@ -2005,6 +2186,35 @@ export default {
     this.stopEquityPolling()
   },
   methods: {
+    tt (key, fallback, params) {
+      const translated = this.$t(key, params)
+      return translated !== key ? translated : fallback
+    },
+    restoreAssistantGuidePreference () {
+      try {
+        this.assistantGuideDismissed = window.localStorage.getItem(this.assistantGuideStorageKey) === '1'
+      } catch (e) {
+        this.assistantGuideDismissed = false
+      }
+    },
+    dismissAssistantGuide () {
+      this.assistantGuideDismissed = true
+      try {
+        window.localStorage.setItem(this.assistantGuideStorageKey, '1')
+      } catch (e) {}
+    },
+    goToStrategyTab () {
+      this.topTab = 'strategy'
+    },
+    openCreateStrategyFromGuide () {
+      this.topTab = 'strategy'
+      this.$nextTick(() => {
+        this.handleCreateStrategy()
+      })
+    },
+    goToIndicatorAnalysisCreate () {
+      this.$router.push('/indicator-analysis')
+    },
     async loadUserNotificationSettings () {
       // Load user's default notification settings from profile
       try {
@@ -2575,13 +2785,22 @@ export default {
       this.selectedMarketCategory = 'Crypto'
       this.selectedSymbols = []
       this.showAdvancedSettings = false
+      const defaultName = this.buildStrategyDefaultName()
+      this.lastAutoStrategyName = defaultName
 
       this.form.resetFields()
       this.form.setFieldsValue({
+        strategy_name: defaultName,
         execution_mode: 'signal',
         notify_channels: ['browser'],
         save_credential: false,
-        live_disclaimer_ack: false
+        live_disclaimer_ack: false,
+        initial_capital: 1000,
+        market_type: 'swap',
+        leverage: 5,
+        trade_direction: 'long',
+        timeframe: '15m',
+        cs_strategy_type: 'single'
       })
       this.liveDisclaimerAckUi = false
       this.showFormModal = true
@@ -2594,10 +2813,14 @@ export default {
     },
     async handleRouteCreateStrategyPrefill () {
       const query = (this.$route && this.$route.query) || {}
-      if (query.open !== 'from-indicator') {
+      const isIndicatorPrefill = query.open === 'from-indicator'
+      const isCreateMode = query.mode === 'create'
+
+      if (!isIndicatorPrefill && !isCreateMode) {
         return
       }
 
+      this.topTab = 'strategy'
       this.handleCreateStrategy()
       await this.$nextTick()
       await Promise.all([
@@ -2609,7 +2832,7 @@ export default {
       const indicatorId = query.indicator_id ? String(query.indicator_id) : ''
       const market = query.market || 'Crypto'
       const symbol = query.symbol || ''
-      const timeframe = query.timeframe || '1D'
+      const timeframe = query.timeframe || ''
       const fullSymbol = symbol ? (String(symbol).includes(':') ? String(symbol) : `${market}:${symbol}`) : ''
 
       this.selectedMarketCategory = market
@@ -2617,8 +2840,9 @@ export default {
         this.handleMultiSymbolChange([fullSymbol])
       }
 
-      const fieldValues = {
-        timeframe
+      const fieldValues = {}
+      if (timeframe) {
+        fieldValues.timeframe = timeframe
       }
       if (indicatorId) {
         fieldValues.indicator_id = indicatorId
@@ -2633,6 +2857,7 @@ export default {
           this.form.setFieldsValue({
             strategy_name: strategyName
           })
+          this.lastAutoStrategyName = strategyName
         }
       }
 
@@ -2956,21 +3181,34 @@ export default {
       if (!this.selectedStrategy) {
         return Promise.resolve()
       }
-      // 加载净值数据
       try {
-        const res = await getStrategyEquityCurve(this.selectedStrategy.id)
-        if (res.code === 1 && res.data) {
-          // Local backend returns an array curve: [{ time, equity }, ...]
-          if (Array.isArray(res.data) && res.data.length > 0) {
-            const last = res.data[res.data.length - 1]
-            this.currentEquity = last.equity
+        const [equityRes, positionsRes] = await Promise.all([
+          getStrategyEquityCurve(this.selectedStrategy.id),
+          getStrategyPositions(this.selectedStrategy.id)
+        ])
+
+        let baseEquity = null
+        if (equityRes.code === 1 && equityRes.data) {
+          if (Array.isArray(equityRes.data) && equityRes.data.length > 0) {
+            const last = equityRes.data[equityRes.data.length - 1]
+            baseEquity = last.equity
           } else {
-            const base = this.selectedStrategy.trading_config?.initial_capital || this.selectedStrategy.initial_capital
-            this.currentEquity = base || null
+            baseEquity = this.selectedStrategy.trading_config?.initial_capital || this.selectedStrategy.initial_capital || null
           }
         }
-      } catch (error) {
-      }
+
+        let unrealizedPnl = 0
+        if (positionsRes.code === 1 && positionsRes.data) {
+          const positions = Array.isArray(positionsRes.data)
+            ? positionsRes.data
+            : (positionsRes.data.positions || positionsRes.data.items || [])
+          positions.forEach(position => {
+            unrealizedPnl += parseFloat(position.unrealized_pnl || position.unrealizedPnl || 0)
+          })
+        }
+
+        this.currentEquity = baseEquity !== null ? baseEquity + unrealizedPnl : null
+      } catch (error) {}
     },
     startEquityPolling () {
       this.stopEquityPolling()
@@ -2979,10 +3217,10 @@ export default {
       // 初始加载一次
       this.loadStrategyDetails()
 
-      // 每30秒轮询一次
+      // Dist polls more aggressively to keep the detail header responsive.
       this.equityPollingTimer = setInterval(() => {
         this.loadStrategyDetails()
-      }, 30000)
+      }, 10000)
     },
     stopEquityPolling () {
       if (this.equityPollingTimer) {
@@ -3009,6 +3247,7 @@ export default {
       this.showAdvancedSettings = false
       this.executionModeUi = 'signal'
       this.liveDisclaimerAckUi = false
+      this.lastAutoStrategyName = ''
 
       this.form.resetFields()
     },
@@ -3262,6 +3501,7 @@ export default {
     async handleIndicatorChange (indicatorId) {
       const idStr = String(indicatorId)
       this.selectedIndicator = this.availableIndicators.find(ind => String(ind.id) === idStr)
+      this.applyAutoStrategyName(this.selectedIndicator)
 
       // 获取指标参数声明
       this.indicatorParams = []
@@ -3367,8 +3607,29 @@ export default {
       } catch (e) { }
     },
     filterIndicatorOption (input, option) {
-      const text = option.componentOptions.children[0].children[0].text
-      return text.toLowerCase().indexOf(input.toLowerCase()) >= 0
+      const label = option.componentOptions?.propsData?.label || ''
+      return String(label).toLowerCase().indexOf(String(input || '').toLowerCase()) >= 0
+    },
+    getIndicatorOptionLabel (indicator) {
+      if (!indicator) return ''
+      return indicator.description ? `${indicator.name} - ${indicator.description}` : indicator.name
+    },
+    buildStrategyDefaultName (indicator) {
+      const suffix = this.tt('trading-assistant.form.defaultStrategySuffix', 'Strategy')
+      if (indicator && indicator.name) {
+        return `${indicator.name} ${suffix}`.trim()
+      }
+      return this.tt('trading-assistant.form.defaultStrategyName', 'New Strategy')
+    },
+    applyAutoStrategyName (indicator) {
+      if (this.editingStrategy || !this.form) return
+      const nextName = this.buildStrategyDefaultName(indicator)
+      const currentName = this.form.getFieldValue('strategy_name')
+      if (currentName && currentName !== this.lastAutoStrategyName) {
+        return
+      }
+      this.form.setFieldsValue({ strategy_name: nextName })
+      this.lastAutoStrategyName = nextName
     },
     filterSymbolOption (input, option) {
       return option.componentOptions.children[0].text.toLowerCase().indexOf(input.toLowerCase()) >= 0
@@ -3379,9 +3640,11 @@ export default {
         momentum: 'green',
         volatility: 'orange',
         volume: 'purple',
-        custom: 'default'
+        custom: 'cyan',
+        python: 'geekblue',
+        pine: 'magenta'
       }
-      return colors[type] || 'default'
+      return colors[type] || 'cyan'
     },
     getIndicatorTypeName (type) {
       return this.$t(`trading-assistant.indicatorType.${type}`) || type
@@ -4070,17 +4333,246 @@ export default {
 
 .trading-assistant {
   padding: 0px;
-  height: calc(100vh - 120px);
+  min-height: calc(100vh - 120px);
   background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
 
+  .assistant-guide-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 18px;
+    padding: 20px 22px;
+    border: 1px solid #dce7f3;
+    border-radius: 24px;
+    background:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 38%),
+      radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 34%),
+      linear-gradient(135deg, #ffffff 0%, #f8fbff 55%, #eef7ff 100%);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+  }
+
+  .assistant-guide-copy {
+    min-width: 0;
+  }
+
+  .assistant-guide-eyebrow {
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .assistant-guide-title {
+    margin-top: 8px;
+    color: #0f172a;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .assistant-guide-desc {
+    margin-top: 10px;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .assistant-guide-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .assistant-step-card {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    backdrop-filter: blur(8px);
+  }
+
+  .assistant-step-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #2563eb 0%, #10b981 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .assistant-step-body {
+    min-width: 0;
+  }
+
+  .assistant-step-title {
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .assistant-step-desc {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .assistant-guide-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    min-width: 220px;
+  }
+
+  .assistant-guide-close {
+    align-self: flex-end;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 999px;
+    color: #64748b;
+    border-color: rgba(148, 163, 184, 0.28);
+    background: rgba(255, 255, 255, 0.72);
+  }
+
+  .top-level-tabs {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 360px);
+
+    /deep/ .ant-tabs-bar {
+      margin-bottom: 18px;
+    }
+
+    /deep/ .ant-tabs-content {
+      height: 100%;
+    }
+
+    /deep/ .ant-tabs-tabpane-active {
+      height: 100%;
+    }
+  }
+
   .strategy-layout {
-    height: calc(100vh - 120px);
+    height: calc(100vh - 420px);
+    min-height: 680px;
+  }
+
+  .strategy-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 32px 18px 36px;
+    text-align: center;
+  }
+
+  .strategy-empty-desc {
+    max-width: 320px;
+    color: #64748b;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .strategy-empty-path {
+    color: #2563eb;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .strategy-empty-detail {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 24px;
+  }
+
+  .strategy-empty-detail-card {
+    width: 100%;
+    max-width: 520px;
+    padding: 36px 32px;
+    text-align: center;
+    border-radius: 26px;
+    border: 1px solid #dce7f3;
+    background:
+      radial-gradient(circle at top, rgba(59, 130, 246, 0.1), transparent 42%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.08);
+  }
+
+  .strategy-empty-detail-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 18px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #2563eb 0%, #10b981 100%);
+    color: #fff;
+    font-size: 30px;
+    box-shadow: 0 14px 24px rgba(37, 99, 235, 0.22);
+  }
+
+  .strategy-empty-detail-title {
+    margin: 0;
+    color: #0f172a;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .strategy-empty-detail-hint {
+    max-width: 420px;
+    margin: 12px auto 0;
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .strategy-empty-detail-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 22px;
   }
 
   // 移动端适配
   @media (max-width: 768px) {
     min-height: auto;
     margin: -24px;
+
+    .assistant-guide-bar {
+      grid-template-columns: 1fr;
+      padding: 18px;
+      border-radius: 0 0 24px 24px;
+    }
+
+    .assistant-guide-title {
+      font-size: 22px;
+    }
+
+    .assistant-guide-steps {
+      grid-template-columns: 1fr;
+    }
+
+    .assistant-guide-actions {
+      min-width: 0;
+    }
+
+    .top-level-tabs {
+      min-height: auto;
+    }
 
     .strategy-layout {
       height: auto;
@@ -4606,6 +5098,10 @@ export default {
               .strategy-item-actions {
                 flex-shrink: 0;
               }
+
+              &.strategy-list-item--strategy-group {
+                margin-left: 14px;
+              }
             }
           }
         }
@@ -4663,6 +5159,10 @@ export default {
               flex-shrink: 0;
               color: #1e3a5f;
               transition: color 0.2s ease;
+            }
+
+            &.strategy-name-wrapper--grouped {
+              flex-wrap: wrap;
             }
 
             .exchange-tag {
@@ -4810,6 +5310,48 @@ export default {
         }
       }
     }
+  }
+
+  .indicator-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .indicator-option-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .indicator-option-desc {
+    margin-top: 2px;
+    color: #8c8c8c;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+  }
+
+  .selected-indicator-card {
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid #e5eef7;
+    background: linear-gradient(180deg, #fbfdff 0%, #f5f9ff 100%);
+  }
+
+  .selected-indicator-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .selected-indicator-name {
+    color: #1e3a5f;
+    font-size: 15px;
+    font-weight: 700;
   }
 
   .strategy-detail-col {
@@ -5173,6 +5715,48 @@ export default {
     background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
     color: var(--dark-text-color, #fff);
 
+    .assistant-guide-bar {
+      border-color: rgba(59, 130, 246, 0.16);
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.26), transparent 36%),
+        radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.14), transparent 34%),
+        linear-gradient(135deg, #161b22 0%, #111827 58%, #0f172a 100%);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.25);
+    }
+
+    .assistant-guide-eyebrow {
+      color: #60a5fa;
+    }
+
+    .assistant-guide-title,
+    .assistant-step-title {
+      color: #f8fafc;
+    }
+
+    .assistant-guide-desc,
+    .assistant-step-desc {
+      color: #94a3b8;
+    }
+
+    .assistant-step-card {
+      background: rgba(15, 23, 42, 0.62);
+      border-color: rgba(148, 163, 184, 0.12);
+    }
+
+    .assistant-guide-close {
+      color: #cbd5e1;
+      border-color: rgba(148, 163, 184, 0.18);
+      background: rgba(15, 23, 42, 0.56);
+    }
+
+    .strategy-empty-desc {
+      color: #94a3b8;
+    }
+
+    .strategy-empty-path {
+      color: #60a5fa;
+    }
+
     .creation-mode-toggle {
       background: rgba(24, 144, 255, 0.08);
       border-color: rgba(24, 144, 255, 0.2);
@@ -5255,6 +5839,22 @@ export default {
 
     // 右侧策略详情卡片
     .strategy-detail-col {
+      .strategy-empty-detail-card {
+        border-color: rgba(59, 130, 246, 0.18);
+        background:
+          radial-gradient(circle at top, rgba(37, 99, 235, 0.16), transparent 42%),
+          linear-gradient(180deg, #161b22 0%, #111827 100%);
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+      }
+
+      .strategy-empty-detail-title {
+        color: #f8fafc;
+      }
+
+      .strategy-empty-detail-hint {
+        color: #94a3b8;
+      }
+
       .strategy-header-card {
         background: linear-gradient(135deg, #1e222d 0%, #1a1e28 100%);
         border: 1px solid rgba(255, 255, 255, 0.06);
@@ -5369,6 +5969,19 @@ export default {
       /deep/ .ant-empty-description {
         color: #868993;
       }
+    }
+
+    .selected-indicator-card {
+      border-color: rgba(59, 130, 246, 0.16);
+      background: linear-gradient(180deg, rgba(37, 99, 235, 0.08) 0%, rgba(15, 23, 42, 0.24) 100%);
+    }
+
+    .selected-indicator-name {
+      color: #f8fafc;
+    }
+
+    .indicator-option-desc {
+      color: #94a3b8;
     }
   }
 }

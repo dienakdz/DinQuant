@@ -1,5 +1,5 @@
 <template>
-  <div class="trading-records">
+  <div class="trading-records" :class="{ 'theme-dark': isDark }">
     <div v-if="records.length === 0 && !loading" class="empty-state">
       <a-empty :description="$t('trading-assistant.table.noPositions')" />
     </div>
@@ -53,6 +53,10 @@ export default {
       required: true
     },
     loading: {
+      type: Boolean,
+      default: false
+    },
+    isDark: {
       type: Boolean,
       default: false
     }
