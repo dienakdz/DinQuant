@@ -53,7 +53,7 @@
       <a-tab-pane key="strategy">
         <span slot="tab">{{ tt('trading-assistant.tabs.strategyManage', 'Strategy Manager') }}</span>
         <a-row :gutter="24" class="strategy-layout">
-          <!-- 左侧：策略列表 -->
+          <!-- Left side: strategy list -->
           <a-col
             :xs="24"
             :sm="24"
@@ -70,7 +70,7 @@
                 </a-button>
               </div>
 
-              <!-- 分组方式切换 -->
+              <!-- Grouping mode switch -->
               <div class="group-mode-switch">
                 <span class="group-mode-label">{{ $t('trading-assistant.groupBy') }}:</span>
                 <a-radio-group v-model="groupByMode" size="small" button-style="solid">
@@ -101,9 +101,9 @@
                 </div>
 
                 <div v-else class="strategy-grouped-list">
-                  <!-- 策略组列表 -->
+                  <!-- Strategy groups -->
                   <div v-for="group in groupedStrategies.groups" :key="group.id" class="strategy-group">
-                    <!-- 策略组头部 -->
+                    <!-- Group header -->
                     <div class="strategy-group-header" @click="toggleGroup(group.id)">
                       <div class="group-header-left">
                         <a-icon :type="collapsedGroups[group.id] ? 'right' : 'down'" class="collapse-icon" />
@@ -139,7 +139,7 @@
                         </a-dropdown>
                       </div>
                     </div>
-                    <!-- 策略组内的策略列表（可折叠） -->
+                    <!-- Strategies inside the group (collapsible) -->
                     <div v-show="!collapsedGroups[group.id]" class="strategy-group-content">
                       <div
                         v-for="item in group.strategies"
@@ -229,6 +229,10 @@
                                 <a-icon type="edit" />
                                 {{ $t('trading-assistant.editStrategy') }}
                               </a-menu-item>
+                              <a-menu-item key="backtest">
+                                <a-icon type="experiment" />
+                                {{ $t('dashboard.indicator.action.backtest') }}
+                              </a-menu-item>
                               <a-menu-divider />
                               <a-menu-item key="delete" class="danger-item">
                                 <a-icon type="delete" />
@@ -242,7 +246,7 @@
                     </div>
                   </div>
 
-                  <!-- 未分组的策略列表 -->
+                  <!-- Ungrouped strategies -->
                   <div
                     v-for="item in groupedStrategies.ungrouped"
                     :key="item.id"
@@ -305,6 +309,10 @@
                             <a-icon type="edit" />
                             {{ $t('trading-assistant.editStrategy') }}
                           </a-menu-item>
+                          <a-menu-item key="backtest">
+                            <a-icon type="experiment" />
+                            {{ $t('dashboard.indicator.action.backtest') }}
+                          </a-menu-item>
                           <a-menu-divider />
                           <a-menu-item key="delete" class="danger-item">
                             <a-icon type="delete" />
@@ -320,7 +328,7 @@
             </a-card>
           </a-col>
 
-          <!-- 右侧：策略详情和交易记录 -->
+          <!-- Right side: strategy details and runtime records -->
           <a-col
             :xs="24"
             :sm="24"
@@ -349,7 +357,7 @@
             </div>
 
             <div v-else class="strategy-detail-panel">
-              <!-- 策略头部信息 -->
+              <!-- Strategy header -->
               <a-card :bordered="false" class="strategy-header-card">
                 <div class="strategy-header">
                   <div class="header-left">
@@ -361,7 +369,7 @@
                       </div>
                     </div>
 
-                    <!-- 关键数据卡片 -->
+                    <!-- Key stats -->
                     <div class="key-stats-grid">
                       <div
                         class="stat-card"
@@ -401,7 +409,7 @@
                       </div>
                     </div>
 
-                    <!-- 策略详情标签 -->
+                    <!-- Strategy tags -->
                     <div class="strategy-tags">
                       <div class="tag-item" v-if="selectedStrategy.trading_config">
                         <a-icon type="stock" />
@@ -433,6 +441,13 @@
                   </div>
                   <div class="header-right">
                     <a-button
+                      size="large"
+                      class="action-btn"
+                      @click="goToBacktestCenter(selectedStrategy)">
+                      <a-icon type="experiment" />
+                      {{ $t('dashboard.indicator.action.backtest') }}
+                    </a-button>
+                    <a-button
                       v-if="selectedStrategy.status === 'stopped'"
                       type="primary"
                       size="large"
@@ -454,7 +469,7 @@
                 </div>
               </a-card>
 
-              <!-- 策略详情标签页 -->
+              <!-- Strategy detail tabs -->
               <a-card :bordered="false" class="strategy-content-card">
                 <a-tabs defaultActiveKey="positions">
                   <a-tab-pane key="positions" :tab="$t('trading-assistant.tabs.positions')">
@@ -482,7 +497,7 @@
       </a-tab-pane>
     </a-tabs>
 
-    <!-- 创建/编辑策略弹窗 - 合并版本 -->
+    <!-- Create/edit strategy modal -->
     <a-modal
       :visible="showFormModal"
       :title="editingStrategy ? $t('trading-assistant.editStrategy') : $t('trading-assistant.createStrategy')"
@@ -514,9 +529,9 @@
         </a-steps>
 
         <div class="form-container">
-          <!-- 步骤1: 指标策略-选择技术指标 / AI策略-基础配置 -->
+          <!-- Step 1: indicator selection or base strategy configuration -->
           <div v-show="currentStep === 0" class="step-content">
-            <!-- 指标策略：选择技术指标 -->
+            <!-- Indicator strategy: choose the technical indicator -->
             <div v-if="strategyType === 'indicator'">
               <a-form :form="form" layout="vertical">
                 <a-form-item :label="$t('trading-assistant.form.indicator')">
@@ -579,7 +594,7 @@
                   </div>
                 </a-form-item>
 
-                <!-- 指标参数配置 -->
+                <!-- Indicator parameter configuration -->
                 <a-form-item v-if="indicatorParams.length > 0" :label="$t('trading-assistant.form.indicatorParams')">
                   <div class="indicator-params-form">
                     <a-row :gutter="16">
@@ -591,26 +606,26 @@
                               <a-icon type="question-circle" style="margin-left: 4px; color: #999;" />
                             </a-tooltip>
                           </label>
-                          <!-- 整数类型 -->
+                          <!-- Integer type -->
                           <a-input-number
                             v-if="param.type === 'int'"
                             v-model="indicatorParamValues[param.name]"
                             :precision="0"
                             style="width: 100%;"
                             size="small" />
-                          <!-- 浮点数类型 -->
+                          <!-- Float type -->
                           <a-input-number
                             v-else-if="param.type === 'float'"
                             v-model="indicatorParamValues[param.name]"
                             :precision="4"
                             style="width: 100%;"
                             size="small" />
-                          <!-- 布尔类型 -->
+                          <!-- Boolean type -->
                           <a-switch
                             v-else-if="param.type === 'bool'"
                             v-model="indicatorParamValues[param.name]"
                             size="small" />
-                          <!-- 字符串类型 -->
+                          <!-- String type -->
                           <a-input
                             v-else
                             v-model="indicatorParamValues[param.name]"
@@ -656,7 +671,7 @@
 
                 <!-- ===== Strategy type: only show in advanced mode ===== -->
                 <div v-show="isAdvancedMode || editingStrategy || showAdvancedSettings">
-                  <!-- 策略类型选择 -->
+                  <!-- Strategy type selection -->
                   <a-form-item :label="$t('trading-assistant.form.strategyType')">
                     <a-radio-group
                       v-decorator="['cs_strategy_type', { initialValue: 'single' }]"
@@ -670,7 +685,7 @@
                   </a-form-item>
                 </div>
 
-                <!-- 截面策略配置 -->
+                <!-- Cross-sectional strategy configuration -->
                 <template v-if="form.getFieldValue('cs_strategy_type') === 'cross_sectional'">
                   <a-form-item :label="$t('trading-assistant.form.symbolList')">
                     <a-select
@@ -751,11 +766,11 @@
                   </a-form-item>
                 </template>
 
-                <!-- 单标的策略：原有的标的选择 -->
+                <!-- Single-symbol strategy: legacy symbol selector -->
                 <a-form-item
                   v-if="form.getFieldValue('cs_strategy_type') !== 'cross_sectional'"
                   :label="isEditMode ? $t('trading-assistant.form.symbol') : $t('trading-assistant.form.symbols')">
-                  <!-- 编辑模式：单选 -->
+                  <!-- Edit mode: single select -->
                   <a-select
                     v-if="isEditMode"
                     v-decorator="['symbol', { rules: [{ required: true, message: $t('trading-assistant.validation.symbolRequired') }] }]"
@@ -777,7 +792,7 @@
                         <span v-if="item.name" class="symbol-name-extra">{{ item.name }}</span>
                       </div>
                     </a-select-option>
-                    <!-- 添加交易对选项 -->
+                    <!-- Add-symbol option -->
                     <a-select-option key="__add_symbol_option__" value="__add_symbol_option__" class="add-symbol-option">
                       <div style="width: 100%; text-align: center; padding: 4px 0; color: #1890ff; cursor: pointer;">
                         <a-icon type="plus" style="margin-right: 4px;" />
@@ -785,7 +800,7 @@
                       </div>
                     </a-select-option>
                   </a-select>
-                  <!-- 创建模式：多选 -->
+                  <!-- Create mode: multi-select -->
                   <a-select
                     v-else
                     v-model="selectedSymbols"
@@ -809,7 +824,7 @@
                         <span v-if="item.name" class="symbol-name-extra">{{ item.name }}</span>
                       </div>
                     </a-select-option>
-                    <!-- 添加交易对选项 -->
+                    <!-- Add-symbol option -->
                     <a-select-option key="__add_symbol_option__" value="__add_symbol_option__" class="add-symbol-option">
                       <div style="width: 100%; text-align: center; padding: 4px 0; color: #1890ff; cursor: pointer;">
                         <a-icon type="plus" style="margin-right: 4px;" />
@@ -925,7 +940,7 @@
 
           <!-- Step 2: params (backtest-like / trading params) -->
           <div v-show="currentStep === 1 || (isSimpleMode && currentStep === 0 && showAdvancedSettings)" class="step-content">
-            <!-- 指标策略：策略参数 -->
+            <!-- Indicator strategy: strategy parameters -->
             <div v-if="strategyType === 'indicator'">
               <a-form :form="form" layout="vertical">
                 <!-- Backtest-like configuration (aligned with indicator-analysis BacktestModal) -->
@@ -1580,7 +1595,7 @@
       </template>
     </a-modal>
 
-    <!-- 添加交易对弹窗 -->
+    <!-- Add-symbol modal -->
     <a-modal
       :title="$t('trading-assistant.form.addSymbolTitle')"
       :visible="showAddSymbolModal"
@@ -1593,7 +1608,7 @@
       :maskClosable="false"
       :keyboard="false">
       <div class="add-symbol-modal-content">
-        <!-- 市场类型Tab -->
+        <!-- Market tabs -->
         <a-tabs v-model="addSymbolMarket" @change="handleAddSymbolMarketChange" class="market-tabs">
           <a-tab-pane
             v-for="marketType in addSymbolMarketTypes"
@@ -1602,7 +1617,7 @@
           </a-tab-pane>
         </a-tabs>
 
-        <!-- 搜索输入框 -->
+        <!-- Search input -->
         <div class="symbol-search-section">
           <a-input-search
             v-model="addSymbolKeyword"
@@ -1618,7 +1633,7 @@
           </a-input-search>
         </div>
 
-        <!-- 搜索结果 -->
+        <!-- Search results -->
         <div v-if="symbolSearchResults.length > 0" class="search-results-section">
           <div class="section-title">
             <a-icon type="search" style="margin-right: 4px;" />
@@ -1645,7 +1660,7 @@
           </a-list>
         </div>
 
-        <!-- 热门标的 -->
+        <!-- Hot symbols -->
         <div class="hot-symbols-section">
           <div class="section-title">
             <a-icon type="fire" style="color: #ff4d4f; margin-right: 4px;" />
@@ -1675,7 +1690,7 @@
           </a-spin>
         </div>
 
-        <!-- 选中的标的显示 -->
+        <!-- Selected symbol preview -->
         <div v-if="selectedAddSymbol" class="selected-symbol-section">
           <div class="section-title">
             <a-icon type="check-circle" style="color: #52c41a; margin-right: 4px;" />
@@ -1705,7 +1720,7 @@ import PositionRecords from './components/PositionRecords.vue'
 import PerformanceAnalysis from './components/PerformanceAnalysis.vue'
 import StrategyLogs from './components/StrategyLogs.vue'
 
-// 常见加密货币交易对
+// Common crypto trading pairs
 const CRYPTO_SYMBOLS = [
   'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'ADA/USDT',
   'XRP/USDT', 'DOGE/USDT', 'DOT/USDT', 'MATIC/USDT', 'AVAX/USDT',
@@ -1732,8 +1747,8 @@ const BROKER_OPTIONS = [
   // Future brokers can be added here:
   // { value: 'td', labelKey: 'td', name: 'TD Ameritrade' },
   // { value: 'schwab', labelKey: 'schwab', name: 'Charles Schwab' },
-  // { value: 'futu', labelKey: 'futu', name: 'Futu (富途)' },
-  // { value: 'tiger', labelKey: 'tiger', name: 'Tiger Brokers (老虎证券)' },
+  // { value: 'futu', labelKey: 'futu', name: 'Futu' },
+  // { value: 'tiger', labelKey: 'tiger', name: 'Tiger Brokers' },
 ]
 
 // Forex broker options
@@ -1768,10 +1783,10 @@ export default {
     isSimpleMode () {
       return this.creationMode === 'simple'
     },
-    // Map internal currentStep to displayed step index for simple mode
+    // Map the internal step index to the displayed step in simple mode.
     displayCurrentStep () {
       if (this.isSimpleMode && !this.editingStrategy) {
-        // simple mode: step 0 → 0, step 2 → 1 (step 1 is skipped)
+        // Simple mode maps step 0 -> 0 and step 2 -> 1 because step 1 is skipped.
         return this.currentStep === 0 ? 0 : 1
       }
       return this.currentStep
@@ -1795,7 +1810,7 @@ export default {
     isBrokerMarket () {
       return this.isIBKRMarket || this.isMT5Market
     },
-    // 预处理交易所列表，包含显示名称，提升性能
+    // Precompute exchange options with display names to avoid repeated translation work.
     formattedExchangeOptions () {
       return EXCHANGE_OPTIONS.map(exchange => {
         let label = ''
@@ -1808,7 +1823,7 @@ export default {
             }
           }
         } catch (e) {
-          // 忽略翻译错误
+          // Ignore translation lookup failures and fall back to the raw id.
         }
 
         if (!label) {
@@ -1884,9 +1899,9 @@ export default {
       }
       return false
     },
-    // 是否显示模拟交易开关
+    // Whether to show the demo trading switch.
     showDemoTradingSwitch () {
-      // 目前仅支持 Binance 的 Demo Trading
+      // Demo trading is currently available only for Binance.
       return this.currentExchangeId && this.currentExchangeId.toLowerCase() === 'binance'
     },
     // Broker options for US stocks (with i18n support)
@@ -1951,14 +1966,14 @@ export default {
         }
       })
     },
-    // 策略分组显示
+    // Strategy grouping display
     groupedStrategies () {
       if (this.groupByMode === 'symbol') {
         return this.groupedBySymbol
       }
       return this.groupedByStrategy
     },
-    // 按策略分组（原有逻辑）
+    // Group by strategy (existing grouping logic).
     groupedByStrategy () {
       const groups = {}
       const ungrouped = []
@@ -1971,7 +1986,7 @@ export default {
               id: groupId,
               baseName: s.group_base_name || s.strategy_name.split('-')[0],
               strategies: [],
-              // 统计信息
+              // Aggregate counters
               runningCount: 0,
               stoppedCount: 0
             }
@@ -1987,7 +2002,7 @@ export default {
         }
       }
 
-      // 转换为数组，按创建时间排序
+      // Convert to an array and sort by creation time.
       const groupList = Object.values(groups).sort((a, b) => {
         const aTime = Math.max(...a.strategies.map(s => s.created_at || 0))
         const bTime = Math.max(...b.strategies.map(s => s.created_at || 0))
@@ -1996,7 +2011,7 @@ export default {
 
       return { groups: groupList, ungrouped }
     },
-    // 按 Symbol 分组
+    // Group by symbol
     groupedBySymbol () {
       const groups = {}
       const ungrouped = []
@@ -2014,7 +2029,7 @@ export default {
               stoppedCount: 0
             }
           }
-          // 添加策略详情信息
+          // Attach detail metadata used by the grouped list UI.
           const strategyInfo = {
             ...s,
             displayInfo: {
@@ -2034,7 +2049,7 @@ export default {
         }
       }
 
-      // 转换为数组，按 symbol 名称排序
+      // Convert to an array and sort by symbol name.
       const groupList = Object.values(groups).sort((a, b) => {
         return a.baseName.localeCompare(b.baseName)
       })
@@ -2090,8 +2105,8 @@ export default {
       loadingIndicators: false,
       availableIndicators: [],
       selectedIndicator: null,
-      indicatorParams: [], // 指标参数声明
-      indicatorParamValues: {}, // 用户设置的参数值
+      indicatorParams: [], // Indicator parameter declaration.
+      indicatorParamValues: {}, // User-configured indicator values.
       cryptoSymbols: CRYPTO_SYMBOLS,
       // Watchlist symbols (same source as indicator-analysis page)
       loadingWatchlist: false,
@@ -2102,17 +2117,17 @@ export default {
       testing: false,
       testResult: null,
       connectionTestResult: null,
-      indicatorsLoaded: false, // 标记指标是否已加载
-      editingStrategy: null, // 正在编辑的策略
-      currentEquity: null, // 当前净值
-      equityPollingTimer: null, // 净值轮询定时器
+      indicatorsLoaded: false, // Whether indicators have already been loaded.
+      editingStrategy: null, // Strategy currently being edited.
+      currentEquity: null, // Current equity value.
+      equityPollingTimer: null, // Equity polling timer.
       // Backtest-like UI state (same as indicator-analysis BacktestModal step1)
       backtestCollapseKeys: ['risk'],
       trailingEnabledUi: false,
       entryPctMaxUi: 100,
       aiFilterEnabledUi: false,
-      isEditMode: false, // 是否为编辑模式
-      supportedIPs: [], // 白名单IP列表
+      isEditMode: false, // Whether the form is in edit mode.
+      supportedIPs: [], // Whitelisted IPs for exchange APIs.
       executionModeUi: 'signal',
       liveDisclaimerAckUi: false,
       notifyChannelsUi: ['browser'],
@@ -2132,15 +2147,15 @@ export default {
       exchangeCredentials: [],
       saveCredentialUi: false,
       suppressApiClearOnce: false,
-      // 多币种选择（创建模式）
+      // Multi-symbol selection in create mode.
       selectedSymbols: [],
-      // 截面策略标的列表
+      // Symbol list for cross-sectional strategy mode.
       crossSectionalSymbols: [],
-      // 策略组折叠状态
+      // Collapsed state per strategy group.
       collapsedGroups: {},
-      // 分组模式: 'strategy' 或 'symbol'
+      // Grouping mode: 'strategy' or 'symbol'.
       groupByMode: 'strategy',
-      // 添加交易对弹窗相关
+      // Add-symbol modal state.
       showAddSymbolModal: false,
       addSymbolMarket: 'Crypto',
       addSymbolMarketTypes: [
@@ -2250,7 +2265,7 @@ export default {
         this.loadingWatchlist = false
       }
     },
-    // ====== 添加交易对弹窗相关方法 ======
+    // ====== Add-symbol modal helpers ======
     handleCloseAddSymbolModal () {
       this.showAddSymbolModal = false
       this.addSymbolKeyword = ''
@@ -2264,20 +2279,20 @@ export default {
       this.symbolSearchResults = []
       this.selectedAddSymbol = null
       this.hasSearchedSymbol = false
-      // 加载该市场的热门标的
+      // Load hot symbols for the selected market.
       this.loadHotSymbols(market)
     },
-    // 搜索输入框变化时的处理（防抖）
+    // Debounce symbol search input changes.
     handleSymbolSearchInputChange (e) {
       const keyword = e.target.value
       this.addSymbolKeyword = keyword
 
-      // 清除之前的定时器
+      // Clear the previous debounce timer.
       if (this.searchTimer) {
         clearTimeout(this.searchTimer)
       }
 
-      // 如果关键词为空，清空搜索结果和状态
+      // Reset search state when the input is empty.
       if (!keyword || keyword.trim() === '') {
         this.symbolSearchResults = []
         this.hasSearchedSymbol = false
@@ -2285,12 +2300,12 @@ export default {
         return
       }
 
-      // 防抖：500ms后执行搜索
+      // Run the search 500ms after typing stops.
       this.searchTimer = setTimeout(() => {
         this.searchSymbolsInModal(keyword)
       }, 500)
     },
-    // 搜索或直接添加（整合逻辑）
+    // Search first, or add directly when nothing matches.
     async handleSearchSymbol (keyword) {
       if (!keyword || !keyword.trim()) {
         return
@@ -2301,20 +2316,20 @@ export default {
         return
       }
 
-      // 如果有搜索结果，不处理（让用户选择）
+      // If there are search results already, wait for explicit user selection.
       if (this.symbolSearchResults.length > 0) {
         return
       }
 
-      // 如果没有搜索结果，直接添加
+      // If no result was found, offer direct add.
       if (this.hasSearchedSymbol && this.symbolSearchResults.length === 0) {
         this.handleDirectAdd()
       } else {
-        // 执行搜索
+        // Trigger the search.
         this.searchSymbolsInModal(keyword)
       }
     },
-    // 搜索标的（在添加股票弹窗中）
+    // Search symbols inside the add-symbol modal.
     async searchSymbolsInModal (keyword) {
       if (!keyword || keyword.trim() === '') {
         this.symbolSearchResults = []
@@ -2345,7 +2360,7 @@ export default {
         this.searchingSymbol = false
       }
     },
-    // 直接添加（搜索无结果时）
+    // Add the typed symbol directly when search returns no results.
     handleDirectAdd () {
       if (!this.addSymbolKeyword || !this.addSymbolKeyword.trim()) {
         this.$message.warning(this.$t('dashboard.analysis.modal.addStock.pleaseEnterSymbol'))
@@ -2357,11 +2372,11 @@ export default {
         return
       }
 
-      // 设置选中的标的（手动输入，名称会在后端获取）
+      // Keep the manual symbol selection; the backend can resolve its display name later.
       this.selectedAddSymbol = {
         market: this.addSymbolMarket,
         symbol: this.addSymbolKeyword.trim().toUpperCase(),
-        name: '' // 名称由后端通过API获取
+        name: '' // The backend resolves the display name if available.
       }
     },
     handleSelectAddSymbol (item) {
@@ -2371,7 +2386,7 @@ export default {
         name: item.name || ''
       }
     },
-    // 加载热门标的
+    // Load the market's hot symbols.
     async loadHotSymbols (market) {
       if (!market) {
         market = this.addSymbolMarket || 'Crypto'
@@ -2399,16 +2414,16 @@ export default {
       }
     },
     async handleConfirmAddSymbol () {
-      // 确定要添加的交易对
+      // Resolve the target symbol to add.
       let market = ''
       let symbol = ''
 
-      // 检查是否选中了标的（从数据库选择或手动输入）
+      // Accept either a selected symbol or the manual input value.
       if (this.selectedAddSymbol) {
         market = this.selectedAddSymbol.market
         symbol = this.selectedAddSymbol.symbol.toUpperCase()
       } else if (this.addSymbolKeyword && this.addSymbolKeyword.trim()) {
-        // 如果没有选中，但搜索框有输入，使用搜索框的值
+        // Fall back to the typed value when nothing was selected.
         if (!this.addSymbolMarket) {
           this.$message.warning(this.$t('dashboard.analysis.modal.addStock.pleaseSelectMarket'))
           return
@@ -2422,7 +2437,7 @@ export default {
 
       this.addingSymbol = true
       try {
-        // 调用添加自选API
+        // Call the watchlist API.
         const res = await addWatchlist({
           userid: 1,
           market: market,
@@ -2430,21 +2445,21 @@ export default {
         })
         if (res && res.code === 1) {
           this.$message.success(this.$t('dashboard.analysis.message.addStockSuccess'))
-          // 重新加载自选列表
+          // Reload the watchlist.
           await this.loadWatchlist()
-          // 自动选中新添加的交易对
+          // Select the newly added symbol automatically.
           const newValue = `${market}:${symbol}`
           if (this.isEditMode) {
             this.form.setFieldsValue({ symbol: newValue })
             this.handleWatchlistSymbolChange(newValue)
           } else {
-            // 多选模式：添加到已选列表
+            // In multi-select mode, append it to the current selection.
             if (!this.selectedSymbols.includes(newValue)) {
               this.selectedSymbols = [...this.selectedSymbols, newValue]
             }
             this.handleMultiSymbolChange(this.selectedSymbols)
           }
-          // 关闭弹窗
+          // Close the modal.
           this.handleCloseAddSymbolModal()
         } else {
           this.$message.error(res?.msg || this.$t('dashboard.analysis.message.addStockFailed'))
@@ -2456,27 +2471,27 @@ export default {
         this.addingSymbol = false
       }
     },
-    // ====== 添加交易对弹窗相关方法 END ======
+    // ====== End add-symbol modal helpers ======
     filterWatchlistOption (input, option) {
       const value = option.componentOptions?.propsData?.value || ''
-      // 始终显示"添加"选项
+      // Always keep the special "add symbol" option visible.
       if (value === '__add_symbol_option__') return true
       return String(value).toLowerCase().includes(String(input || '').toLowerCase())
     },
     filterWatchlistOptionWithAdd (input, option) {
       const value = option.componentOptions?.propsData?.value || ''
-      // 始终显示"添加"选项
+      // Always keep the special "add symbol" option visible.
       if (value === '__add_symbol_option__') return true
       return String(value).toLowerCase().includes(String(input || '').toLowerCase())
     },
     handleMultiSymbolChangeWithAdd (vals) {
-      // 检查是否点击了"添加"选项
+      // Check whether the special "add symbol" option was clicked.
       if (vals && vals.includes('__add_symbol_option__')) {
-        // 从选中列表中移除特殊选项
+        // Remove the helper option from the selected values.
         this.selectedSymbols = vals.filter(v => v !== '__add_symbol_option__')
-        // 打开添加弹窗
+        // Open the add-symbol modal.
         this.showAddSymbolModal = true
-        // 加载热门标的
+        // Load hot symbols for the current market.
         this.loadHotSymbols(this.addSymbolMarket)
         return
       }
@@ -2484,25 +2499,25 @@ export default {
     },
     handleStrategyTypeChange (e) {
       const strategyType = e.target.value
-      // 当切换到单标的策略时，清空截面策略的标的列表
+      // Clear the basket selection when switching back to a single-symbol strategy.
       if (strategyType === 'single') {
         this.crossSectionalSymbols = []
       }
     },
     handleCrossSectionalSymbolChange (vals) {
-      // 检查是否点击了"添加"选项
+      // Check whether the special "add symbol" option was clicked.
       if (vals && vals.includes('__add_symbol_option__')) {
-        // 从选中列表中移除特殊选项
+        // Remove the helper option from the selected values.
         this.crossSectionalSymbols = vals.filter(v => v !== '__add_symbol_option__')
-        // 打开添加弹窗
+        // Open the add-symbol modal.
         this.showAddSymbolModal = true
-        // 加载热门标的
+        // Load hot symbols for the current market.
         this.loadHotSymbols(this.addSymbolMarket)
         return
       }
       this.crossSectionalSymbols = vals || []
 
-      // 更新市场类型基于选中的标的
+      // Keep the market category aligned with the first selected symbol.
       if (vals && vals.length > 0) {
         const firstVal = vals[0]
         if (typeof firstVal === 'string' && firstVal.includes(':')) {
@@ -2522,15 +2537,15 @@ export default {
       return colors[market] || 'default'
     },
     handleWatchlistSymbolChange (val) {
-      // 检查是否点击了"添加"选项
+      // Check whether the special "add symbol" option was clicked.
       if (val === '__add_symbol_option__') {
-        // 重置表单值（不选中特殊选项）
+        // Reset the field value without keeping the helper option selected.
         this.$nextTick(() => {
           this.form.setFieldsValue({ symbol: undefined })
         })
-        // 打开添加弹窗
+        // Open the add-symbol modal.
         this.showAddSymbolModal = true
-        // 加载热门标的
+        // Load hot symbols for the current market.
         this.loadHotSymbols(this.addSymbolMarket)
         return
       }
@@ -2742,16 +2757,16 @@ export default {
       try {
         const res = await getStrategyList()
         if (res.code === 1) {
-          // 显示所有策略（包括指标策略和AI策略）
+          // Show all strategies returned by the backend.
           const allStrategies = res.data.strategies || []
           this.strategies = allStrategies
-          // 如果有选中的策略，更新它
+          // Refresh the currently selected strategy reference if possible.
           if (this.selectedStrategy) {
             const updated = this.strategies.find(s => s.id === this.selectedStrategy.id)
             if (updated) {
               this.selectedStrategy = updated
             } else {
-              // 如果选中的策略被过滤掉了，清空选中状态
+              // Clear the selection if the strategy no longer exists.
               this.selectedStrategy = null
             }
           }
@@ -2864,7 +2879,7 @@ export default {
       this.$router.replace({ path: this.$route.path, query: {} }).catch(() => {})
     },
     handleEditStrategy (strategy) {
-      // 如果策略正在运行，提示用户先停止
+      // Running strategies must be stopped before editing.
       if (strategy.status === 'running') {
         this.$message.warning(this.$t('trading-assistant.messages.runningWarning'))
         return
@@ -2901,12 +2916,12 @@ export default {
       })
     },
     async loadStrategyDataToForm (strategy) {
-      // 先加载指标列表（如果需要）
+      // Ensure the indicator catalog is available before filling the form.
       if (!this.indicatorsLoaded) {
         await this.loadIndicators()
       }
 
-      // 使用 nextTick 确保表单已初始化
+      // Wait for the modal form fields to mount before writing values.
       await this.$nextTick()
 
       // Market / execution / notification defaults (backward compatible)
@@ -2988,24 +3003,23 @@ export default {
         notify_webhook: strategy.notification_config?.targets?.webhook || ''
       })
 
-      // 加载指标数据
+      // Restore indicator selection and saved parameter values.
       if (strategy.indicator_config && strategy.indicator_config.indicator_id) {
-        // 查找对应的指标，确保ID类型一致（处理 string vs number 问题）
+        // Match by stringified id to avoid number/string mismatch issues.
         const targetId = strategy.indicator_config.indicator_id
-        // 使用字符串比较处理类型不匹配问题（string vs number）
         const indicator = this.availableIndicators.find(ind => {
           return String(ind.id) === String(targetId)
         })
 
         if (indicator) {
-          // 找到匹配的指标，使用指标对象中的ID（确保类型一致）
+          // Reuse the normalized id from the loaded indicator list.
           const finalId = String(indicator.id)
           this.form.setFieldsValue({
             indicator_id: finalId
           })
           await this.handleIndicatorChange(finalId)
 
-          // 恢复已保存的指标参数值 - 使用 $set 确保响应式
+          // Restore saved indicator parameter values while keeping reactivity.
           const savedParams = strategy.trading_config?.indicator_params
           if (savedParams && typeof savedParams === 'object') {
             Object.keys(savedParams).forEach(key => {
@@ -3015,7 +3029,7 @@ export default {
             })
           }
         } else {
-          // 如果找不到，仍然设置值，但可能显示为ID
+          // Keep the raw id if the catalog entry cannot be resolved.
           this.form.setFieldsValue({
             indicator_id: String(targetId)
           })
@@ -3079,14 +3093,14 @@ export default {
         }
       }
 
-      // 加载交易配置
+      // Restore trading configuration.
       if (strategy.trading_config) {
         const tc = strategy.trading_config || {}
         const trailingObj = (tc.trailing && typeof tc.trailing === 'object') ? tc.trailing : null
         const scaleObj = (tc.scale && typeof tc.scale === 'object') ? tc.scale : null
         const posObj = (tc.position && typeof tc.position === 'object') ? tc.position : null
 
-        // 加载截面策略配置
+        // Restore cross-sectional settings if this is a basket strategy.
         const strategyType = tc.strategy_type || strategy.strategy_type || 'single'
         if (strategyType === 'cross_sectional') {
           this.form.setFieldsValue({
@@ -3095,11 +3109,11 @@ export default {
             long_ratio: tc.long_ratio || 0.5,
             rebalance_frequency: tc.rebalance_frequency || 'daily'
           })
-          // 加载标的列表
+          // Restore the basket symbol list.
           if (tc.symbol_list && Array.isArray(tc.symbol_list)) {
             this.crossSectionalSymbols = tc.symbol_list
           } else if (strategy.symbol_list) {
-            // 如果trading_config中没有，尝试从主表字段读取
+            // Fall back to the top-level field if trading_config has no symbol list.
             try {
               const symbolList = typeof strategy.symbol_list === 'string' ? JSON.parse(strategy.symbol_list) : strategy.symbol_list
               if (Array.isArray(symbolList)) {
@@ -3161,7 +3175,7 @@ export default {
           adverse_reduce_size_pct: (tc.adverse_reduce_size_pct !== undefined) ? (tc.adverse_reduce_size_pct || 0) : (adverseReduceObj ? (adverseReduceObj.sizePct || 0) : 0),
           adverse_reduce_max_times: (tc.adverse_reduce_max_times !== undefined) ? (tc.adverse_reduce_max_times || 0) : (adverseReduceObj ? (adverseReduceObj.maxTimes || 0) : 0),
           entry_pct: (tc.entry_pct === 0 || tc.entry_pct) ? tc.entry_pct : (posObj && posObj.entryPct ? posObj.entryPct : 100),
-          // AI智能决策过滤
+          // AI decision filter
           enable_ai_filter: aiFilterEnabled
         })
 
@@ -3173,9 +3187,9 @@ export default {
     },
     handleSelectStrategy (strategy) {
       this.selectedStrategy = strategy
-      this.currentEquity = null // 重置当前净值
+      this.currentEquity = null // Reset the live equity display.
       this.loadStrategyDetails()
-      this.startEquityPolling() // 开始轮询净值
+      this.startEquityPolling() // Start polling the live equity display.
     },
     async loadStrategyDetails () {
       if (!this.selectedStrategy) {
@@ -3214,7 +3228,7 @@ export default {
       this.stopEquityPolling()
       if (!this.selectedStrategy) return
 
-      // 初始加载一次
+      // Load once immediately before starting the interval.
       this.loadStrategyDetails()
 
       // Dist polls more aggressively to keep the detail header responsive.
@@ -3266,10 +3280,24 @@ export default {
         case 'edit':
           this.handleEditStrategy(strategy)
           break
+        case 'backtest':
+          this.goToBacktestCenter(strategy)
+          break
         case 'delete':
           this.handleDeleteStrategy(strategy)
           break
       }
+    },
+    goToBacktestCenter (strategy) {
+      const target = strategy || this.selectedStrategy
+      if (!target || !target.id) return
+      this.$router.push({
+        path: '/backtest-center',
+        query: {
+          tab: 'strategy',
+          strategy_id: String(target.id)
+        }
+      })
     },
     toggleGroup (groupId) {
       this.$set(this.collapsedGroups, groupId, !this.collapsedGroups[groupId])
@@ -3333,7 +3361,7 @@ export default {
             if (res.code === 1) {
               const count = res.data?.success_ids?.length || strategyIds.length
               this.$message.success(this.$t('trading-assistant.messages.batchDeleteSuccess', { count }))
-              // 如果删除的策略包含当前选中的策略，清空选中状态
+              // Clear the detail panel if the deleted batch contained the selected strategy.
               if (this.selectedStrategy && strategyIds.includes(this.selectedStrategy.id)) {
                 this.selectedStrategy = null
                 this.stopEquityPolling()
@@ -3354,7 +3382,7 @@ export default {
         if (res.code === 1) {
           this.$message.success(this.$t('trading-assistant.messages.startSuccess'))
           this.loadStrategies()
-          // 更新选中的策略状态
+          // Update the selected strategy state immediately for a smoother UI.
           if (this.selectedStrategy && this.selectedStrategy.id === id) {
             this.selectedStrategy.status = 'running'
           }
@@ -3371,7 +3399,7 @@ export default {
         if (res.code === 1) {
           this.$message.success(this.$t('trading-assistant.messages.stopSuccess'))
           this.loadStrategies()
-          // 更新选中的策略状态
+          // Update the selected strategy state immediately for a smoother UI.
           if (this.selectedStrategy && this.selectedStrategy.id === id) {
             this.selectedStrategy.status = 'stopped'
           }
@@ -3399,7 +3427,7 @@ export default {
               this.$message.success(this.$t('trading-assistant.messages.deleteSuccess'))
               if (this.selectedStrategy && this.selectedStrategy.id === strategy.id) {
                 this.selectedStrategy = null
-                this.stopEquityPolling() // 停止轮询
+                this.stopEquityPolling() // Stop detail polling after deleting the selected strategy.
               }
               this.loadStrategies()
             } else {
@@ -3428,22 +3456,22 @@ export default {
     getTradeDirectionText (direction) {
       if (!direction) return ''
       const directionMap = {
-        long: this.$t('trading-assistant.form.tradeDirectionLong') || '做多',
-        short: this.$t('trading-assistant.form.tradeDirectionShort') || '做空',
-        both: this.$t('trading-assistant.form.tradeDirectionBoth') || '双向'
+        long: this.$t('trading-assistant.form.tradeDirectionLong') || 'Long',
+        short: this.$t('trading-assistant.form.tradeDirectionShort') || 'Short',
+        both: this.$t('trading-assistant.form.tradeDirectionBoth') || 'Both'
       }
       return directionMap[direction] || direction
     },
-    // 指标相关方法
+    // Indicator helpers
     async handleIndicatorSelectFocus () {
-      // 懒加载：只在用户点击选择框时才加载指标
+      // Lazy-load indicators only when the select is first focused.
       if (!this.indicatorsLoaded && !this.loadingIndicators) {
         await this.loadIndicators()
       }
     },
     async loadIndicators () {
       if (this.loadingIndicators) {
-        // 如果正在加载，等待加载完成
+        // Wait for the current indicator request to finish.
         return new Promise((resolve) => {
           const checkInterval = setInterval(() => {
             if (!this.loadingIndicators) {
@@ -3458,13 +3486,13 @@ export default {
         return Promise.resolve()
       }
 
-      // 获取用户ID
+      // Resolve the current user id with a local-mode fallback.
       const userInfo = this.$store.getters.userInfo || {}
       const userId = userInfo.id || 1
 
       this.loadingIndicators = true
       try {
-        // 使用和 indicator-analysis 页面相同的接口
+        // Reuse the same endpoint as indicator-analysis.
         const res = await request({
           url: '/api/indicator/getIndicators',
           method: 'get',
@@ -3474,7 +3502,7 @@ export default {
         })
 
         if (res.code === 1 && res.data) {
-          // 将所有指标（包括选购的和自己创建的）合并到一个数组
+          // Merge all indicators, including purchased and custom items.
           const indicators = res.data.map(item => ({
             id: item.id,
             name: item.name,
@@ -3503,7 +3531,7 @@ export default {
       this.selectedIndicator = this.availableIndicators.find(ind => String(ind.id) === idStr)
       this.applyAutoStrategyName(this.selectedIndicator)
 
-      // 获取指标参数声明
+      // Load the indicator parameter declaration.
       this.indicatorParams = []
       this.indicatorParamValues = {}
       if (indicatorId) {
@@ -3511,10 +3539,10 @@ export default {
           const res = await this.$http.get('/api/indicator/getIndicatorParams', {
             params: { indicator_id: indicatorId }
           })
-          // 响应拦截器已返回 response.data，所以直接访问 res.code 和 res.data
+          // The response interceptor already returns response.data.
           if (res && res.code === 1 && Array.isArray(res.data)) {
             this.indicatorParams = res.data
-            // 初始化参数值为默认值 - 先构建完整对象再赋值，确保响应式
+            // Build the full object before assignment so Vue keeps it reactive.
             const paramValues = {}
             res.data.forEach(p => {
               paramValues[p.name] = p.default
@@ -3528,7 +3556,7 @@ export default {
     },
     handleMarketTypeChange (e) {
       const marketType = e.target.value
-      // 如果切换到现货，自动设置交易方向为做多，杠杆为1
+      // Spot mode only supports long direction with 1x leverage.
       if (marketType === 'spot') {
         this.form.setFieldsValue({
           trade_direction: 'long',
@@ -3649,14 +3677,14 @@ export default {
     getIndicatorTypeName (type) {
       return this.$t(`trading-assistant.indicatorType.${type}`) || type
     },
-    // 交易所相关方法
+    // Exchange helpers
     getExchangeName (exchange) {
       if (exchange.labelKey) {
         const translationKey = `trading-assistant.exchangeNames.${exchange.labelKey}`
         const translated = this.$t(translationKey)
-        // 如果翻译不存在，返回键值本身，否则返回翻译后的名称
+        // Fall back to the raw exchange id when no translation exists.
         if (translated === translationKey) {
-          // 翻译不存在，返回交易所ID的首字母大写
+          // Format the exchange id with a capitalized first letter.
           return exchange.value.charAt(0).toUpperCase() + exchange.value.slice(1)
         }
         return translated
@@ -3665,16 +3693,16 @@ export default {
     },
     getExchangeDisplayName (exchangeId) {
       if (!exchangeId) return ''
-      // 查找对应的交易所选项
+      // Look up the matching exchange option first.
       const exchange = this.exchangeOptions.find(ex => ex.value === exchangeId)
       if (exchange) {
         return this.getExchangeName(exchange)
       }
-      // 如果找不到，返回格式化的交易所ID
+      // Fall back to a formatted exchange id.
       return exchangeId.charAt(0).toUpperCase() + exchangeId.slice(1)
     },
     getExchangeTagColor (exchangeId) {
-      // 为不同交易所设置不同的标签颜色
+      // Use distinct tag colors for different exchanges.
       const colorMap = {
         binance: 'gold',
         okx: 'blue',
@@ -3717,7 +3745,7 @@ export default {
       return colorMap[exchangeId] || 'default'
     },
     handleApiConfigChange () {
-      // 当API配置字段变化时，清空测试结果，需要重新测试
+      // Clear the connection test result when API fields change.
       this.testResult = null
       this.connectionTestResult = null
     },
@@ -3764,53 +3792,53 @@ export default {
     getPlaceholder (fieldType) {
       const placeholders = {
         okx: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key',
-          passphrase: '请输入Passphrase（创建API时设置）'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key',
+          passphrase: 'Enter the passphrase used when creating the API key'
         },
         okex: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key',
-          passphrase: '请输入Passphrase（创建API时设置）'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key',
+          passphrase: 'Enter the passphrase used when creating the API key'
         },
         binance: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key'
         },
         coinbaseexchange: {
-          api_key: '请输入API Key（或Key Name）',
-          secret_key: '请输入API Secret（或Private Key）',
-          passphrase: '请输入Passphrase（Legacy Pro API需要）'
+          api_key: 'Enter API Key (or Key Name)',
+          secret_key: 'Enter API Secret (or Private Key)',
+          passphrase: 'Enter passphrase (required for Legacy Pro API)'
         },
         kucoin: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key',
-          passphrase: '请输入Passphrase'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key',
+          passphrase: 'Enter passphrase'
         },
         gate: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key'
         },
         mexc: {
-          api_key: '请输入Access Key',
-          secret_key: '请输入Secret Key'
+          api_key: 'Enter Access Key',
+          secret_key: 'Enter Secret Key'
         },
         kraken: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key'
         },
         bitfinex: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key'
         },
         bybit: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key'
         },
         bitget: {
-          api_key: '请输入API Key',
-          secret_key: '请输入Secret Key',
-          passphrase: '请输入Passphrase（Legacy Pro API需要）'
+          api_key: 'Enter API Key',
+          secret_key: 'Enter Secret Key',
+          passphrase: 'Enter passphrase (required for Legacy Pro API)'
         }
       }
 
@@ -3818,7 +3846,7 @@ export default {
       if (exchangePlaceholders[fieldType]) {
         return exchangePlaceholders[fieldType]
       }
-      // 默认占位符使用多语言
+      // Use localized fallback placeholders by default.
       const fieldLabels = {
         'api_key': this.$t('trading-assistant.placeholders.inputApiKey'),
         'secret_key': this.$t('trading-assistant.placeholders.inputSecretKey'),
@@ -3988,7 +4016,7 @@ export default {
         this.testing = false
       }
     },
-    // 表单步骤控制
+    // Form step control
     handleNext () {
       if (this.currentStep === 0) {
         // Step 1: basic config
@@ -4000,24 +4028,24 @@ export default {
           fieldsToValidate.push('initial_capital', 'market_type', 'leverage', 'trade_direction', 'timeframe')
         }
 
-        // 编辑模式需要验证 symbol 字段
+        // Edit mode still needs to validate the symbol field.
         if (this.isEditMode) {
           fieldsToValidate.push('symbol')
         }
         this.form.validateFields(fieldsToValidate, (err, values) => {
           if (err) return
 
-          // 创建模式：验证多币种选择
+          // In create mode, validate the selected symbol collection.
           if (!this.isEditMode) {
             const strategyType = this.form.getFieldValue('cs_strategy_type') || 'single'
             if (strategyType === 'cross_sectional') {
-              // 截面策略：验证截面策略标的列表
+              // Cross-sectional strategies require a non-empty basket.
               if (!this.crossSectionalSymbols || this.crossSectionalSymbols.length === 0) {
                 this.$message.warning(this.$t('trading-assistant.validation.symbolsRequired'))
                 return
               }
             } else {
-              // 单标的策略：验证多币种选择
+              // Single-symbol batch creation still requires at least one symbol.
               if (!this.selectedSymbols || this.selectedSymbols.length === 0) {
                 this.$message.warning(this.$t('trading-assistant.validation.symbolsRequired'))
                 return
@@ -4145,7 +4173,7 @@ export default {
               if (leverage > 125) leverage = 125
             }
 
-            // 构建基础 payload
+            // Build the shared payload shape used by create and update requests.
             const basePayload = {
               strategy_name: values.strategy_name,
               market_category: this.selectedMarketCategory || 'Crypto',
@@ -4215,11 +4243,11 @@ export default {
                 entry_pct: (values.entry_pct === 0 || values.entry_pct) ? values.entry_pct : 100,
                 commission: values.commission || 0,
                 slippage: values.slippage || 0,
-                // AI智能决策过滤
+                // AI decision filter
                 enable_ai_filter: enableAiFilter,
-                // 指标参数（外部传递）
+                // Indicator parameters collected from the UI.
                 indicator_params: this.indicatorParamValues,
-                // 截面策略配置
+                // Cross-sectional strategy settings.
                 strategy_type: values.cs_strategy_type || 'single',
                 symbol_list: values.cs_strategy_type === 'cross_sectional' ? this.crossSectionalSymbols : undefined,
                 portfolio_size: values.cs_strategy_type === 'cross_sectional' ? (values.portfolio_size || 10) : undefined,
@@ -4230,7 +4258,7 @@ export default {
 
             let res
             if (this.editingStrategy) {
-              // 编辑模式：更新单个策略
+              // Edit mode updates one existing strategy.
               let parsedSymbol = values.symbol
               if (typeof parsedSymbol === 'string' && parsedSymbol.includes(':')) {
                 const idx = parsedSymbol.indexOf(':')
@@ -4240,21 +4268,20 @@ export default {
               basePayload.trading_config.symbol = parsedSymbol
               res = await updateStrategy(this.editingStrategy.id, basePayload)
             } else {
-              // 创建模式：批量创建策略或截面策略
+              // Create mode either batches single-symbol strategies or creates one basket strategy.
               basePayload.user_id = 1
               basePayload.strategy_type = 'IndicatorStrategy'
 
-              // 如果是截面策略，只创建一个策略（使用 createStrategy）
+              // Cross-sectional mode stores the basket in trading_config and creates one strategy only.
               if (values.cs_strategy_type === 'cross_sectional') {
-                // 截面策略：只创建一个策略，标的列表存储在 trading_config 中
-                basePayload.strategy_type = 'IndicatorStrategy' // 保持为 IndicatorStrategy，截面类型在 trading_config 中
-                // 截面策略不需要设置 symbol，因为它是多标的的
+                basePayload.strategy_type = 'IndicatorStrategy' // Keep IndicatorStrategy; basket mode is encoded in trading_config.
+                // Basket strategies do not use a single symbol field.
                 basePayload.trading_config.symbol = null
-                // 使用 createStrategy 创建单个策略
+                // Use createStrategy for the single basket record.
                 res = await createStrategy(basePayload)
               } else {
-                // 单标的策略：批量创建多个策略（每个标的一个策略）
-                basePayload.symbols = this.selectedSymbols // 多币种数组
+                // Single-symbol mode creates one strategy per selected symbol.
+                basePayload.symbols = this.selectedSymbols // Multi-symbol array
                 res = await batchCreateStrategies(basePayload)
               }
             }
@@ -4263,7 +4290,7 @@ export default {
               if (this.isEditMode) {
                 this.$message.success(this.$t('trading-assistant.messages.updateSuccess'))
               } else {
-                // 根据策略类型计算创建的策略数量
+                // Derive the created strategy count from the strategy mode.
                 const strategyType = values.cs_strategy_type || 'single'
                 const symbolCount = strategyType === 'cross_sectional'
                   ? this.crossSectionalSymbols.length
@@ -4311,7 +4338,7 @@ export default {
       })
     },
     getDropdownContainer (triggerNode) {
-      // 始终将下拉菜单挂载到body，避免被父容器裁剪
+      // Always mount dropdowns under body to avoid clipping inside parent containers.
       return document.body
     }
   }
@@ -4319,7 +4346,7 @@ export default {
 </script>
 
 <style lang="less" scoped>
-// 主色调变量
+// Primary color tokens
 @primary-color: #1890ff;
 @primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 @success-color: #0ecb81;
@@ -4547,7 +4574,7 @@ export default {
     margin-top: 22px;
   }
 
-  // 移动端适配
+  // Mobile layout adjustments
   @media (max-width: 768px) {
     min-height: auto;
     margin: -24px;
@@ -4765,14 +4792,14 @@ export default {
                     margin-top: 2px;
                   }
 
-                  // 确保文本可换行
+                  // Allow long values to wrap cleanly.
                   &>span {
                     word-break: break-word;
                     line-height: 1.5;
                     flex: 1;
                   }
 
-                  // 对于包含数值的span
+                  // Keep numeric spans readable when wrapping.
                   span:not(.anticon) {
                     display: inline;
                     word-break: break-word;
@@ -4780,7 +4807,7 @@ export default {
                   }
                 }
 
-                // 如果参数过多，使用单列布局
+                // Collapse to one column when metadata gets too dense.
                 @media (max-width: 480px) {
                   grid-template-columns: 1fr;
 
@@ -4851,7 +4878,7 @@ export default {
     }
   }
 
-  // 超小屏幕适配
+  // Extra-small screen adjustments
   @media (max-width: 480px) {
     .strategy-list-col {
       max-height: 45vh;
@@ -4938,7 +4965,7 @@ export default {
         }
       }
 
-      // 分组模式切换
+      // Grouping mode switch
       .group-mode-switch {
         display: flex;
         align-items: center;
@@ -4988,7 +5015,7 @@ export default {
         border-bottom: 1px solid #f0f0f0;
       }
 
-      // 策略分组列表
+      // Grouped strategy list
       .strategy-grouped-list {
         .strategy-group {
           margin-bottom: 12px;
@@ -5131,7 +5158,7 @@ export default {
           box-shadow: 0 4px 16px rgba(24, 144, 255, 0.15);
         }
 
-        // 移动端优化点击区域
+        // Increase the tappable area on mobile.
         @media (max-width: 768px) {
           padding: 12px 8px;
           margin: 0 4px 4px 4px;
@@ -5209,17 +5236,17 @@ export default {
         }
 
         /deep/ .ant-list-item-meta-description {
-          max-width: calc(100% - 20px); // 留出空间给右侧操作按钮和选中边框
+          max-width: calc(100% - 20px); // Keep room for action buttons and the active border.
           overflow: hidden;
 
           .strategy-item-info {
             display: flex !important;
-            gap: 12px; // 减小间距
+            gap: 12px; // Slightly tighter spacing works better here.
             margin-top: 8px;
             font-size: 12px;
             color: var(--text-color-secondary, #8c8c8c);
             align-items: center;
-            flex-wrap: nowrap; // 禁止换行
+            flex-wrap: nowrap; // Keep the metadata row on a single line.
             max-width: 100%;
             overflow: hidden;
 
@@ -5392,7 +5419,7 @@ export default {
       min-height: 100%;
 
       .strategy-header-card {
-        flex-shrink: 0; // 防止头部被压缩
+        flex-shrink: 0; // Prevent the header card from being squeezed.
         background: linear-gradient(135deg, #fff 0%, #f8fafc 100%);
         border: none;
         border-radius: @border-radius-lg;
@@ -5492,7 +5519,7 @@ export default {
               }
             }
 
-            // 关键数据卡片网格
+            // Key metric cards
             .key-stats-grid {
               display: flex;
               flex-wrap: wrap;
@@ -5575,7 +5602,7 @@ export default {
               }
             }
 
-            // 策略标签
+            // Strategy tags
             .strategy-tags {
               display: flex;
               flex-wrap: wrap;
@@ -5666,7 +5693,7 @@ export default {
         border-radius: @border-radius-lg;
         box-shadow: @card-shadow;
         transition: all 0.3s ease;
-        min-height: 400px; // 确保有足够的最小高度
+        min-height: 400px; // Keep enough vertical space for the tab content.
 
         &:hover {
           box-shadow: @card-shadow-hover;
@@ -5766,7 +5793,7 @@ export default {
       }
     }
 
-    // 左侧策略列表卡片
+    // Left strategy list card
     .strategy-list-col {
       .strategy-list-card {
         background: linear-gradient(180deg, #1e222d 0%, #1a1e28 100%);
@@ -5837,7 +5864,7 @@ export default {
       }
     }
 
-    // 右侧策略详情卡片
+    // Right strategy detail card
     .strategy-detail-col {
       .strategy-empty-detail-card {
         border-color: rgba(59, 130, 246, 0.18);
@@ -5964,7 +5991,7 @@ export default {
       }
     }
 
-    // 空状态
+    // Empty state
     .empty-detail {
       /deep/ .ant-empty-description {
         color: #868993;
@@ -6059,7 +6086,7 @@ export default {
   margin-top: 8px;
 }
 
-// 弹窗样式
+// Modal styles
 .steps-container {
   margin-bottom: 24px;
 
@@ -6306,7 +6333,7 @@ export default {
   color: #ff4d4f;
 }
 
-// 移动端弹窗样式
+// Mobile modal styles
 /deep/ .mobile-modal {
   .ant-modal {
     top: 20px;
@@ -6342,7 +6369,7 @@ export default {
   }
 }
 
-// 添加交易对弹窗样式
+// Add-symbol modal styles
 .add-symbol-modal-content {
   .market-tabs {
     margin-bottom: 16px;

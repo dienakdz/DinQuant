@@ -5,7 +5,7 @@ import notification from 'ant-design-vue/es/notification'
 import { VueAxios } from './axios'
 import { ACCESS_TOKEN, USER_INFO, USER_ROLES } from '@/store/mutation-types'
 
-// PHPSESSID 存储键名
+// PHPSESSID storage key name
 const PHPSESSID_KEY = 'PHPSESSID'
 // Locale storage key used by vue-i18n (see src/locales/index.js)
 const LOCALE_KEY = 'lang'
@@ -14,7 +14,7 @@ const LOCALE_KEY = 'lang'
 let isRedirectingToLogin = false
 
 /**
- * 获取 token，处理 token 可能是字符串或对象的情况
+ * Get token, handle case where token might be a string or an object
  */
 function getToken () {
   let token = storage.get(ACCESS_TOKEN)
@@ -22,30 +22,30 @@ function getToken () {
     return null
   }
   if (typeof token !== 'string') {
-    // 如果是对象，尝试获取 token 属性
+    // If it is an object, try to get the token property
     if (token && typeof token === 'object') {
       token = token.token || token.value || null
     } else {
       token = null
     }
   }
-  // 确保 token 是字符串且不为空
+  // Ensure token is a string and not empty
   return (typeof token === 'string' && token.length > 0) ? token : null
 }
 
-// 创建 axios 实例
+// Create axios instance
 const request = axios.create({
-  // API 请求的默认前缀
-  // 生产环境应由 Nginx 处理，开发环境由 devServer proxy 处理
+  // API request default prefix
+  // Production environment should be handled by Nginx, development environment by devServer proxy
   baseURL: '/',
   timeout: 30000, // Default request timeout 30s
-  withCredentials: true // 允许携带 cookies
+  withCredentials: true // Allow cookies with request
 })
 
 // Extended timeout for long-running AI analysis APIs
 export const ANALYSIS_TIMEOUT = 180000 // 3 minutes for AI analysis
 
-// 异常拦截处理器
+// Exception interceptor handler
 const errorHandler = (error) => {
   if (error.response) {
     const data = error.response.data
@@ -72,7 +72,7 @@ const errorHandler = (error) => {
           description: data.msg || data.message || 'Token invalid or expired, please login again.'
         })
 
-        // 项目使用 hash 模式，需要跳转到 /#/user/login
+        // Project uses hash mode, needs to redirect to /#/user/login
         const curHash = window.location.hash || ''
         if (!curHash.includes('/user/login')) {
           const redirect = encodeURIComponent(curHash.replace('#', '') || '/')
@@ -86,7 +86,7 @@ const errorHandler = (error) => {
 
 // request interceptor
 request.interceptors.request.use(config => {
-  // 使用统一的 token 获取函数
+  // Use unified token acquisition function
   const token = getToken()
   const lang = storage.get(LOCALE_KEY) || 'en-US'
 
@@ -95,16 +95,16 @@ request.interceptors.request.use(config => {
   config.headers['X-App-Lang'] = lang
   config.headers['Accept-Language'] = lang
 
-  // 如果 token 存在，将 token 添加到请求头
+  // If token exists, add it to request header
   if (token) {
-    // 使用 Authorization header，格式为 Bearer {token}
+    // Use Authorization header, format: Bearer {token}
     config.headers['Authorization'] = `Bearer ${token}`
-    // 同时保留原有的 Access-Token header（如果后端需要）
+    // Keep original Access-Token header for backward compatibility
     config.headers[ACCESS_TOKEN] = token
-    // 兼容后端要求的 token 头
+    // Compatible with backend expected token header
     config.headers['token'] = token
   } else {
-    // 调试：如果 token 不存在，记录日志
+    // Debug: if token doesn't exist, log it
     if (config.url && config.url.includes('/api/auth/info')) {
       const rawToken = storage.get(ACCESS_TOKEN)
       console.warn('Token missing for /api/auth/info request')
@@ -114,42 +114,42 @@ request.interceptors.request.use(config => {
     }
   }
 
-  // 防止缓存导致的 304：为请求添加禁止缓存的头
+  // Prevent 304 cache issues: add cache control headers
   config.headers['Cache-Control'] = 'no-cache'
   config.headers['Pragma'] = 'no-cache'
   config.headers['If-Modified-Since'] = '0'
 
-  // 为 GET 请求添加时间戳参数，避免缓存
+  // Add timestamp to GET requests to avoid caching
   if ((config.method || 'get').toLowerCase() === 'get') {
     const ts = Date.now()
     config.params = Object.assign({}, config.params || {}, { _t: ts })
   }
 
-  // 手动设置 PHPSESSID cookie，确保每次请求使用相同的 session
-  // 注意：浏览器不允许手动设置 Cookie 请求头，需要通过 document.cookie 设置
-  // 但由于跨域限制，可能无法直接设置 cookie，主要依赖 withCredentials: true
+  // Manually set PHPSESSID cookie to ensure same session for all requests
+  // Note: browser doesn't allow manual setting of Cookie header, must set via document.cookie
+  // Due to CORS, direct cookie setting might fail; rely on withCredentials: true
   const phpsessid = storage.get(PHPSESSID_KEY)
   if (phpsessid && typeof document !== 'undefined') {
-    // 检查当前 document.cookie 中的 PHPSESSID
+    // Check PHPSESSID in current document.cookie
     const currentCookies = document.cookie
     const currentPhpsessidMatch = currentCookies.match(/PHPSESSID=([^;]+)/i)
     const currentPhpsessid = currentPhpsessidMatch ? currentPhpsessidMatch[1].trim() : null
 
-    // 如果当前 cookie 中的 PHPSESSID 与保存的不一致，尝试更新
-    // 注意：跨域情况下可能无法设置 cookie，这取决于 CORS 配置
+    // If current PHPSESSID doesn't match saved value, try to update it
+    // Note: CORS might prevent cookie setting depending on configuration
     if (!currentPhpsessid || currentPhpsessid !== phpsessid) {
-      // 尝试设置 cookie（可能因为跨域而失败，但不影响 withCredentials 的工作）
+      // Attempt to set cookie (might fail due to CORS, but withCredentials still works)
       try {
-        // 尝试设置带 domain 的 cookie（仅当在相同域名下时有效）
+        // Attempt to set cookie with domain (valid only on same domain)
         if (window.location.hostname.includes('quantdinger.com')) {
           document.cookie = `PHPSESSID=${phpsessid}; path=/; domain=.quantdinger.com; SameSite=None; Secure`
         } else {
-          // 跨域情况下，只能依赖 withCredentials: true 和服务器设置
-          // 这里尝试设置，但可能不会成功
+          // In CORS cases, rely on withCredentials: true and server settings
+          // Attempt setting here, but it might not succeed
           document.cookie = `PHPSESSID=${phpsessid}; path=/; SameSite=None; Secure`
         }
       } catch (e) {
-        // 设置失败是正常的（跨域限制），主要依赖 withCredentials
+        // Setting failure is expected (CORS limits); mainly rely on withCredentials
       }
     }
   }
@@ -159,18 +159,18 @@ request.interceptors.request.use(config => {
 
 // response interceptor
 request.interceptors.response.use((response) => {
-  // 从响应中提取 PHPSESSID 并保存
-  // 由于浏览器安全限制，无法直接读取 set-cookie 头，需要通过 document.cookie 获取
+  // Extract PHPSESSID from response and save it
+  // Browser security prevents reading set-cookie header directly; use document.cookie
   try {
     if (typeof document !== 'undefined') {
-      // 从 document.cookie 获取 PHPSESSID（浏览器自动设置的）
+      // Get PHPSESSID from document.cookie (set automatically by browser)
       const cookies = document.cookie
       const phpsessidMatch = cookies.match(/PHPSESSID=([^;]+)/i)
       if (phpsessidMatch && phpsessidMatch[1]) {
         const phpsessid = phpsessidMatch[1].trim()
-        // 保存 PHPSESSID 到 storage，有效期 24 小时
+        // Save PHPSESSID to storage, valid for 24 hours
         const savedPhpsessid = storage.get(PHPSESSID_KEY)
-        // 如果 PHPSESSID 发生变化，更新保存的值
+        // If PHPSESSID changes, update the saved value
         if (!savedPhpsessid || savedPhpsessid !== phpsessid) {
           storage.set(PHPSESSID_KEY, phpsessid, new Date().getTime() + 24 * 60 * 60 * 1000)
         }

@@ -76,7 +76,7 @@ export default {
           key: 'created_at',
           width: 180,
           customRender: (text) => {
-            return new Date(text * 1000).toLocaleString('zh-CN')
+            return new Date(text * 1000).toLocaleString('en-US')
           }
         },
         {
@@ -128,19 +128,19 @@ export default {
           limit: this.pagination.pageSize
         })
         if (res.code === 1) {
-          // 处理返回的数据格式
+          // Handle returned data format
           const data = res.data
           let decisions = []
           let total = 0
 
-          // 兼容新旧格式
+          // Compatible with new and old formats
           if (data && typeof data === 'object') {
             if (Array.isArray(data)) {
-              // 旧格式：直接是数组
+              // Old format: direct array
               decisions = data
               total = data.length
             } else if (data.decisions) {
-              // 新格式：包含 decisions 和 total
+              // New format: includes decisions and total
               decisions = data.decisions || []
               total = data.total || 0
             }
@@ -209,7 +209,7 @@ export default {
     color: var(--text-color, #1f1f1f);
   }
 
-  // 确保 hold 标签（cyan）在所有主题下都有足够的对比度
+  // Ensure hold tag (cyan) has enough contrast in all themes
   /deep/ .ant-tag {
     &.ant-tag-cyan {
       background-color: #13c2c2 !important;
@@ -218,12 +218,12 @@ export default {
     }
   }
 
-  // 表格容器横向滚动
+  // Table container horizontal scroll
   /deep/ .ant-table-wrapper {
     min-width: 100%;
   }
 
-  // 适配主题色
+  // Adapt to theme colors
   /deep/ .ant-table {
     background: var(--table-row-bg, #fff);
     color: var(--text-color, #1f1f1f);
@@ -269,7 +269,7 @@ export default {
     }
   }
 
-  // 进度条使用主题色
+  // Progress bar uses theme color
   /deep/ .ant-progress {
     .ant-progress-bg {
       background-color: var(--primary-color, #1890ff);
@@ -284,7 +284,7 @@ export default {
     }
   }
 
-  // 自定义滚动条样式
+  // Custom scrollbar style
   &::-webkit-scrollbar {
     height: 8px;
   }
@@ -303,7 +303,7 @@ export default {
     }
   }
 
-  // 分页器主题适配
+  // Pager theme adaptation
   /deep/ .ant-pagination {
     color: var(--text-color, #1f1f1f);
 
@@ -363,7 +363,7 @@ export default {
 </style>
 
 <style lang="less">
-// 全局样式：暗色主题下的标签优化
+// Global styles: tag optimization under dark theme
 .trading-assistant.theme-dark {
   .ai-decision-records {
     /deep/ .ant-table {
@@ -410,14 +410,14 @@ export default {
     }
 
     /deep/ .ant-tag {
-      // hold 标签使用青色，确保在暗色背景下可见
+      // hold tag uses cyan, ensure visible on dark background
       &.ant-tag-cyan {
         background-color: #13c2c2 !important;
         border-color: #13c2c2 !important;
         color: #fff !important;
       }
 
-      // 其他标签在暗色主题下的优化
+      // Other tags optimization under dark theme
       &.ant-tag-green {
         background-color: #52c41a !important;
         border-color: #52c41a !important;
@@ -442,7 +442,7 @@ export default {
         color: #fff !important;
       }
 
-      // default 标签在暗色主题下的优化
+      // default tag optimization under dark theme
       &.ant-tag-default {
         background-color: #434343 !important;
         border-color: #434343 !important;
@@ -450,7 +450,7 @@ export default {
       }
     }
 
-    // 进度条在暗色主题下使用主题色
+    // Progress bar use theme color under dark theme
     /deep/ .ant-progress {
       .ant-progress-bg {
         background-color: var(--primary-color, #1890ff);
@@ -465,7 +465,7 @@ export default {
       }
     }
 
-    // 暗色主题下的滚动条样式
+    // Scrollbar style under dark theme
     &::-webkit-scrollbar-track {
       background: #2a2e39;
     }
@@ -478,7 +478,7 @@ export default {
       }
     }
 
-    // 暗色主题下的分页器
+    // Pager under dark theme
     /deep/ .ant-pagination {
       color: var(--text-color, #d1d4dc);
 

@@ -20,13 +20,13 @@ const app = {
   state: {
     sideCollapsed: false,
     isMobile: false,
-    theme: storage.get(TOGGLE_NAV_THEME, 'light'), // 从 localStorage 读取主题，默认 'light'
+    theme: storage.get(TOGGLE_NAV_THEME, 'light'), // Read theme from localStorage, default 'light'
     layout: '',
     contentWidth: '',
     fixedHeader: false,
     fixedSidebar: false,
     autoHideHeader: false,
-    color: storage.get(TOGGLE_COLOR, '#13C2C2'), // 从 localStorage 读取主题色，默认 '#13C2C2'
+    color: storage.get(TOGGLE_COLOR, '#13C2C2'), // Read theme color from localStorage, default '#13C2C2'
     weak: false,
     multiTab: true,
     lang: 'en-US',

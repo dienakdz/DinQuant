@@ -6,7 +6,7 @@
     >
       <template #extra>
         <a-button type="primary" @click="$router.push({ path: '/' })">
-          {{ $t('user.register-result.back-home') || '返回首页' }}
+          {{ $t('user.register-result.back-home') || 'Back Home' }}
         </a-button>
       </template>
     </a-result>

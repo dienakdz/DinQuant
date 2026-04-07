@@ -1,19 +1,19 @@
 /**
- * 指标代码解密工具
- * 用于解密用户购买的加密指标代码
+ * Indicator code decryption tool
+ * Used to decrypt encrypted indicator code purchased by users
  */
 
 import CryptoJS from 'crypto-js'
 import request from '@/utils/request'
 
 /**
- * 解密指标代码
+ * Decrypt indicator code
  *
- * @param {string} encryptedCode - base64编码的加密代码
- * @param {number} userId - 用户ID
- * @param {number} indicatorId - 指标ID
- * @param {string} serverSecret - 服务器密钥（需要从后端获取或配置）
- * @returns {string} - 解密后的代码
+ * @param {string} encryptedCode - base64 encoded encrypted code
+ * @param {number} userId - User ID
+ * @param {number} indicatorId - Indicator ID
+ * @param {string} serverSecret - Server secret (needs to be from backend or config)
+ * @returns {string} - Decrypted code
  */
 export function decryptCode (encryptedCode, userId, indicatorId, encryptedKey) {
   if (!encryptedCode || !userId || !indicatorId || !encryptedKey) {
@@ -21,18 +21,18 @@ export function decryptCode (encryptedCode, userId, indicatorId, encryptedKey) {
   }
 
   try {
-    // 解码base64加密代码
+    // Decode base64 encrypted code
     const combined = CryptoJS.enc.Base64.parse(encryptedCode)
 
-    // 提取IV（前16字节）和加密数据
-    const ivWords = CryptoJS.lib.WordArray.create(combined.words.slice(0, 4)) // 前16字节（4个word）
-    const encryptedWords = CryptoJS.lib.WordArray.create(combined.words.slice(4)) // 剩余部分
+    // Extract IV (first 16 bytes) and encrypted data
+    const ivWords = CryptoJS.lib.WordArray.create(combined.words.slice(0, 4)) // First 16 bytes (4 words)
+    const encryptedWords = CryptoJS.lib.WordArray.create(combined.words.slice(4)) // Remaining part
 
-    // 解密密钥（从后端获取的base64编码密钥）
-    // encryptedKey 是从后端获取的 base64 编码的密钥，直接解码使用
+    // Decryption key (base64 encoded key from backend)
+    // encryptedKey is the base64 encoded key from backend, decode directly for use
     const key = CryptoJS.enc.Base64.parse(encryptedKey)
 
-    // 解密
+    // Decrypt
     const decrypted = CryptoJS.AES.decrypt(
       { ciphertext: encryptedWords },
       key,
@@ -43,7 +43,7 @@ export function decryptCode (encryptedCode, userId, indicatorId, encryptedKey) {
       }
     )
 
-    // 转换为字符串
+    // Convert to string
     const decryptedText = decrypted.toString(CryptoJS.enc.Utf8)
 
     if (!decryptedText) {
@@ -52,25 +52,25 @@ export function decryptCode (encryptedCode, userId, indicatorId, encryptedKey) {
 
     return decryptedText
   } catch (error) {
-    // 解密失败，返回原代码（向后兼容）
+    // Decryption failed, return original code (backward compatibility)
     return encryptedCode
   }
 }
 
 /**
- * 从后端获取解密密钥（动态密钥）
+ * Get decryption key from backend (dynamic key)
  *
- * @param {number} userId - 用户ID
- * @param {number} indicatorId - 指标ID
- * @returns {Promise<string>} - 解密密钥（base64编码）
+ * @param {number} userId - User ID
+ * @param {number} indicatorId - Indicator ID
+ * @returns {Promise<string>} - Decryption key (base64 encoded)
  */
 export async function getDecryptKey (userId, indicatorId) {
   if (!userId || !indicatorId) {
-    throw new Error('用户ID和指标ID不能为空')
+    throw new Error('User ID and Indicator ID cannot be empty')
   }
 
   try {
-    // 动态请求方式：从后端API获取
+    // Dynamic request: get from backend API
     const response = await request({
       url: '/api/indicator/getDecryptKey',
       method: 'post',
@@ -81,56 +81,56 @@ export async function getDecryptKey (userId, indicatorId) {
     })
 
     if (response.code === 1 && response.data && response.data.key) {
-      // 返回base64编码的密钥
+      // Return base64 encoded key
       return response.data.key
     } else {
-      throw new Error(response.msg || '获取解密密钥失败')
+      throw new Error(response.msg || 'Failed to get decryption key')
     }
   } catch (error) {
-    // 如果后端接口失败，抛出错误，不使用备用密钥（更安全）
-    throw new Error('无法获取解密密钥，请检查网络连接或联系管理员: ' + (error.message || '未知错误'))
+    // If backend fails, throw error instead of using backup key (more secure)
+    throw new Error('Cannot get decryption key, please check network or contact admin: ' + (error.message || 'Unknown error'))
   }
 }
 
 /**
- * 智能解密代码（自动获取密钥）
+ * Smart code decryption (auto-fetch key)
  *
- * @param {string} encryptedCode - 加密的代码
- * @param {number} userId - 用户ID
- * @param {number} indicatorId - 指标ID
- * @returns {Promise<string>} - 解密后的代码
+ * @param {string} encryptedCode - Encrypted code
+ * @param {number} userId - User ID
+ * @param {number} indicatorId - Indicator ID
+ * @returns {Promise<string>} - Decrypted code
  */
 export async function decryptCodeAuto (encryptedCode, userId, indicatorId) {
-  // 从后端动态获取解密密钥（base64编码）
+  // Dynamically get decryption key from backend (base64 encoded)
   const encryptedKey = await getDecryptKey(userId, indicatorId)
-  // 使用获取的密钥解密
+  // Decrypt using the fetched key
   return decryptCode(encryptedCode, userId, indicatorId, encryptedKey)
 }
 
 /**
- * 检查代码是否需要解密
+ * Check if code needs decryption
  *
- * @param {string} code - 代码
- * @param {number} isEncrypted - 是否加密标记
+ * @param {string} code - The code
+ * @param {number} isEncrypted - Encryption flag
  * @returns {boolean}
  */
 export function needsDecrypt (code, isEncrypted) {
-  // 如果明确标记为加密，或者代码长度很长且符合base64格式，可能需要解密
+  // If explicitly marked as encrypted, or code is long and base64 formatted, it might need decryption
   if (isEncrypted === 1 || isEncrypted === true) {
     return true
   }
 
-  // 简单检查：加密代码通常较长（base64编码会增大约33%）
+  // Simple check: encrypted code is usually long (base64 increases size by ~33%)
   if (code && code.length > 100) {
-    // 尝试base64解码检查
+    // Attempt base64 decode check
     try {
       const decoded = atob(code)
-      // 如果解码后的长度合理，可能是加密的
+      // If decoded length is reasonable, it might be encrypted
       if (decoded.length > 50) {
         return true
       }
     } catch (e) {
-      // 不是base64，不需要解密
+      // Not base64, no decryption needed
     }
   }
 

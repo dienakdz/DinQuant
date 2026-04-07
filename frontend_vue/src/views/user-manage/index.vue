@@ -141,9 +141,9 @@
             <div class="summary-info">
               <div class="summary-value">{{ strategySummary.running_strategies || 0 }}</div>
               <div class="summary-sub">
-                {{ $t('systemOverview.live') || '实盘' }}: {{ strategySummary.running_live_strategies || 0 }}
+                {{ $t('systemOverview.live') || 'Live' }}: {{ strategySummary.running_live_strategies || 0 }}
                 /
-                {{ $t('systemOverview.signal') || '仅通知' }}: {{ strategySummary.running_signal_strategies || 0 }}
+                {{ $t('systemOverview.signal') || 'Signal Only' }}: {{ strategySummary.running_signal_strategies || 0 }}
               </div>
               <div class="summary-label">{{ $t('systemOverview.runningStrategies') || 'Running' }}</div>
             </div>
@@ -155,9 +155,9 @@
             <div class="summary-info">
               <div class="summary-value">{{ formatNumber(strategySummary.total_capital) }}</div>
               <div class="summary-sub">
-                {{ $t('systemOverview.live') || '实盘' }}: {{ formatNumber(strategySummary.live_capital) }}
+                {{ $t('systemOverview.live') || 'Live' }}: {{ formatNumber(strategySummary.live_capital) }}
                 /
-                {{ $t('systemOverview.signal') || '仅通知' }}: {{ formatNumber(strategySummary.signal_capital) }}
+                {{ $t('systemOverview.signal') || 'Signal Only' }}: {{ formatNumber(strategySummary.signal_capital) }}
               </div>
               <div class="summary-label">{{ $t('systemOverview.totalCapital') || 'Total Capital' }}</div>
             </div>
@@ -172,9 +172,9 @@
                 <span class="roi-badge">{{ strategySummary.total_roi || 0 }}%</span>
               </div>
               <div class="summary-sub">
-                {{ $t('systemOverview.live') || '实盘' }}: {{ formatPnl(strategySummary.live_pnl) }}
+                {{ $t('systemOverview.live') || 'Live' }}: {{ strategySummary.live_pnl }}
                 /
-                {{ $t('systemOverview.signal') || '仅通知' }}: {{ formatPnl(strategySummary.signal_pnl) }}
+                {{ $t('systemOverview.signal') || 'Signal Only' }}: {{ strategySummary.signal_pnl }}
               </div>
               <div class="summary-label">{{ $t('systemOverview.totalPnl') || 'Total PnL' }}</div>
             </div>

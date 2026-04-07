@@ -364,7 +364,7 @@ export default {
         ? new Date(raw < 1e12 ? raw * 1000 : raw)
         : new Date(time)
       if (Number.isNaN(date.getTime())) return '--'
-      return date.toLocaleDateString(this.$i18n.locale === 'zh-CN' ? 'zh-CN' : 'en-US', {
+      return date.toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric'
       })

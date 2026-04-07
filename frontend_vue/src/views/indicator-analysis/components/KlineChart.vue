@@ -1,7 +1,7 @@
 <template>
   <div class="chart-left" :class="{ 'theme-dark': chartTheme === 'dark' }">
     <div class="chart-wrapper">
-      <!-- 画线工具工具栏 -->
+      <!-- Drawing Tools Toolbar -->
       <div class="drawing-toolbar">
         <a-tooltip
           v-for="tool in drawingTools"
@@ -24,9 +24,9 @@
           </div>
         </a-tooltip>
       </div>
-      <!-- 图表内容区域 -->
+      <!-- Chart Content Area -->
       <div class="chart-content-area">
-        <!-- 指标工具栏 -->
+        <!-- Indicators Toolbar -->
         <div class="indicator-toolbar">
           <div
             v-for="indicator in indicatorButtons"
@@ -61,7 +61,7 @@
         </div>
       </div>
 
-      <!-- Pyodide 加载失败提示 -->
+      <!-- Pyodide Load Failed Hint -->
       <div v-if="pyodideLoadFailed" class="chart-overlay pyodide-warning">
         <div class="warning-box">
           <a-icon type="warning" style="font-size: 32px; color: #faad14; margin-bottom: 12px" />
@@ -70,7 +70,7 @@
         </div>
       </div>
 
-      <!-- 初始提示蒙版 -->
+      <!-- Initial Mask Hint -->
       <div v-if="!symbol && !loading && !error && !pyodideLoadFailed" class="chart-overlay initial-hint">
         <div class="hint-box">
           <a-icon type="line-chart" style="font-size: 48px; color: #1890ff; margin-bottom: 16px" />
@@ -122,32 +122,32 @@ export default {
   },
   emits: ['retry', 'price-change', 'load', 'indicator-toggle'],
   setup (props, { emit }) {
-    // K线数据
+    // K-line data
     const klineData = shallowRef([])
     const loading = ref(false)
     const error = ref(null)
     const loadingHistory = ref(false)
     const hasMoreHistory = ref(true)
-    // 用于追踪正在进行的加载请求，防止重复请求
+    // Track ongoing load requests to prevent duplicate requests
     let loadingHistoryPromise = null
-    // 标记图表是否已初始化完成，避免初始化时触发加载
+    // Mark if chart is initialized to avoid triggering load during initialization
     const chartInitialized = ref(false)
 
-    // 图表实例
+    // Chart instance
     const chartRef = shallowRef(null)
     const chartTheme = ref(props.theme || 'light')
 
-    // 实时更新设置
+    // Real-time update settings
     const realtimeTimer = ref(null)
     const realtimeInterval = ref(5000)
 
-    // 指标刷新锁：避免实时定时器触发时 updateIndicators 重入（Python 指标可能较慢）
+    // Indicator refresh lock: avoid updateIndicators re-entry when real-time timer triggers (Python indicators might be slow)
     const indicatorsUpdating = ref(false)
-    // 指标刷新节流：K线/价格可高频刷新，但指标计算可以低频刷新（默认 10s）
+    // Indicator refresh throttle: K-line/price can refresh at high frequency, but indicators can refresh at lower frequency (default 10s)
     const indicatorRefreshInterval = ref(10000)
     const lastIndicatorRefreshTs = ref(0)
 
-    // K线刷新很频繁时，指标计算不必同步频率；这里做节流（并且有重入锁）。
+    // When K-line refresh is frequent, indicator calculations don't need to sync; throttle used here (with re-entry lock).
     const maybeUpdateIndicators = (force = false) => {
       if (!chartRef.value) return
       const now = Date.now()
@@ -158,16 +158,16 @@ export default {
       }
     }
 
-    // 已添加的指标 ID 列表（用于清理）
+    // List of added indicator IDs (for cleanup)
     const addedIndicatorIds = ref([])
-    // 已添加的信号 overlay ID 列表（用于清理）
+    // List of added signal overlay IDs (for cleanup)
     const addedSignalOverlayIds = ref([])
-    // 已添加的画线 overlay ID 列表（用于清理和管理）
+    // List of added drawing overlay IDs (for cleanup and management)
     const addedDrawingOverlayIds = ref([])
-    // 当前激活的画线工具
+    // Currently active drawing tool
     const activeDrawingTool = ref(null)
 
-    // 画线工具定义（使用 computed 实现多语言支持）
+    // Drawing tool definitions (uses computed for multi-language support)
     const { proxy } = getCurrentInstance()
 
     const drawingTools = computed(() => [
@@ -182,36 +182,36 @@ export default {
       { name: 'fibonacciLine', title: proxy.$t('dashboard.indicator.drawing.fibonacciLine'), icon: 'rise' }
     ])
 
-    // 指标按钮定义
+    // Indicator button definitions
     const indicatorButtons = ref([
-      { id: 'sma', name: 'SMA (简单移动平均)', shortName: 'SMA', type: 'line', defaultParams: { length: 20 } },
-      { id: 'ema', name: 'EMA (指数移动平均)', shortName: 'EMA', type: 'line', defaultParams: { length: 20 } },
-      { id: 'rsi', name: 'RSI (相对强弱)', shortName: 'RSI', type: 'line', defaultParams: { length: 14 } },
+      { id: 'sma', name: 'SMA (Simple Moving Average)', shortName: 'SMA', type: 'line', defaultParams: { length: 20 } },
+      { id: 'ema', name: 'EMA (Exponential Moving Average)', shortName: 'EMA', type: 'line', defaultParams: { length: 20 } },
+      { id: 'rsi', name: 'RSI (Relative Strength Index)', shortName: 'RSI', type: 'line', defaultParams: { length: 14 } },
       { id: 'macd', name: 'MACD', shortName: 'MACD', type: 'macd', defaultParams: { fast: 12, slow: 26, signal: 9 } },
-      { id: 'bb', name: '布林带 (Bollinger Bands)', shortName: 'BB', type: 'band', defaultParams: { length: 20, mult: 2 } },
-      { id: 'atr', name: 'ATR (平均真实波幅)', shortName: 'ATR', type: 'line', defaultParams: { period: 14 } },
-      { id: 'cci', name: 'CCI (商品通道指数)', shortName: 'CCI', type: 'line', defaultParams: { length: 20 } },
-      { id: 'williams', name: 'Williams %R (威廉指标)', shortName: 'W%R', type: 'line', defaultParams: { length: 14 } },
-      { id: 'mfi', name: 'MFI (资金流量指标)', shortName: 'MFI', type: 'line', defaultParams: { length: 14 } },
-      { id: 'adx', name: 'ADX (平均趋向指数)', shortName: 'ADX', type: 'adx', defaultParams: { length: 14 } },
-      { id: 'obv', name: 'OBV (能量潮)', shortName: 'OBV', type: 'line', defaultParams: {} },
-      { id: 'adosc', name: 'ADOSC (积累/派发振荡器)', shortName: 'ADOSC', type: 'line', defaultParams: { fast: 3, slow: 10 } },
-      { id: 'ad', name: 'AD (积累/派发线)', shortName: 'AD', type: 'line', defaultParams: {} },
-      { id: 'kdj', name: 'KDJ (随机指标)', shortName: 'KDJ', type: 'line', defaultParams: { period: 9, k: 3, d: 3 } }
+      { id: 'bb', name: 'Bollinger Bands', shortName: 'BB', type: 'band', defaultParams: { length: 20, mult: 2 } },
+      { id: 'atr', name: 'ATR (Average True Range)', shortLine: 'ATR', type: 'line', defaultParams: { period: 14 } },
+      { id: 'cci', name: 'CCI (Commodity Channel Index)', shortName: 'CCI', type: 'line', defaultParams: { length: 20 } },
+      { id: 'williams', name: 'Williams %R', shortName: 'W%R', type: 'line', defaultParams: { length: 14 } },
+      { id: 'mfi', name: 'MFI (Money Flow Index)', shortName: 'MFI', type: 'line', defaultParams: { length: 14 } },
+      { id: 'adx', name: 'ADX (Average Directional Index)', shortName: 'ADX', type: 'adx', defaultParams: { length: 14 } },
+      { id: 'obv', name: 'OBV (On-Balance Volume)', shortName: 'OBV', type: 'line', defaultParams: {} },
+      { id: 'adosc', name: 'ADOSC (Accumulation/Distribution Oscillator)', shortName: 'ADOSC', type: 'line', defaultParams: { fast: 3, slow: 10 } },
+      { id: 'ad', name: 'AD (Accumulation/Distribution Line)', shortName: 'AD', type: 'line', defaultParams: {} },
+      { id: 'kdj', name: 'KDJ (Stochastic Oscillator)', shortName: 'KDJ', type: 'line', defaultParams: { period: 9, k: 3, d: 3 } }
     ])
 
-    // 检查指标是否激活
+    // Check if indicator is active
     const isIndicatorActive = (indicatorId) => {
       return props.activeIndicators.some(ind => ind.id === indicatorId)
     }
 
-    // 选择画线工具
+    // Select drawing tool
     const selectDrawingTool = (toolName) => {
       if (!chartRef.value) {
         return
       }
 
-      // 工具名称映射（UI 工具名 -> klinecharts 内部覆盖物名称）
+      // Tool name mapping (UI tool name -> klinecharts internal overlay name)
       const toolMap = {
         line: 'segment',
         horizontalLine: 'horizontalStraightLine',
@@ -226,12 +226,12 @@ export default {
 
       const overlayName = toolMap[toolName] || toolName
 
-      // 如果点击的是当前激活的工具，则取消激活
+      // If current tool is clicked again, deactivate it
       if (activeDrawingTool.value === toolName) {
         activeDrawingTool.value = null
-        // 取消当前的绘制模式
-        // KLineChart 没有直接的 "cancelDrawing" API，通常移除最后一个未完成的覆盖物
-        // 或者通过 overrideOverlay(null) 来取消正在进行的动作（如果支持）
+        // Cancel current drawing mode
+        // KLineChart lacks a direct "cancelDrawing" API; usually removes the last incomplete overlay
+        // Or use overrideOverlay(null) to cancel ongoing actions (if supported)
         try {
           if (typeof chartRef.value.overrideOverlay === 'function') {
             chartRef.value.overrideOverlay(null)
@@ -241,20 +241,20 @@ export default {
         return
       }
 
-      // 激活新的画线工具
+      // Activate new drawing tool
       activeDrawingTool.value = toolName
 
       try {
-        // 准备覆盖物配置
+        // Prepare overlay configuration
         const overlayConfig = {
           name: overlayName,
-          lock: false, // 允许编辑
+          lock: false, // Allow editing
           extendData: {
-            isDrawing: true // 标记为正在绘制
+            isDrawing: true // Flag as drawing
           }
         }
 
-        // 调用 createOverlay 且不传 points，库会自动进入绘制模式
+        // Call createOverlay without points; library automatically enters drawing mode
         const overlayId = chartRef.value.createOverlay(overlayConfig)
 
         if (overlayId) {
@@ -267,12 +267,12 @@ export default {
       }
     }
 
-    // 清除所有画线
+    // Clear all drawings
     const clearAllDrawings = () => {
       if (!chartRef.value) return
 
       try {
-        // 移除所有已添加的画线覆盖物
+        // Remove all added drawing overlays
         addedDrawingOverlayIds.value.forEach(overlayId => {
           try {
             if (typeof chartRef.value.removeOverlay === 'function') {
@@ -286,7 +286,7 @@ export default {
         addedDrawingOverlayIds.value = []
         activeDrawingTool.value = null
 
-        // 取消当前的绘制模式
+        // Cancel current drawing mode
         if (typeof chartRef.value.overrideOverlay === 'function') {
           chartRef.value.overrideOverlay(null)
         }
@@ -294,22 +294,22 @@ export default {
       }
     }
 
-    // 切换指标显示/隐藏
+    // Toggle indicator visibility
     const toggleIndicator = (indicator) => {
       const isActive = isIndicatorActive(indicator.id)
 
       if (isActive) {
-        // 移除指标
+        // Remove indicator
         emit('indicator-toggle', {
           action: 'remove',
           indicator: { id: indicator.id }
         })
       } else {
-        // 添加指标
+        // Add indicator
         const indicatorToAdd = {
           ...indicator,
           params: { ...indicator.defaultParams },
-          calculate: null // calculate 函数在 updateIndicators 中通过 id 判断
+          calculate: null // calculate function determined by id in updateIndicators
         }
         emit('indicator-toggle', {
           action: 'add',
@@ -318,13 +318,13 @@ export default {
       }
     }
 
-    // Pyodide 相关
+    // Pyodide related
     const pyodide = ref(null)
     const loadingPython = ref(false)
     const pythonReady = ref(false)
     const pyodideLoadFailed = ref(false)
 
-    // 主题配置
+    // Theme configuration
     const themeConfig = computed(() => {
       if (chartTheme.value === 'dark') {
         return {
@@ -369,7 +369,7 @@ export default {
       }
     })
 
-    // 根据主题获取指标颜色
+    // Get indicator color based on theme
     const getIndicatorColor = (idx) => {
       if (chartTheme.value === 'dark') {
         return ['#13c2c2', '#e040fb', '#ffeb3b', '#00e676', '#ff6d00', '#9c27b0'][idx % 6]
@@ -378,10 +378,10 @@ export default {
       }
     }
 
-    // ========== Pyodide 初始化 ==========
+    // ========== Pyodide Initialization ==========
     const loadPyodide = () => {
       return new Promise((resolve, reject) => {
-        // 检查是否已经加载
+        // Check if already loaded
         if (window.pyodide) {
           pyodide.value = window.pyodide
           pythonReady.value = true
@@ -391,11 +391,11 @@ export default {
 
         loadingPython.value = true
 
-        // 动态加载 Pyodide（生产环境默认 CDN 优先，避免本地静态资源缺失导致 404 卡住/报错）
-        // 可通过环境变量自定义：
-        // - VUE_APP_PYODIDE_CDN_BASE: 覆盖 CDN 基础路径（需以 / 结尾或会自动补齐）
-        // - VUE_APP_PYODIDE_LOCAL_BASE: 覆盖本地基础路径（需以 / 结尾或会自动补齐）
-        // - VUE_APP_PYODIDE_PREFER_CDN: 'true'/'false' 强制优先级
+        // Dynamically load Pyodide (production default CDN priority, avoid local static resource missing causing 404/error)
+        // Can be customized via environment variables:
+        // - VUE_APP_PYODIDE_CDN_BASE: Override CDN base path (must end with / or will be appended)
+        // - VUE_APP_PYODIDE_LOCAL_BASE: Override local base path (must end with / or will be appended)
+        // - VUE_APP_PYODIDE_PREFER_CDN: 'true'/'false' force priority
         const PYODIDE_VERSION = '0.25.0'
         const _ensureTrailingSlash = (s) => (s && s.endsWith('/')) ? s : (s ? (s + '/') : s)
         const defaultLocalBase = `/assets/pyodide/v${PYODIDE_VERSION}/full/`
@@ -415,7 +415,7 @@ export default {
             if (typeof window.loadPyodide === 'function') return resolve()
             // Otherwise wait for load/error.
             existing.addEventListener('load', () => resolve(), { once: true })
-            existing.addEventListener('error', () => reject(new Error('Pyodide 脚本加载失败')), { once: true })
+            existing.addEventListener('error', () => reject(new Error('Pyodide script failed to load')), { once: true })
             return
           }
 
@@ -423,17 +423,17 @@ export default {
           s.dataset.pyodideSrc = src
           s.src = src
           s.onload = () => resolve()
-          s.onerror = () => reject(new Error('Pyodide 脚本加载失败'))
+          s.onerror = () => reject(new Error('Pyodide script failed to load'))
           document.head.appendChild(s)
         })
 
         const initFromBase = async (baseUrl) => {
           if (typeof window.loadPyodide !== 'function') {
-            throw new Error('loadPyodide 函数未找到')
+            throw new Error('loadPyodide function not found')
           }
           window.pyodide = await window.loadPyodide({ indexURL: baseUrl })
 
-              // 预加载 pandas 和 numpy
+              // Preload pandas and numpy
               await window.pyodide.loadPackage(['pandas', 'numpy'])
 
               pyodide.value = window.pyodide
@@ -472,20 +472,20 @@ export default {
       })
     }
 
-    // ========== Python 代码解析 ==========
-    // 解析 Python 代码，提取参数信息
+    // ========== Python Code Parsing ==========
+    // Parse Python code, extract parameter info
     const parsePythonStrategy = (code) => {
       if (!code || typeof code !== 'string') {
         return null
       }
 
       try {
-        // 简单的参数提取：查找类似 @param 或 #param 的注释，或者函数参数
-        // 提取可能的参数
+        // Simple parameter extraction: search for comments like @param or #param, or function arguments
+        // Extract possible parameters
         const params = {}
 
-        // 尝试从代码中提取参数（如果有的话）
-        // 例如：查找类似 span=144 这样的参数
+        // Try to extract parameters from code (if any)
+        // For example: find parameters like span=144
         const paramMatches = code.match(/(\w+)\s*=\s*(\d+\.?\d*)/g)
         if (paramMatches) {
           paramMatches.forEach(match => {
@@ -500,14 +500,14 @@ export default {
           })
         }
 
-        // 返回解析结果
+        // Return resolution results
         return {
           params: params,
-          plots: [], // 从代码中无法直接提取 plots，需要在执行时确定
+          plots: [], // Cannot directly extract plots from code, must be determined during execution
           success: true
         }
       } catch (err) {
-        // 即使解析失败，也返回一个基本对象，允许执行
+        // Even if parsing fails, return a basic object, allowing execution
         return {
           params: {},
           plots: [],
@@ -516,68 +516,68 @@ export default {
       }
     }
 
-    // ========== Python 执行引擎 ==========
+    // ========== Python Execution Engine ==========
     const executePythonStrategy = async (userCode, klineData, params = {}, indicatorInfo = {}) => {
       if (!pythonReady.value || !pyodide.value) {
-        // 如果正在加载，等待一段时间后重试
+        // If loading, wait and retry
         if (loadingPython.value) {
-          // 等待最多 15 秒（30次 * 500ms）
+          // Wait up to 15 seconds (30 times * 500ms)
           let waitCount = 0
           while (loadingPython.value && waitCount < 30) {
             await new Promise(resolve => setTimeout(resolve, 500))
             waitCount++
-            // 如果加载完成，退出循环
+            // If loading complete, exit loop
             if (pythonReady.value && pyodide.value) {
               break
             }
           }
         }
 
-        // 如果仍然未就绪，检查是否加载失败
+        // If still not ready, check if loading failed
         if (!pythonReady.value || !pyodide.value) {
-          // 如果不在加载中，说明加载失败或超时
+          // If not loading, indicates failure or timeout
           if (!loadingPython.value) {
             pyodideLoadFailed.value = true
           } else {
-            // 如果还在加载中但超时了，也标记为失败
+            // If still loading but timed out, mark as failed
             loadingPython.value = false
             pyodideLoadFailed.value = true
           }
-          throw new Error('Python 引擎未就绪，请等待加载完成')
+          throw new Error('Python engine not ready, please wait for loading to complete')
         }
       }
 
       try {
-        // 检查代码是否需要解密（购买的指标）
+        // Check if code needs decryption (purchased indicators)
         let finalCode = userCode
         const isEncrypted = indicatorInfo.is_encrypted || indicatorInfo.isEncrypted || 0
         if (isEncrypted || needsDecrypt(userCode, isEncrypted)) {
-          // 获取用户ID（优先级：indicatorInfo > props > params）
+          // Get user ID (priority: indicatorInfo > props > params)
           const userId = indicatorInfo.user_id || indicatorInfo.userId || props.userId || params.userId
-          // 使用原始数据库ID（originalId），如果没有则使用id
+          // Use original database ID (originalId), if not available use id
           const indicatorId = indicatorInfo.originalId || indicatorInfo.id || params.indicatorId
 
           if (userId && indicatorId) {
             try {
               finalCode = await decryptCodeAuto(finalCode, userId, indicatorId)
             } catch (decryptError) {
-              throw new Error('代码解密失败，无法执行指标: ' + (decryptError.message || '未知错误'))
+              throw new Error('Code decryption failed, cannot execute indicator: ' + (decryptError.message || 'Unknown Error'))
             }
           } else {
-            throw new Error('缺少必要的解密参数（用户ID或指标ID），无法执行加密指标')
+            throw new Error('Missing necessary decryption parameters (User ID or Indicator ID), cannot execute encrypted indicator')
           }
         }
-        // 1. 数据转换：将 JS 的 klineData / params 转换为 JSON 字符串
-        // klineData 可能是内部格式（time）或 KLineChart 格式（timestamp）
+        // 1. Data conversion: convert JS klineData / params to JSON string
+        // klineData might be internal format (time) or KLineChart format (timestamp)
         const rawData = klineData.map(item => {
-          // 兼容两种格式
+          // Compatible with both formats
           let timeValue = item.timestamp || item.time
-          // 如果是秒级时间戳，转换为毫秒
+          // If second-level timestamp, convert to milliseconds
           if (timeValue < 1e10) {
             timeValue = timeValue * 1000
           }
           return {
-            time: Math.floor(timeValue / 1000), // Python 端使用秒级时间戳
+            time: Math.floor(timeValue / 1000), // Python side uses second-level timestamp
             open: parseFloat(item.open) || 0,
             high: parseFloat(item.high) || 0,
             low: parseFloat(item.low) || 0,
@@ -588,8 +588,8 @@ export default {
         const rawDataJson = JSON.stringify(rawData)
         const paramsJson = JSON.stringify(params || {})
 
-        // 2. 构建 Python 执行代码
-        // 转义 JSON 字符串中的特殊字符
+        // 2. Construct Python execution code
+        // Escape special characters in JSON string
         const escapedJson = rawDataJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')
         const escapedParams = paramsJson.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r')
 
@@ -598,7 +598,7 @@ import json
 import pandas as pd
 import numpy as np
 
-# 递归清理 NaN 值的函数
+# Recursively clean NaN values
 def clean_nan(obj):
     if isinstance(obj, dict):
         return {k: clean_nan(v) for k, v in obj.items()}
@@ -615,12 +615,12 @@ def clean_nan(obj):
     else:
         return obj
 
-# 接收 JSON 数据
+# Receive JSON data
 raw_data = json.loads('${escapedJson}')
 params = json.loads('${escapedParams}')
 
-# 将前端参数注入为指标代码可直接使用的变量（对齐回测/实盘执行环境）
-# 兼容多种命名（snake_case / camelCase）
+# Inject frontend parameters as variables directly usable in indicator code (align with backtest/live environment)
+# Compatible with multiple naming conventions (snake_case / camelCase)
 def _get_param(key, default=None):
     if key in params:
         return params.get(key, default)
@@ -660,63 +660,63 @@ try:
 except Exception:
     initial_highest_price = 0.0
 
-# 转换为 DataFrame
+# Convert to DataFrame
 df = pd.DataFrame(raw_data)
 
-# 转换数据类型
+# Convert data types
 df['open'] = df['open'].astype(float)
 df['high'] = df['high'].astype(float)
 df['low'] = df['low'].astype(float)
 df['close'] = df['close'].astype(float)
 df['volume'] = df['volume'].astype(float)
 
-# 用户代码（已解密）
+# User code (decrypted)
 ${finalCode}
 
-# 构造输出（如果用户没有定义 output，则尝试从 result_json 获取）
+# Construct output (if output undefined, try to get from result_json)
 if 'output' not in locals():
     if 'result_json' in locals():
         output = json.loads(result_json)
     else:
         output = {"plots": []}
 else:
-    # 确保 output 是字典格式
+    # Ensure output is in dictionary format
     if isinstance(output, str):
         output = json.loads(output)
 
-# 清理 output 中的所有 NaN 值
+# Clean all NaN values in output
 output = clean_nan(output)
 
-# 返回 JSON 字符串
+# Return JSON string
 json.dumps(output)
 `
 
-        // 3. 执行 Python 代码
+        // 3. Execute Python code
         const resultJson = await pyodide.value.runPythonAsync(pythonCode)
 
-        // 检查返回结果
+        // Check returned results
         if (!resultJson || typeof resultJson !== 'string') {
-          throw new Error(`Python 代码执行后未返回有效的 JSON 字符串，返回类型: ${typeof resultJson}`)
+          throw new Error(`Python code execution did not return a valid JSON string, return type: ${typeof resultJson}`)
         }
 
         let result
         try {
           result = JSON.parse(resultJson)
         } catch (parseError) {
-          throw new Error(`JSON 解析失败: ${parseError.message}。可能是数据中包含 NaN 或其他无效值。`)
+          throw new Error(`JSON parsing failed: ${parseError.message}. Data might contain NaN or other invalid values.`)
         }
 
-        // 4. 验证和格式化输出
+        // 4. Verify and format output
         if (!result) {
           return { plots: [], signals: [], calculatedVars: {} }
         }
 
-        // 确保 plots 存在且为数组
+        // Ensure plots exist and are an array
         if (!result.plots || !Array.isArray(result.plots)) {
           result.plots = []
         }
 
-        // 5. 处理每个 plot 的数据，将 NaN 转换为 null
+        // 5. Process data for each plot, converting NaN to null
         result.plots = result.plots.map(plot => {
           if (plot.data && Array.isArray(plot.data)) {
             plot.data = plot.data.map(val => {
@@ -729,7 +729,7 @@ json.dumps(output)
           return plot
         })
 
-        // 6. 处理 signals（如果有）
+        // 6. Process signals (if any)
         if (result.signals && Array.isArray(result.signals)) {
           result.signals = result.signals.map(signal => {
             if (signal.data && Array.isArray(signal.data)) {
@@ -744,19 +744,19 @@ json.dumps(output)
           })
         }
 
-        // 7. 确保 calculatedVars 存在
+        // 7. Ensure calculatedVars exist
         if (!result.calculatedVars) {
           result.calculatedVars = {}
         }
 
         return result
       } catch (err) {
-        throw new Error(`Python 执行失败: ${err.message}`)
+        throw new Error(`Python execution failed: ${err.message}`)
       }
     }
 
-    // --- 指标计算函数 ---
-    // 这些函数可能通过 indicator.calculate 间接调用，所以 ESLint 可能无法识别
+    // --- Indicator Calculation Functions ---
+    // These functions might be indirectly called via indicator.calculate, so ESLint might not recognize them
 
     // eslint-disable-next-line no-unused-vars
     function calculateSMA (data, length) {
@@ -792,7 +792,7 @@ json.dumps(output)
 
     // eslint-disable-next-line no-unused-vars
     function calculateBollingerBands (data, length, mult) {
-      // 内部计算SMA
+      // Internally calculate SMA
       const sma = []
       for (let i = 0; i < data.length; i++) {
         if (i < length - 1) {
@@ -843,10 +843,10 @@ json.dumps(output)
         const loss = change < 0 ? Math.abs(change) : 0
 
         if (i < length) {
-          // 前length-1个值，累积但不计算RSI
+          // First length-1 values, accumulate but don't calculate RSI
           result.push(null)
         } else if (i === length) {
-          // 第length个值，计算初始平均值
+          // length-th value, calculate initial average
           let sumGain = 0
           let sumLoss = 0
           for (let j = 1; j <= length; j++) {
@@ -859,7 +859,7 @@ json.dumps(output)
           const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
           result.push(100 - (100 / (1 + rs)))
         } else {
-          // 后续值，使用平滑移动平均
+          // Subsequent values, use smoothed moving average (SMMA)
           avgGain = (avgGain * (length - 1) + gain) / length
           avgLoss = (avgLoss * (length - 1) + loss) / length
           const rs = avgLoss === 0 ? 100 : avgGain / avgLoss
@@ -875,7 +875,7 @@ json.dumps(output)
       const slowEMA = calculateEMA(data, slow)
       const macdLine = []
 
-      // 计算MACD线
+      // Calculate MACD line
       for (let i = 0; i < data.length; i++) {
         if (fastEMA[i] == null || slowEMA[i] == null) {
           macdLine.push(null)
@@ -884,14 +884,14 @@ json.dumps(output)
         }
       }
 
-      // 计算Signal线 (MACD的EMA)
-      // 需要保持原始数组长度，对null值进行特殊处理
+      // Calculate Signal line (EMA of MACD)
+      // Need to maintain original array length, handle null values specially
       const signalLine = []
       const histogram = []
       let signalEMA = null
       let signalStartIdx = -1
 
-      // 找到第一个非null的MACD值作为signal计算的起点
+      // Find the first non-null MACD value as the starting point for signal calculation
       for (let i = 0; i < macdLine.length; i++) {
         if (macdLine[i] !== null && signalStartIdx === -1) {
           signalStartIdx = i
@@ -900,12 +900,12 @@ json.dumps(output)
         }
       }
 
-      // 如果找到了起点，继续计算signal
+      // If starting point found, continue signal calculation
       if (signalStartIdx >= 0) {
         const multiplier = 2 / (signal + 1)
         for (let i = 0; i < macdLine.length; i++) {
           if (i < signalStartIdx + signal - 1) {
-            // signal需要等待足够的MACD值
+            // Signal requires enough MACD values
             signalLine.push(null)
             histogram.push(null)
           } else if (macdLine[i] === null) {
@@ -913,7 +913,7 @@ json.dumps(output)
             histogram.push(null)
           } else {
             if (i === signalStartIdx + signal - 1) {
-              // 第一个signal值：计算前signal个MACD值的平均值
+              // First signal value: calculate average of the first signal-many MACD values
               let sum = 0
               let count = 0
               for (let j = signalStartIdx; j <= i; j++) {
@@ -924,7 +924,7 @@ json.dumps(output)
               }
               signalEMA = sum / count
             } else {
-              // 后续值：使用EMA公式
+              // Subsequent values: use EMA formula
               signalEMA = (macdLine[i] - signalEMA) * multiplier + signalEMA
             }
             signalLine.push(signalEMA)
@@ -932,7 +932,7 @@ json.dumps(output)
           }
         }
       } else {
-        // 如果没有有效的MACD值，全部设为null
+        // If no valid MACD values, set all to null
         for (let i = 0; i < macdLine.length; i++) {
           signalLine.push(null)
           histogram.push(null)
@@ -942,9 +942,9 @@ json.dumps(output)
       return { macd: macdLine, signal: signalLine, histogram }
     }
 
-    // 计算ATR（平均真实波幅）
+    // Calculate ATR (Average True Range)
     function calculateATR (data, period) {
-      const tr = [] // 真实波幅
+      const tr = [] // True Range
       for (let i = 0; i < data.length; i++) {
         if (i === 0) {
           tr.push(data[i].high - data[i].low)
@@ -956,7 +956,7 @@ json.dumps(output)
         }
       }
 
-      // 计算ATR（TR的SMA）
+      // Calculate ATR (SMA of TR)
       const atr = []
       for (let i = 0; i < data.length; i++) {
         if (i < period - 1) {
@@ -972,23 +972,23 @@ json.dumps(output)
       return atr
     }
 
-    // 计算CCI (商品通道指数)
+    // Calculate CCI (Commodity Channel Index)
     function calculateCCI (data, length) {
       const cci = []
       for (let i = 0; i < data.length; i++) {
         if (i < length - 1) {
           cci.push(null)
         } else {
-          // 计算典型价格 (TP)
+          // Calculate Typical Price (TP)
           const tp = []
           for (let j = i - length + 1; j <= i; j++) {
             tp.push((data[j].high + data[j].low + data[j].close) / 3)
           }
-          // 计算TP的SMA
+          // Calculate SMA of TP
           const sma = tp.reduce((sum, val) => sum + val, 0) / length
-          // 计算平均偏差
+          // Calculate mean deviation
           const meanDev = tp.reduce((sum, val) => sum + Math.abs(val - sma), 0) / length
-          // 计算CCI
+          // Calculate CCI
           const currentTP = (data[i].high + data[i].low + data[i].close) / 3
           const cciValue = meanDev === 0 ? 0 : (currentTP - sma) / (0.015 * meanDev)
           cci.push(cciValue)
@@ -997,7 +997,7 @@ json.dumps(output)
       return cci
     }
 
-    // 计算Williams %R (威廉指标)
+    // Calculate Williams %R (Williams Index)
     function calculateWilliamsR (data, length) {
       const williamsR = []
       for (let i = 0; i < data.length; i++) {
@@ -1017,7 +1017,7 @@ json.dumps(output)
       return williamsR
     }
 
-    // 计算MFI (资金流量指标)
+    // Calculate MFI (Money Flow Index)
     function calculateMFI (data, length) {
       const mfi = []
       for (let i = 0; i < data.length; i++) {
@@ -1046,13 +1046,13 @@ json.dumps(output)
       return mfi
     }
 
-    // 计算ADX (平均趋向指数) 和 DMI (+DI, -DI)
+    // Calculate ADX (Average Directional Index) and DMI (+DI, -DI)
     function calculateADX (data, length) {
       const plusDI = []
       const minusDI = []
       const adx = []
 
-      // 计算真实波幅(TR)和方向移动(+DM, -DM)
+      // Calculate True Range (TR) and Directional Movement (+DM, -DM)
       const tr = []
       const plusDM = []
       const minusDM = []
@@ -1085,7 +1085,7 @@ json.dumps(output)
         }
       }
 
-      // 计算平滑的TR, +DM, -DM
+      // Calculate smoothed TR, +DM, -DM
       const smoothTR = []
       const smoothPlusDM = []
       const smoothMinusDM = []
@@ -1099,7 +1099,7 @@ json.dumps(output)
           minusDI.push(null)
           adx.push(null)
         } else if (i === length - 1) {
-          // 初始值：简单求和
+          // Initial values: simple summation
           let sumTR = 0
           let sumPlusDM = 0
           let sumMinusDM = 0
@@ -1112,7 +1112,7 @@ json.dumps(output)
           smoothPlusDM.push(sumPlusDM)
           smoothMinusDM.push(sumMinusDM)
         } else {
-          // 平滑计算：Wilder's smoothing
+          // Smoothed calculation: Wilder's smoothing
           smoothTR.push(smoothTR[i - 1] - (smoothTR[i - 1] / length) + tr[i])
           smoothPlusDM.push(smoothPlusDM[i - 1] - (smoothPlusDM[i - 1] / length) + plusDM[i])
           smoothMinusDM.push(smoothMinusDM[i - 1] - (smoothMinusDM[i - 1] / length) + minusDM[i])
@@ -1131,20 +1131,20 @@ json.dumps(output)
             minusDI.push((minusDMVal / trVal) * 100)
           }
 
-          // 计算DX
+          // Calculate DX
           if (i >= length - 1) {
             const diSum = plusDI[i] + minusDI[i]
             const dx = diSum === 0 ? 0 : Math.abs(plusDI[i] - minusDI[i]) / diSum * 100
 
-            // 计算ADX (DX的平滑)
+            // Calculate ADX (Smoothing of DX)
             if (i === length - 1) {
               adx.push(dx)
             } else if (i === length) {
-              // 第二个ADX值：前两个DX的平均值
+              // Second ADX value: average of first two DX values
               const prevDX = Math.abs(plusDI[i - 1] - minusDI[i - 1]) / (plusDI[i - 1] + minusDI[i - 1]) * 100
               adx.push((prevDX + dx) / 2)
             } else {
-              // ADX平滑：Wilder's smoothing
+              // ADX smoothing: Wilder's smoothing
               adx.push((adx[i - 1] * (length - 1) + dx) / length)
             }
           }
@@ -1154,7 +1154,7 @@ json.dumps(output)
       return { adx, plusDI, minusDI }
     }
 
-    // 计算OBV (能量潮指标)
+    // Calculate OBV (On-Balance Volume)
     function calculateOBV (data) {
       const obv = []
       let obvValue = 0
@@ -1168,14 +1168,14 @@ json.dumps(output)
           } else if (data[i].close < data[i - 1].close) {
             obvValue -= data[i].volume
           }
-          // 如果收盘价相同，OBV不变
+          // If close price is same, OBV remains unchanged
         }
         obv.push(obvValue)
       }
       return obv
     }
 
-    // 计算AD (积累/派发线)
+    // Calculate AD (Accumulation/Distribution Line)
     function calculateAD (data) {
       const ad = []
       let adValue = 0
@@ -1195,7 +1195,7 @@ json.dumps(output)
       return ad
     }
 
-    // 计算ADOSC (积累/派发振荡器) = AD的快速EMA - AD的慢速EMA
+    // Calculate ADOSC (Accumulation/Distribution Oscillator) = Fast EMA of AD - Slow EMA of AD
     function calculateADOSC (data, fast, slow) {
       const ad = calculateAD(data)
       const fastEMA = []
@@ -1226,7 +1226,7 @@ json.dumps(output)
       return adosc
     }
 
-    // 计算KDJ (随机指标)
+    // Calculate KDJ (Stochastic Oscillator)
     function calculateKDJ (data, period, kPeriod, dPeriod) {
       const kValues = []
       const dValues = []
@@ -1238,7 +1238,7 @@ json.dumps(output)
           dValues.push(null)
           jValues.push(null)
         } else {
-          // 找到period内的最高价和最低价
+          // Find highest and lowest prices within period
           let highest = -Infinity
           let lowest = Infinity
           for (let j = i - period + 1; j <= i; j++) {
@@ -1246,24 +1246,24 @@ json.dumps(output)
             lowest = Math.min(lowest, data[j].low)
           }
 
-          // 计算RSV
+          // Calculate RSV
           const rsv = (highest - lowest) === 0 ? 50 : ((data[i].close - lowest) / (highest - lowest)) * 100
 
-          // 计算K值 (RSV的移动平均)
+          // Calculate K value (Moving average of RSV)
           if (kValues[i - 1] === null) {
             kValues.push(rsv)
           } else {
             kValues.push((rsv * 2 + kValues[i - 1] * (kPeriod - 2)) / kPeriod)
           }
 
-          // 计算D值 (K值的移动平均)
+          // Calculate D value (Moving average of K)
           if (dValues[i - 1] === null) {
             dValues.push(kValues[i])
           } else {
             dValues.push((kValues[i] * 2 + dValues[i - 1] * (dPeriod - 2)) / dPeriod)
           }
 
-          // 计算J值
+          // Calculate J value
           jValues.push(3 * kValues[i] - 2 * dValues[i])
         }
       }
@@ -1271,42 +1271,42 @@ json.dumps(output)
       return { k: kValues, d: dValues, j: jValues }
     }
 
-    // ========== 注册自定义信号 Overlay (Signal Tag) ==========
-    // 这是一个能够绘制 "圆点 + 带背景色文字框" 的自定义覆盖物
-// ========== 注册自定义信号 Overlay (Signal Tag) ==========
+    // ========== Register Custom Signal Overlay (Signal Tag) ==========
+    // This is a custom overlay that can draw "Dot + Colored background text box"
+// ========== Register Custom Signal Overlay (Signal Tag) ==========
 registerOverlay({
       name: 'signalTag',
-      // 【关键修改1】必须改为 1。告诉图表这个图形只需要一个点就画完了。
-      // 只要这里是 1，图表就不会画那个蓝色的"编辑中"手柄。
+      // [Critical Change 1] Must be changed to 1. Tells chart that this figure needs only one point to finish.
+      // If it is 1, the chart won't draw that blue "editing" handle.
       totalStep: 1,
 
-      // 【关键修改2】彻底禁止该 Overlay 响应任何鼠标事件
-      // 这样鼠标放上去也不会有蓝色的选中框
+      // [Critical Change 2] Completely prohibit this overlay from responding to any mouse events.
+      // This way there won't be a blue selection box when hovering mouse
       lock: true,
       needDefaultPointFigure: false,
       needDefaultXAxisFigure: false,
       needDefaultYAxisFigure: false,
 
-      // 【建议保留】进一步确保不拦截事件
+      // [Recommended to keep] Further ensure events are not intercepted
       checkEventOn: () => false,
 
       createPointFigures: ({ coordinates, overlay }) => {
         const { text } = overlay.extendData || {}
         const color = overlay.extendData?.color || '#555555'
 
-        // 1. 获取信号点坐标
+        // 1. Get signal point coordinates
         if (!coordinates[0]) return []
         const x = coordinates[0].x
-        const signalY = coordinates[0].y // Point 0: Python中计算的标签位置（已包含垂直间距）
+        const signalY = coordinates[0].y // Point 0: Compiled label position in Python (includes vertical spacing)
 
-        // 2. 获取K线极值坐标（用于画圆点）
-        const anchorY = coordinates[1] ? coordinates[1].y : signalY // Point 1: K线的high/low
+        // 2. Get K-line extrema coordinates (for drawing the dot)
+        const anchorY = coordinates[1] ? coordinates[1].y : signalY // Point 1: K-line high/low
 
         const boxPaddingX = 8
         const boxPaddingY = 4
         const fontSize = 12
         const textStr = String(text || '')
-        // 简单的字符宽度估算
+        // Simple character width estimation
         const textWidth = textStr.split('').reduce((acc, char) => acc + (char.charCodeAt(0) > 255 ? 12 : 7), 0)
         const boxWidth = textWidth + boxPaddingX * 2
         const boxHeight = fontSize + boxPaddingY * 2
@@ -1315,39 +1315,39 @@ registerOverlay({
         const side = overlay.extendData?.side || overlay.extendData?.type || 'buy'
         const isBuy = side === 'buy'
 
-        // 3. 计算 Box 的 Y 轴位置
-        // 【关键修改】直接使用 signalY（Python中已经调整好的位置），不再使用固定margin
-        // signalY 已经包含了反转信号的垂直间距调整
+        // 3. Calculate Box Y-axis position
+        // [Critical Change] Use signalY directly (adjusted position in Python), don't use fixed margin anymore
+        // signalY already includes adjustment for inverted signal's vertical spacing
         const boxY = isBuy ? signalY : (signalY - boxHeight)
 
-        // 计算线段连接点
-        // 圆点画在K线极值位置（anchorY），紧挨着K线
-        // 连线从圆点连到标签框
-        const circleY = anchorY // 圆点位置：K线的High或Low
-        const lineStartY = circleY // 连线起点：圆点位置
-        const lineEndY = isBuy ? boxY : (boxY + boxHeight) // 连线终点：标签框边缘
+        // Calculate segment connection point
+        // Dot drawn at K-line extrema position (anchorY), right next to K-line
+        // Connector line from dot to label box
+        const circleY = anchorY // Dot position: K-line High or Low
+        const lineStartY = circleY // Connector line start: Dot position
+        const lineEndY = isBuy ? boxY : (boxY + boxHeight) // Connector line end: Label box edge
 
         return [
-          // 1. 虚线 (从圆点连到标签框)
+          // 1. Dashed line (from dot to label box)
           {
             type: 'line',
             attrs: {
               coordinates: [
-                { x, y: lineStartY }, // 从圆点（K线极值位置）
-                { x, y: lineEndY } // 连到标签框边缘
+                { x, y: lineStartY }, // From dot (K-line extrema position)
+                { x, y: lineEndY } // Connect to label box edge
               ]
             },
             styles: { style: 'stroke', color: color, dashedValue: [2, 2] },
             ignoreEvent: true
           },
-          // 2. 圆点 (画在K线极值位置，紧挨着K线)
+          // 2. Dot (drawn at K-line extrema position, right next to K-line)
           {
             type: 'circle',
             attrs: { x, y: circleY, r: 4 },
             styles: { style: 'fill', color: color },
             ignoreEvent: true
           },
-          // 3. 背景框 (基于 boxY)
+          // 3. Background box (based on boxY)
           {
             type: 'rect',
             attrs: {
@@ -1360,7 +1360,7 @@ registerOverlay({
             styles: { style: 'fill', color: color, borderSize: 0 },
             ignoreEvent: true
           },
-          // 4. 文字
+          // 4. Text
           {
             type: 'text',
             attrs: {
@@ -1377,15 +1377,15 @@ registerOverlay({
       }
     })
 
-    // --- 数据加载相关函数 ---
-    // 格式化数据为 KLineChart 格式（timestamp 需要是毫秒）
+    // --- Data loading related functions ---
+    // Format data to KLineChart format (timestamp needs to be in milliseconds)
     const formatKlineData = (data) => {
       return data.map(item => {
         let timeValue = item.time || item.timestamp
         if (typeof timeValue === 'string') {
           timeValue = parseInt(timeValue)
         }
-        // KLineChart 需要毫秒时间戳，如果当前是秒级，转换为毫秒
+        // KLineChart needs millisecond timestamp; if currently second-level, convert to milliseconds
         if (timeValue < 1e10) {
           timeValue = timeValue * 1000
         }
@@ -1416,10 +1416,10 @@ registerOverlay({
       }
     }
 
-    // 将 KLineChart 格式的数据转换为内部格式（用于 isSameTimeframe 等函数）
+    // Convert KLineChart format data to internal format (used for functions like isSameTimeframe)
     const convertToInternalFormat = (data) => {
       return data.map(item => ({
-        time: Math.floor(item.timestamp / 1000), // 转回秒级时间戳用于比较
+        time: Math.floor(item.timestamp / 1000), // Convert back to second-level timestamp for comparison
         open: item.open,
         high: item.high,
         low: item.low,
@@ -1504,8 +1504,8 @@ registerOverlay({
           if (response.code === 1 && response.data && Array.isArray(response.data)) {
             formattedData = formatKlineData(response.data)
           } else {
-            // 特殊处理 Tiingo 订阅限制提示
-            let errMsg = response.msg || '获取K线数据失败'
+            // Special handling for Tiingo subscription limit notice
+            let errMsg = response.msg || 'Failed to fetch Kline data'
             if (response.hint === 'tiingo_subscription') {
               errMsg = proxy.$t('dashboard.indicator.error.tiingoSubscription') || 'Forex 1-minute data requires Tiingo paid subscription'
             }
@@ -1515,9 +1515,9 @@ registerOverlay({
           throw apiErr
         }
 
-        // 检查数据是否为空
+        // Check if data is empty
         if (!formattedData || formattedData.length === 0) {
-          throw new Error('未获取到K线数据')
+          throw new Error('No Kline data fetched')
         }
 
         klineData.value = formattedData
@@ -1529,7 +1529,7 @@ registerOverlay({
           if (!chartRef.value) {
             initChart()
           } else {
-            // 确保数据格式正确
+            // Ensure data format is correct
             const validData = klineData.value.filter(item =>
               item.timestamp &&
               !isNaN(item.open) &&
@@ -1539,14 +1539,14 @@ registerOverlay({
             )
 
             if (validData.length > 0 && chartRef.value) {
-              // 使用 applyNewData 初始化
+              // Use applyNewData for initialization
               try {
                 chartRef.value.applyNewData(validData)
               } catch (e) {
                 chartRef.value.applyNewData(validData)
               }
 
-              // 延迟更新指标
+              // Delayed indicator update
               setTimeout(() => {
                 if (chartRef.value) {
                   updateIndicators()
@@ -1562,9 +1562,9 @@ registerOverlay({
         })
       } catch (err) {
         error.value = proxy.$t('dashboard.indicator.error.loadDataFailed') + ': ' + (err.message || proxy.$t('dashboard.indicator.error.loadDataFailedDesc'))
-        // 清空K线数据，不显示图表
+        // Clear Kline data, don't show chart
         klineData.value = []
-        // 如果有图表实例，清空数据
+        // If chart instance exists, clear data
         if (chartRef.value) {
           try {
             chartRef.value.applyNewData([])
@@ -1576,15 +1576,15 @@ registerOverlay({
       }
     }
 
-    // 加载更多历史数据（用于滚动加载，保持滚动位置）
+    // Load more historical data (for infinite scroll, maintains scroll position)
     const loadMoreHistoryDataForScroll = async (timestamp) => {
       if (!props.symbol || !klineData.value || klineData.value.length === 0) {
         return
       }
 
-      // 【核心修复】防止重复请求：如果已经有正在进行的请求，直接返回
+      // [Core Fix] Prevent duplicate requests: if a request is already in progress, return immediately
       if (loadingHistory.value || loadingHistoryPromise) {
-        // 如果有正在进行的请求，等待它完成
+        // If a request is in progress, wait for it to complete
         if (loadingHistoryPromise) {
           try {
             await loadingHistoryPromise
@@ -1595,21 +1595,21 @@ registerOverlay({
       }
 
       if (!hasMoreHistory.value) {
-        // 如果没有更多数据，通知图表
+        // If no more data, notify the chart
         if (chartRef.value && typeof chartRef.value.noMoreData === 'function') {
           chartRef.value.noMoreData()
         }
         return
       }
 
-      // 立即设置加载状态和创建 Promise，防止并发请求
+      // Set loading state and create Promise immediately to prevent concurrent requests
       loadingHistory.value = true
       loadingHistoryPromise = (async () => {
-        // 强制触发更新
+        // Force trigger update
         await nextTick()
 
         try {
-        // timestamp 是毫秒时间戳，转换为秒级用于 API
+        // timestamp is in ms, convert to seconds for API
         const beforeTime = Math.floor(timestamp / 1000)
 
         const response = await request({
@@ -1620,7 +1620,7 @@ registerOverlay({
             symbol: props.symbol,
             timeframe: props.timeframe,
             limit: 500,
-            before_time: beforeTime // 获取此时间之前的数据
+            before_time: beforeTime // Fetch data prior to this time
           }
         })
 
@@ -1628,7 +1628,7 @@ registerOverlay({
           const newData = formatKlineData(response.data)
 
           if (newData.length === 0) {
-            // 没有更多数据了
+            // No more data
             hasMoreHistory.value = false
             if (chartRef.value && typeof chartRef.value.noMoreData === 'function') {
               chartRef.value.noMoreData()
@@ -1636,11 +1636,11 @@ registerOverlay({
             return
           }
 
-          // 确保新数据的时间早于传入的时间戳
+          // Ensure new data time is earlier than passed timestamp
           const filteredNewData = newData.filter(item => item.timestamp < timestamp)
 
           if (filteredNewData.length === 0) {
-            // 没有更早的数据了
+            // No earlier data
             hasMoreHistory.value = false
             if (chartRef.value && typeof chartRef.value.noMoreData === 'function') {
               chartRef.value.noMoreData()
@@ -1648,8 +1648,8 @@ registerOverlay({
             return
           }
 
-          // 保存当前可见范围，用于恢复滚动位置
-          // klinecharts 9.x 的 getVisibleRange() 返回的 from/to 是数据索引（整数），不是百分比
+          // Save current visible range for restoring scroll position
+          // klinecharts 9.x getVisibleRange() returns from/to as data indices (integers), not percentages
           let savedVisibleRange = null
           try {
             if (chartRef.value && typeof chartRef.value.getVisibleRange === 'function') {
@@ -1661,32 +1661,32 @@ registerOverlay({
           // 记录新数据的数量，用于后续计算偏移
           const newDataCount = filteredNewData.length
 
-          // 将新数据插入到现有数据的前面
+          // Prepended new data to existing data
           klineData.value = [...filteredNewData, ...klineData.value]
 
-          // 使用 applyNewData 添加历史数据（applyMoreData 在 v9.8.0 已废弃）
+          // Use applyNewData to add historical data (applyMoreData is deprecated in v9.8.0)
           nextTick(() => {
             if (chartRef.value) {
-              // 应用新数据
+              // Apply new data
               chartRef.value.applyNewData(klineData.value)
 
-              // 恢复滚动位置
-              // 由于新数据插入到了前面，原来的索引需要偏移 newDataCount
+              // Restore scroll position
+              // Since new data is prepended, original indices need an offset of newDataCount
               if (savedVisibleRange && typeof savedVisibleRange.from === 'number') {
                 // 计算新的可见范围索引
-                // 原来看的是索引 from 到 to 的数据，现在这些数据的索引变成了 from + newDataCount 到 to + newDataCount
+                // Originally viewed indices from-to now become from+newDataCount to to+newDataCount
                 const newFrom = savedVisibleRange.from + newDataCount
                 const newTo = savedVisibleRange.to + newDataCount
 
-                // 使用 setTimeout 确保数据已经渲染完成
+                // Use setTimeout to ensure data has finished rendering
                 setTimeout(() => {
                   try {
                     if (chartRef.value) {
-                      // 尝试使用 scrollToDataIndex 方法（如果存在）
+                      // Try using scrollToDataIndex method (if it exists)
                       if (typeof chartRef.value.scrollToDataIndex === 'function') {
                         chartRef.value.scrollToDataIndex(newFrom)
                       } else if (typeof chartRef.value.setVisibleRange === 'function') {
-                        // 使用 setVisibleRange 设置可见范围（参数是数据索引）
+                        // Use setVisibleRange to set visible range (parameters are data indices)
                         chartRef.value.setVisibleRange(newFrom, newTo)
                       }
                     }
@@ -1695,36 +1695,36 @@ registerOverlay({
                 }, 50)
               }
 
-              // 更新指标
+              // Update indicators
               updateIndicators()
             }
           })
         } else {
-          // API返回错误，通知图表加载失败
+          // API returned error, notify chart of load failure
           if (chartRef.value && typeof chartRef.value.noMoreData === 'function') {
             chartRef.value.noMoreData()
           }
         }
         } catch (err) {
-          // 加载失败，通知图表
+          // Load failed, notify chart
           if (chartRef.value && typeof chartRef.value.noMoreData === 'function') {
             chartRef.value.noMoreData()
           }
         } finally {
           loadingHistory.value = false
-          loadingHistoryPromise = null // 清除请求追踪
+          loadingHistoryPromise = null // Clear request tracking
         }
-      })() // 立即执行 Promise
+      })() // Execute Promise immediately
 
-      // 等待请求完成
+      // Wait for request completion
       try {
         await loadingHistoryPromise
       } catch (err) {
-        // 错误已经在内部的 catch 中处理，这里只是确保 Promise 完成
+        // Error handled in internal catch, this just ensures Promise completes
       }
     }
 
-    // 加载更多历史数据（保留原有函数，用于其他场景）
+    // Load more historical data (keeps original function for other scenarios)
     const loadMoreHistoryData = async () => {
       if (!props.symbol || !klineData.value || klineData.value.length === 0) {
         return
@@ -1737,9 +1737,9 @@ registerOverlay({
       loadingHistory.value = true
 
       try {
-        // 获取当前最早的数据时间（转换为秒级用于 API）
+        // Get current earliest data time (convert to seconds for API)
         const earliestTimestamp = klineData.value[0].timestamp
-        const earliestTime = Math.floor(earliestTimestamp / 1000) // 转换为秒级
+        const earliestTime = Math.floor(earliestTimestamp / 1000) // Convert to seconds
         const response = await request({
           url: '/api/indicator/kline',
           method: 'get',
@@ -1748,7 +1748,7 @@ registerOverlay({
             symbol: props.symbol,
             timeframe: props.timeframe,
             limit: 500,
-            before_time: earliestTime // 获取此时间之前的数据
+            before_time: earliestTime // Fetch data before this time
           }
         })
 
@@ -1756,26 +1756,26 @@ registerOverlay({
           const newData = formatKlineData(response.data)
 
           if (newData.length === 0) {
-            // 没有更多数据了
+            // No more data
             hasMoreHistory.value = false
             loadingHistory.value = false
             return
           }
 
-          // 确保新数据的时间早于现有最早数据
+          // Ensure new data time is earlier than existing earliest data
           const filteredNewData = newData.filter(item => item.timestamp < earliestTimestamp)
 
           if (filteredNewData.length === 0) {
-            // 没有更早的数据了
+            // No earlier data
             hasMoreHistory.value = false
             loadingHistory.value = false
             return
           }
 
-          // 将新数据插入到现有数据的前面
+          // Prepended new data to existing data
           klineData.value = [...filteredNewData, ...klineData.value]
 
-          // 更新图表
+          // Update chart
           nextTick(() => {
             if (chartRef.value) {
               chartRef.value.applyNewData(klineData.value)
@@ -1783,26 +1783,26 @@ registerOverlay({
             }
           })
         } else {
-          // API返回错误，但不一定表示没有更多数据，可能是网络问题
-          // 不设置 hasMoreHistory = false，允许用户重试
+          // API error, but doesn't necessarily mean no more data, could be network issue
+          // Don't set hasMoreHistory = false, allow user retry
         }
       } catch (err) {
-        // 加载失败可能是网络问题，不应该立即认为没有更多数据
-        // 只有在明确知道没有更早数据时才设置 hasMoreHistory = false
-        // 这里不设置，允许用户重试
+        // Load failure could be network issue, shouldn't immediately assume no more data
+        // Only set hasMoreHistory = false when explicitly known no more earlier data exists
+        // Not setting here, allowing user retry
       } finally {
         loadingHistory.value = false
       }
     }
 
-    // 增量更新K线数据（实时更新）
+    // Incremental update of Kline data (real-time update)
     const updateKlineRealtime = async () => {
       if (!props.symbol || !klineData.value || klineData.value.length === 0) {
-        return // 如果没有现有数据，不进行增量更新
+        return // If no existing data, don't perform incremental update
       }
 
       try {
-        // 只获取最新的5根K线用于更新
+        // Only fetch latest 5 Klines for update
         const response = await request({
           url: '/api/indicator/kline',
           method: 'get',
@@ -1810,7 +1810,7 @@ registerOverlay({
             market: props.market,
             symbol: props.symbol,
             timeframe: props.timeframe,
-            limit: 5 // 只获取最新5根
+            limit: 5 // Only fetch latest 5
           }
         })
 
@@ -1819,18 +1819,18 @@ registerOverlay({
           const existingData = [...klineData.value]
 
           if (newData.length > 0) {
-            const lastNewTime = Math.floor(newData[newData.length - 1].timestamp / 1000) // 转回秒级用于比较
+            const lastNewTime = Math.floor(newData[newData.length - 1].timestamp / 1000) // Convert back to seconds for comparison
             const lastExistingTime = Math.floor(existingData[existingData.length - 1].timestamp / 1000)
 
-            // 判断是否属于同一时间段
+            // Check if belonging to same timeframe
             if (isSameTimeframe(lastNewTime, lastExistingTime, props.timeframe)) {
-              // 同一时间段，合并更新最后一根K线的数据
-              // K线合并规则：
-              // - open: 保持不变（时间段开始时的价格）
-              // - high: 取最大值（时间段内的最高价）
-              // - low: 取最小值（时间段内的最低价）
-              // - close: 更新为最新价格（当前价格）
-              // - volume: 使用API返回的最新值（API返回的已是该周期的总成交量，无需累加）
+              // Same timeframe, merge and update the last Kline data
+              // Kline merge rules:
+              // - open: remain unchanged (price at start of timeframe)
+              // - high: take maximum (highest price within timeframe)
+              // - low: take minimum (lowest price within timeframe)
+              // - close: update to latest price (current price)
+              // - volume: use latest API value (API already returns total volume for the period)
               const existingLast = existingData[existingData.length - 1]
               const newLast = newData[newData.length - 1]
 
@@ -1840,33 +1840,33 @@ registerOverlay({
                 high: Math.max(existingLast.high, newLast.high), // 最高价取最大值
                 low: Math.min(existingLast.low, newLast.low), // 最低价取最小值
                 close: newLast.close, // 收盘价更新为最新价格
-                volume: newLast.volume // 成交量使用API返回的最新值（已是该周期的总成交量）
+                volume: newLast.volume // volume from latest API value (already total volume for the period)
               }
               klineData.value = existingData
 
-              // 更新价格面板（使用内部格式）
+              // Update price panel (using internal format)
               const internalData = convertToInternalFormat(klineData.value)
               updatePricePanel(internalData)
 
-              // 更新 KLineChart - 使用 updateData 方法保持滚动位置
+              // Update KLineChart - use updateData to maintain scroll position
               if (chartRef.value && typeof chartRef.value.updateData === 'function') {
                 // 更新最后一根K线数据，保持滚动位置
-                // updateData 只需要一个参数：要更新的数据对象（v9.8.0+ 不再接受 callback 参数）
+                // updateData needs only one argument: data object to update (v9.8.0+ no longer accepts callback)
                 const lastIndex = klineData.value.length - 1
                 chartRef.value.updateData(existingData[lastIndex])
-                // 指标计算节流：默认 10 秒刷新一次（避免 1 秒频率下 CPU 拉满）
+                // Indicator calculation throttle: default 10s refresh (avoid CPU spiking at 1s frequency)
                 maybeUpdateIndicators(false)
               } else if (chartRef.value) {
-                // 降级方案：使用 applyNewData（会重置滚动位置）
+                // Fallback: use applyNewData (resets scroll position)
                 chartRef.value.applyNewData(klineData.value)
                 maybeUpdateIndicators(false)
               }
             } else if (lastNewTime > lastExistingTime) {
-              // 新的时间段，追加新数据
-              // 先移除可能重复的K线（基于时间段，而不是精确时间戳）
+              // New timeframe, append new data
+              // Remove potentially duplicate Klines first (based on timeframe, not precise timestamp)
               const uniqueNewData = newData.filter(newItem => {
                 const newItemTime = Math.floor(newItem.timestamp / 1000)
-                // 检查是否与现有数据中的任何一条属于同一时间段
+                // Check if belonging to same timeframe as any existing data
                 return !existingData.some(existingItem => {
                   const existingItemTime = Math.floor(existingItem.timestamp / 1000)
                   return isSameTimeframe(newItemTime, existingItemTime, props.timeframe)
@@ -1884,11 +1884,11 @@ registerOverlay({
                 const internalData = convertToInternalFormat(klineData.value)
                 updatePricePanel(internalData)
 
-                // 更新 KLineChart - 使用 applyMoreData 保持滚动位置
+                // Update KLineChart - use applyMoreData to maintain scroll position
                 if (chartRef.value && typeof chartRef.value.applyMoreData === 'function') {
                   // 追加新K线，使用 applyMoreData 保持滚动位置
                   chartRef.value.applyMoreData(uniqueNewData)
-                  // 新K线出现时强制刷新一次指标
+                  // Force single indicator refresh when new Kline appears
                   maybeUpdateIndicators(true)
                 } else if (chartRef.value) {
                   // 降级方案：使用 applyNewData（会重置滚动位置）
@@ -1901,37 +1901,37 @@ registerOverlay({
           }
         }
       } catch (err) {
-        // 增量更新失败时静默处理，不影响现有数据
+        // Silently handle incremental update failure, no effect on existing data
       }
     }
 
-    // 启动实时更新
+    // Start real-time update
     const startRealtime = () => {
-      // 先清除现有定时器
+      // Clear existing timer first
       if (realtimeTimer.value) {
         clearInterval(realtimeTimer.value)
       }
 
-      // 根据时间周期智能调整更新频率
+      // Intelligently adjust update frequency based on timeframe
       const intervalMap = {
-        '1m': 5000, // 1分钟K线，每5秒更新
-        '5m': 10000, // 5分钟K线，每10秒更新
-        '15m': 15000, // 15分钟K线，每15秒更新
-        '30m': 30000, // 30分钟K线，每30秒更新
-        '1H': 60000, // 1小时K线，每60秒更新
-        '4H': 300000, // 4小时K线，每5分钟更新
-        '1D': 600000, // 日线，每10分钟更新
-        '1W': 1800000 // 周线，每30分钟更新
+        '1m': 5000,  // 1m K-line, 5s interval
+        '5m': 10000, // 5m K-line, 10s interval
+        '15m': 15000, // 15m K-line, 15s interval
+        '30m': 30000, // 30m K-line, 30s interval
+        '1H': 60000,  // 1H K-line, 60s interval
+        '4H': 300000, // 4H K-line, 5m interval
+        '1D': 600000, // Daily, 10m interval
+        '1W': 1800000 // Weekly, 30m interval
       }
-      // UI体验优先：允许高频刷新以便观察“价格/K线/指标”同步效果。
-      // 这里将刷新间隔上限限制为 1 秒；若指标计算较慢，updateIndicators 内部会用锁避免重入。
+      // UI Experience Priority: allow high-frequency refresh for observing "Price/Kline/Indicator" synchronization.
+      // Limit maximum refresh interval to 1s; if calculation is slow, updateIndicators uses a lock internally to prevent re-entry.
       const base = intervalMap[props.timeframe] || 10000
       realtimeInterval.value = Math.min(base, 1000)
 
-      // 如果启用了实时更新且有选中的标的
+      // If real-time update enabled and symbol selected
       if (props.realtimeEnabled && props.symbol && klineData.value.length > 0) {
         realtimeTimer.value = setInterval(() => {
-          // 只在不在加载中且有现有数据时进行增量更新
+          // Incrementally update Kline only when not loading and data exists
           if (!loading.value && props.symbol && klineData.value && klineData.value.length > 0) {
             updateKlineRealtime() // 增量更新K线
           }
@@ -1939,7 +1939,7 @@ registerOverlay({
       }
     }
 
-    // 停止实时更新
+    // Stop real-time update
     const stopRealtime = () => {
       if (realtimeTimer.value) {
         clearInterval(realtimeTimer.value)
@@ -1947,7 +1947,7 @@ registerOverlay({
       }
     }
 
-    // --- 图表初始化函数 ---
+    // --- Chart initialization function ---
     const initChart = () => {
       const container = document.getElementById('kline-chart-container')
       if (!container) return
@@ -1970,7 +1970,7 @@ registerOverlay({
         return
       }
 
-      // 如果图表已存在，先销毁
+      // If chart already exists, destroy it first
       if (chartRef.value) {
         try {
           chartRef.value.destroy()
@@ -1979,27 +1979,27 @@ registerOverlay({
       }
 
       try {
-        // 初始化 KLineChart
+        // Initialize KLineChart
         const container = document.getElementById('kline-chart-container')
         if (!container) {
           throw new Error('容器元素不存在')
         }
 
-        // 尝试使用配置选项初始化，看是否支持内置画线工具栏
+        // Try initializing with options to check for built-in drawing toolbar support
         try {
           // 尝试使用第二个参数传入配置选项
           chartRef.value = init(container, {
-            drawingBarVisible: true, // 尝试启用内置画线工具栏
+            drawingBarVisible: true, // Try enabling built-in drawing toolbar
             overlay: {
               visible: true
             }
           })
         } catch (e) {
-          // 如果不支持配置选项，使用默认初始化
+          // If options not supported, use default initialization
           chartRef.value = init(container)
         }
 
-        // 如果配置选项方式不支持，尝试调用方法启用画线工具栏
+        // If options approach not supported, try calling method to enable drawing toolbar
         if (chartRef.value && typeof chartRef.value.setDrawingBarVisible === 'function') {
           chartRef.value.setDrawingBarVisible(true)
         } else if (chartRef.value && typeof chartRef.value.setDrawingBar === 'function') {
@@ -2012,9 +2012,9 @@ registerOverlay({
           throw new Error('图表初始化失败：无法创建图表实例')
         }
 
-        // 调试：输出图表实例的所有方法，检查是否有画线工具栏相关的方法
+        // Debug: output all chart instance methods, check for drawing toolbar related ones
         if (chartRef.value) {
-          // 检查是否有内置画线工具栏的方法
+          // Check for built-in drawing toolbar methods
           if (typeof chartRef.value.setDrawingBarVisible === 'function') {
             chartRef.value.setDrawingBarVisible(true)
           }
@@ -2029,11 +2029,11 @@ registerOverlay({
         // 设置主题样式
         updateChartTheme()
 
-        // 监听覆盖物创建完成事件，自动退出绘制模式
+        // Listen for overlay creation completion, automatically exit drawing mode
         if (chartRef.value && typeof chartRef.value.subscribeAction === 'function') {
           // 监听覆盖物创建完成事件
           chartRef.value.subscribeAction('onOverlayCreated', (overlay) => {
-            // 如果是通过画线工具创建的覆盖物，记录ID并退出绘制模式
+            // If overlay created via drawing tool, record ID and exit drawing mode
             if (activeDrawingTool.value && overlay && overlay.id) {
               addedDrawingOverlayIds.value.push(overlay.id)
               // 重置激活状态
@@ -2048,14 +2048,14 @@ registerOverlay({
             }
           })
 
-          // 监听覆盖物绘制完成事件（某些版本可能使用此事件）
+          // Listen for overlay drawing completion (some versions might use this event)
           if (typeof chartRef.value.subscribeAction === 'function') {
             try {
               chartRef.value.subscribeAction('onOverlayComplete', (overlay) => {
                 if (activeDrawingTool.value && overlay && overlay.id) {
                   addedDrawingOverlayIds.value.push(overlay.id)
                   activeDrawingTool.value = null
-                  // 退出绘制模式 - 不调用 overrideOverlay(null)，因为会导致错误
+                  // Exit drawing mode - don't call overrideOverlay(null) as it causes errors
                 }
               })
             } catch (e) {
@@ -2063,7 +2063,7 @@ registerOverlay({
             }
           }
 
-          // 监听覆盖物移除事件
+          // Listen for overlay removal event
           chartRef.value.subscribeAction('onOverlayRemoved', (overlayId) => {
             // 从列表中移除
             const index = addedDrawingOverlayIds.value.indexOf(overlayId)
@@ -2073,36 +2073,36 @@ registerOverlay({
           })
         }
 
-        // 使用 subscribeAction 监听可见范围变化，手动触发加载更多
-        // 替代 setLoadMoreDataCallback，因为它在某些版本可能不触发
+        // Use subscribeAction to listen for visible range changes, manually trigger load-more
+        // Replaces setLoadMoreDataCallback, which might not trigger in some versions
         if (chartRef.value && typeof chartRef.value.subscribeAction === 'function') {
-          // 保存上一次的可见范围，用于检测是否滚动到最左侧
+          // Save last visible range to detect scrolling to the far left
           let lastVisibleFrom = null
-          // 标记是否已经处理过初始化时的可见范围变化
+          // Mark if initialization visible range change handled
           let initialRangeProcessed = false
 
           chartRef.value.subscribeAction('onVisibleRangeChange', async (data) => {
             if (data && typeof data.from === 'number') {
-              // 如果是初始化时的第一次可见范围变化，只记录，不触发加载
+              // If first visible range change at initialization, record only, don't trigger load
               if (!initialRangeProcessed) {
                 lastVisibleFrom = data.from
                 initialRangeProcessed = true
-                // 延迟标记图表初始化完成，确保初始化完成后再允许触发加载
+                // Delayed marking of chart initialization as complete, to allow loads thereafter
                 setTimeout(() => {
                   chartInitialized.value = true
                 }, 1000)
                 return
               }
 
-              // 如果图表还未初始化完成，不触发加载
+              // If chart not yet initialized, don't trigger load
               if (!chartInitialized.value) {
                 lastVisibleFrom = data.from
                 return
               }
 
-              // 如果正在加载历史数据，且用户尝试继续向左滚动，阻止滚动
+              // If loading history and user tries to scroll left further, block scroll
               if (loadingHistory.value && data.from <= 0) {
-                // 尝试将可见范围保持在第一个数据点之后，防止继续向左
+                // Try to keep visible range after the first data point to prevent further left scroll
                 try {
                   if (chartRef.value && typeof chartRef.value.setVisibleRange === 'function') {
                     const dataLength = klineData.value.length
@@ -2110,10 +2110,10 @@ registerOverlay({
                       // 获取当前可见范围
                       const currentRange = chartRef.value.getVisibleRange()
                       if (currentRange) {
-                        // 计算可见的数据条数
+                        // Calculate number of visible data points
                         const visibleCount = Math.ceil((currentRange.to - currentRange.from) * dataLength / 100)
-                        // 设置新的可见范围，从第一个数据点开始（索引0对应0%，但我们要稍微向右一点）
-                        // 使用百分比：第一个数据点大约是 0%，我们设置为 0.1% 来防止继续向左
+                        // Set new visible range from the first data point (index 0 is 0%, but we go slightly right)
+                        // Use percentage: first point is approx 0%, set to 0.1% to prevent further left scroll
                         const minFrom = 0.1
                         const newTo = Math.min(100, minFrom + (visibleCount / dataLength * 100))
                         chartRef.value.setVisibleRange(minFrom, newTo)
@@ -2125,9 +2125,9 @@ registerOverlay({
                 return
               }
 
-              // 当滚动到最左侧（索引接近0或小于等于5）时触发加载
-              // 只有在用户主动向左滚动时才触发（lastVisibleFrom > data.from 表示向左滚动）
-              // 【关键】同时检查 loadingHistory.value 和 loadingHistoryPromise，确保没有正在进行的请求
+              // Trigger load when scrolled to far left (index close to 0 or <= 5)
+              // Only trigger on active left scroll (lastVisibleFrom > data.from)
+              // [Critical] Check both loadingHistory and loadingHistoryPromise to ensure no ongoing requests
               if (data.from <= 5 && !loadingHistory.value && !loadingHistoryPromise && hasMoreHistory.value && chartInitialized.value) {
                 // 检查是否是用户主动向左滚动（避免初始化时触发）
                 if (lastVisibleFrom !== null && lastVisibleFrom > data.from) {
@@ -2144,9 +2144,9 @@ registerOverlay({
           })
         }
 
-        // 如果有数据，应用数据
+        // If data exists, apply it
         if (klineData.value && klineData.value.length > 0) {
-          // 确保数据格式正确
+          // Ensure data format is correct
           const validData = klineData.value.filter(item =>
             item.timestamp &&
             !isNaN(item.open) &&
@@ -2156,7 +2156,7 @@ registerOverlay({
           )
 
           if (validData.length > 0) {
-            // 使用 applyNewData 初始化
+            // Use applyNewData for initialization
             try {
               chartRef.value.applyNewData(validData)
             } catch (e) {
@@ -2167,13 +2167,13 @@ registerOverlay({
               }
             }
 
-            // 创建成交量指标（默认显示）
+            // Create volume indicator (show by default)
             try {
               chartRef.value.createIndicator('VOL', false, { height: 100, dragEnabled: true })
             } catch (e) {
             }
 
-            // 延迟更新指标，确保K线先渲染
+            // Delayed indicator update to ensure Klines render first
             nextTick(() => {
               updateIndicators()
             })
@@ -2201,7 +2201,7 @@ registerOverlay({
       }
     }
 
-    // 更新图表主题
+    // Update chart theme
     const updateChartTheme = () => {
       if (!chartRef.value) return
 
@@ -2308,13 +2308,13 @@ registerOverlay({
       })
     }
 
-    // --- 注册自定义指标辅助函数 ---
+    // --- Register custom indicator helper functions ---
     const registerCustomIndicator = (name, calcFunc, figures, calcParams = [], precision = 2, shouldOverlay = false) => {
       try {
-        // KLineChart v9 使用 series: 'price' 来标识主图指标
+        // KLineChart v9 uses series: 'price' to identify main plot indicators
         const indicatorConfig = {
           name,
-          shortName: name, // 添加 shortName
+          shortName: name, // Add shortName
           calc: calcFunc,
           figures,
           calcParams,
@@ -2326,7 +2326,7 @@ registerOverlay({
         // console.log(`成功注册指标: ${name}, series: ${indicatorConfig.series}`)
         return true
       } catch (err) {
-        // 如果已注册，忽略错误
+        // If already registered, ignore error
         if (err.message && err.message.includes('already registered')) {
           return true
         }
@@ -2334,19 +2334,19 @@ registerOverlay({
       }
     }
 
-    // --- 更新指标（KLineChart 版本） ---
+    // --- Update indicators (KLineChart version) ---
     const updateIndicators = async () => {
       if (indicatorsUpdating.value) {
         return
       }
-      // 使用 JSON 序列化/反序列化去除 Vue 2 Observer 的干扰
+      // Use JSON serialization/deserialization to remove Vue 2 Observer interference
       if (!chartRef.value || klineData.value.length === 0) {
         return
       }
 
       indicatorsUpdating.value = true
       try {
-      // 1. 移除所有已添加的信号 overlays
+      // 1. Remove all added signal overlays
       try {
         if (addedSignalOverlayIds.value.length > 0 && chartRef.value) {
           addedSignalOverlayIds.value.forEach(overlayId => {
@@ -2365,11 +2365,11 @@ registerOverlay({
       } catch (e) {
       }
 
-      // 2. 移除所有已添加的指标
+      // 2. Remove all added indicators
       try {
         if (addedIndicatorIds.value.length > 0) {
           addedIndicatorIds.value.forEach(info => {
-            // info 可以是 { paneId, name } 对象或仅 name 字符串
+            // info can be { paneId, name } object or just name string
             const name = typeof info === 'string' ? info : info.name
             const paneId = typeof info === 'string' ? undefined : info.paneId
 
@@ -2378,9 +2378,9 @@ registerOverlay({
             if (paneId) {
               chartRef.value.removeIndicator(paneId, name)
             } else {
-              // 如果没有 paneId，尝试从主图移除
+              // If no paneId, try removing from main plot
               chartRef.value.removeIndicator('candle_pane', name)
-              // 也可以尝试不传 paneId
+              // Can also try without passing paneId
               chartRef.value.removeIndicator(name)
             }
           })
@@ -2390,24 +2390,24 @@ registerOverlay({
       } catch (e) {
       }
 
-      // 转换数据格式（KLineChart 需要内部格式用于计算）
+      // Convert data format (KLineChart needs internal format for calculations)
       const internalData = convertToInternalFormat(klineData.value)
 
-      // 遍历所有激活的指标
+      // Iterate through all active indicators
       for (let idx = 0; idx < props.activeIndicators.length; idx++) {
         const indicator = props.activeIndicators[idx]
         try {
-          // 处理 Python 指标
+          // Python indicators
           if (indicator.type === 'python') {
             if (!indicator.code) continue
 
             try {
-              // 如果有 calculate 函数，使用它（用于 Python 指标）
+              // If calculate function exists, use it (for Python indicators)
               if (indicator.calculate && typeof indicator.calculate === 'function') {
                 const result = await indicator.calculate(internalData, indicator.params || {})
 
-                // 处理结果中的 plots - 将所有 plots 合并到一个指标中
-                // 注意：signals 不添加到指标中，而是单独处理，避免显示 "n/a"
+                // Handle plots in result - merge all plots into one indicator
+                // Signals are not added to the indicator, but handled separately to avoid "n/a" display
                 let allPlots = []
                 if (result && result.plots && Array.isArray(result.plots)) {
                   allPlots = [...result.plots]
@@ -2461,7 +2461,7 @@ registerOverlay({
                           signalPoints.push({
                             timestamp,
                             price: signalValue,
-                            // 确定锚点价格：买入看 Low，卖出看 High
+                            // Determine anchor price: Low for buy, High for sell
                             anchorPrice: isBuySignal ? lowPrice : highPrice,
                             // side is used for layout/styling; action preserves the original type (buy/sell).
                             side: isBuySignal ? 'buy' : 'sell',
@@ -2608,10 +2608,10 @@ registerOverlay({
                   }
                 }
               } else {
-                // 如果没有 calculate 函数，直接使用 executePythonStrategy
-                // 构建解密所需的信息
+                // If no calculate function, use executePythonStrategy directly
+                // Construct information required for decryption
                 const decryptInfo = {
-                  id: indicator.originalId || indicator.id, // 优先使用原始数据库ID
+                  id: indicator.originalId || indicator.id, // Prefer original database ID
                   user_id: indicator.user_id || indicator.userId,
                   is_encrypted: indicator.is_encrypted || indicator.isEncrypted || 0
                 }
@@ -2619,11 +2619,11 @@ registerOverlay({
                   indicator.code,
                   internalData,
                   indicator.params || {},
-                  decryptInfo // 传递解密信息
+                  decryptInfo // Pass decryption info
                 )
 
-                // 处理 plots - 将所有 plots 合并到一个指标中
-                // 注意：signals 不添加到指标中，而是单独处理，避免显示 "n/a"
+                // Handle plots - merge all plots into one indicator
+                // Signals are not added to the indicator, but handled separately to avoid "n/a" display
                 let allPlots = []
                 if (pythonResult && pythonResult.plots && Array.isArray(pythonResult.plots)) {
                   allPlots = [...pythonResult.plots]
@@ -2824,7 +2824,7 @@ registerOverlay({
                 }
               }
             } catch (err) {
-              // 如果是 Python 引擎未就绪的错误，设置加载失败状态
+              // If Python engine not ready error, set load failure state
               if (err.message && err.message.includes('Python 引擎未就绪')) {
                 if (!loadingPython.value) {
                   pyodideLoadFailed.value = true
@@ -2834,12 +2834,12 @@ registerOverlay({
             continue
           }
 
-          // 注意：calculate 函数可能为 null，因为指标的计算逻辑在 updateIndicators 中通过 id 判断
-          // 所以这里不检查 calculate，而是直接根据 indicator.id 处理
+          // Note: calculate function might be null, as logic is determined by id in updateIndicators
+          // So we don't check calculate, but handle directly via indicator.id
 
           const color = getIndicatorColor(idx)
 
-          // 根据指标类型创建 KLineChart 指标
+          // Create KLineChart indicator based on indicator type
           if (indicator.id === 'sma' || indicator.id === 'ema') {
             const maType = indicator.id === 'sma' ? 'SMA' : 'EMA'
             const period = indicator.params?.length || indicator.params?.period || 20
@@ -2852,7 +2852,7 @@ registerOverlay({
                 customIndicatorName,
                 (kLineDataList, indicator) => {
                   const p = indicator.calcParams[0] || calcPeriod
-                  // calculateSMA/EMA 需要传入包含 close 属性的对象数组，而不是数字数组
+                  // calculateSMA/EMA needs an array of objects with close property, not a numeric array
                   const values = maType === 'SMA'
                     ? calculateSMA(kLineDataList, p)
                     : calculateEMA(kLineDataList, p)
@@ -2875,14 +2875,14 @@ registerOverlay({
                 if (paneId) {
                   addedIndicatorIds.value.push({ paneId, name: customIndicatorName })
                 } else {
-                  // 如果返回 null (主图指标可能返回 null)，也记录下来
+                  // If null returned (main plot indicator might return null), record it too
                   addedIndicatorIds.value.push({ paneId: 'candle_pane', name: customIndicatorName })
                 }
               }
             } catch (err) {
             }
           } else if (indicator.id === 'macd') {
-            // MACD 默认画在副图
+            // MACD drawn on sub-plot by default
             const indicatorId = chartRef.value.createIndicator('MACD', false, { height: 100, dragEnabled: true })
             if (indicatorId) {
               addedIndicatorIds.value.push({ paneId: indicatorId, name: 'MACD' })
@@ -2893,7 +2893,7 @@ registerOverlay({
                addedIndicatorIds.value.push({ paneId: indicatorId, name: 'RSI' })
              }
           } else if (indicator.id === 'bollinger_bands' || indicator.id === 'bb') {
-            // 布林带需要注册自定义指标
+            // Bollinger Bands requires custom indicator registration
             const length = indicator.params?.length || 20
             const mult = indicator.params?.mult || 2
             const customIndicatorName = `BOLL_${length}_${mult}`
@@ -2904,9 +2904,9 @@ registerOverlay({
                 (kLineDataList, indicator) => {
                   const length = indicator.calcParams[0] || 20
                   const mult = indicator.calcParams[1] || 2
-                  // calculateBollingerBands 需要传入包含 close 属性的对象数组
+                  // calculateBollingerBands needs an array of objects with close property
                   const bbResult = calculateBollingerBands(kLineDataList, length, mult)
-                  // KLineChart 需要返回对象数组，每个对象的键对应 figures 的 key
+                  // KLineChart requires an array of objects, with keys matching figures keys
                   const result = []
                   for (let i = 0; i < bbResult.length; i++) {
                     result.push({
@@ -2918,9 +2918,9 @@ registerOverlay({
                   return result
                 },
                 [
-                  { key: 'upper', title: `上轨(${length},${mult})`, type: 'line' },
-                  { key: 'middle', title: `中轨(${length})`, type: 'line' },
-                  { key: 'lower', title: `下轨(${length},${mult})`, type: 'line' }
+                  { key: 'upper', title: `Upper(${length},${mult})`, type: 'line' },
+                  { key: 'middle', title: `Middle(${length})`, type: 'line' },
+                  { key: 'lower', title: `Lower(${length},${mult})`, type: 'line' }
                 ],
                 [length, mult], // calcParams
                 2, // precision
@@ -2928,10 +2928,10 @@ registerOverlay({
               )
 
               if (registered) {
-                // 创建指标（主图指标）
+                // Create indicator (main plot indicator)
                 const paneId = chartRef.value.createIndicator(
                   customIndicatorName,
-                  false, // isStack: false 表示不堆叠
+                  false, // isStack: false denotes no stacking
                   { id: 'candle_pane' }
                 )
                 if (paneId) {
@@ -2943,7 +2943,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'atr') {
-            // ATR 需要注册自定义指标
+            // ATR requires custom indicator registration
             const period = indicator.params?.period || indicator.params?.length || 14
             const customIndicatorName = `ATR_${period}`
 
@@ -2979,7 +2979,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'williams' || indicator.id === 'williams_r') {
-            // Williams %R 需要注册自定义指标
+            // Williams %R requires custom indicator registration
             const length = indicator.params?.length || 14
             const customIndicatorName = `WPR_${length}`
 
@@ -3015,7 +3015,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'mfi') {
-            // MFI 需要注册自定义指标
+            // MFI requires custom indicator registration
             const length = indicator.params?.length || 14
             const customIndicatorName = `MFI_${length}`
 
@@ -3052,7 +3052,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'cci') {
-            // CCI 需要注册自定义指标
+            // CCI requires custom indicator registration
             const length = indicator.params?.length || 20
             const customIndicatorName = `CCI_${length}`
 
@@ -3088,7 +3088,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'adx') {
-            // ADX 需要注册自定义指标
+            // ADX requires custom indicator registration
             const length = indicator.params?.length || 14
             const customIndicatorName = `ADX_${length}`
 
@@ -3124,7 +3124,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'obv') {
-            // OBV 需要注册自定义指标
+            // OBV requires custom indicator registration
             const customIndicatorName = 'OBV'
 
             try {
@@ -3156,7 +3156,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'adosc') {
-            // ADOSC 需要注册自定义指标
+            // ADOSC requires custom indicator registration
             const fast = indicator.params?.fast || 3
             const slow = indicator.params?.slow || 10
             const customIndicatorName = `ADOSC_${fast}_${slow}`
@@ -3194,7 +3194,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'ad') {
-            // AD 需要注册自定义指标
+            // AD requires custom indicator registration
             const customIndicatorName = 'AD'
 
             try {
@@ -3228,7 +3228,7 @@ registerOverlay({
             } catch (err) {
             }
           } else if (indicator.id === 'kdj') {
-            // KDJ 需要注册自定义指标
+            // KDJ requires custom indicator registration
             const period = indicator.params?.period || 9
             const kPeriod = indicator.params?.k || 3
             const dPeriod = indicator.params?.d || 3
@@ -3270,7 +3270,7 @@ registerOverlay({
             } catch (err) {
             }
           } else {
-            // 尝试直接用 indicator.id 创建（假设是内置指标名）
+            // Try creating directly with indicator.id (assuming built-in indicator name)
             try {
               const indicatorName = indicator.id.toUpperCase()
               const indicatorId = chartRef.value.createIndicator(indicatorName, false, { height: 100, dragEnabled: true })
@@ -3280,7 +3280,7 @@ registerOverlay({
             } catch (err) {
             }
           }
-          // ... 其他指标 ...
+          // ... Other indicators ...
         } catch (e) {
         }
       }
@@ -3293,7 +3293,7 @@ registerOverlay({
       loadKlineData()
     }
 
-    // 生命周期
+    // Lifecycle
     watch(() => props.symbol, () => {
       if (props.symbol) {
         loadKlineData()
@@ -3323,7 +3323,7 @@ registerOverlay({
       if (props.symbol) {
         loadKlineData()
       }
-      // 时间周期变化时，重新启动实时更新（如果已启用）
+      // Restart real-time update on timeframe change (if enabled)
       if (props.realtimeEnabled) {
         stopRealtime()
         startRealtime()
@@ -3331,9 +3331,9 @@ registerOverlay({
     })
 
     watch(() => props.activeIndicators, (newVal, oldVal) => {
-      // 当指标列表变化时，重新渲染图表
+      // Rerender chart when indicator list changes
       if (chartRef.value && klineData.value.length > 0) {
-        // 使用 nextTick 确保 DOM 更新完成后再更新图表
+        // Use nextTick to ensure chart updates after DOM update completion
         nextTick(() => {
           if (chartRef.value) {
             updateIndicators()
@@ -3351,14 +3351,14 @@ registerOverlay({
     })
 
     onMounted(async () => {
-      // 优先使用 props.theme（从 Vuex store 获取），确保与系统主题同步
-      // 使用 nextTick 确保 props 已经正确传递
+      // Prioritize props.theme (from Vuex store) to ensure synchronization with system theme
+      // Use nextTick to ensure props are correctly passed
       await nextTick()
       if (props.theme && (props.theme === 'dark' || props.theme === 'light')) {
         chartTheme.value = props.theme
       }
 
-      // 加载 Pyodide
+      // Load Pyodide
       try {
         await loadPyodide()
       } catch (err) {
@@ -3423,7 +3423,7 @@ registerOverlay({
 </script>
 
 <style lang="less" scoped>
-/* 左侧图表容器 */
+/* Left chart container */
 .chart-left {
   width: 70% !important;
   flex: 0 0 70% !important;
@@ -3455,7 +3455,7 @@ registerOverlay({
   }
 }
 
-/* 画线工具工具栏 */
+/* Drawing Tools Toolbar */
 .drawing-toolbar {
   flex-shrink: 0;
   width: 40px;
@@ -3521,7 +3521,7 @@ registerOverlay({
   height: 20px;
 }
 
-/* 指标工具栏 */
+/* Indicator Toolbar */
 .indicator-toolbar {
   flex-shrink: 0;
   display: flex;
@@ -3546,12 +3546,12 @@ registerOverlay({
   height: 0;
 }
 
-/* 图表内容区域 */
+/* Chart content area */
 .chart-content-area {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* 防止 flex 子元素溢出 */
+  min-width: 0; /* Prevent flex sub-element overflow */
   overflow: hidden;
 }
 
@@ -3735,7 +3735,7 @@ registerOverlay({
   color: #787b86;
 }
 
-/* 历史数据加载提示 */
+/* History data loading hint */
 .history-loading-hint {
   position: absolute;
   left: 20px;
@@ -3768,44 +3768,44 @@ registerOverlay({
   margin-left: 4px;
 }
 
-/* 移动端适配 */
+/* Mobile adaptation */
 @media (max-width: 768px) {
   .drawing-toolbar {
-    display: none; /* 移动端隐藏画线工具栏 */
+    display: none; /* Hide drawing toolbar on mobile */
   }
 
   .indicator-toolbar {
-    padding-left: 12px; /* 移动端恢复原始padding */
-    flex-wrap: nowrap; /* 手机端不换行，只显示一行 */
-    overflow-x: auto; /* 允许横向滚动 */
-    overflow-y: hidden; /* 禁止纵向滚动 */
-    scrollbar-width: none; /* Firefox 隐藏滚动条 */
-    -ms-overflow-style: none; /* IE 10+ 隐藏滚动条 */
-    -webkit-overflow-scrolling: touch; /* iOS 平滑滚动 */
+    padding-left: 12px; /* Restore original padding on mobile */
+    flex-wrap: nowrap; /* No wrapping on mobile, show only one row */
+    overflow-x: auto; /* Allow horizontal scrolling */
+    overflow-y: hidden; /* Prohibit vertical scrolling */
+    scrollbar-width: none; /* Firefox: hide scrollbar */
+    -ms-overflow-style: none; /* IE 10+: hide scrollbar */
+    -webkit-overflow-scrolling: touch; /* iOS smooth scrolling */
   }
 
   .indicator-toolbar::-webkit-scrollbar {
-    display: none; /* Chrome Safari 隐藏滚动条 */
+    display: none; /* Chrome Safari: hide scrollbar */
     width: 0;
     height: 0;
   }
 
   .indicator-btn {
-    flex-shrink: 0; /* 按钮不收缩，保持原始大小 */
+    flex-shrink: 0; /* Button doesn't shrink, maintains original size */
   }
 }
 
 @media (max-width: 1200px) {
   .drawing-toolbar {
-    display: none; /* 移动端隐藏画线工具栏 */
+    display: none; /* Hide drawing toolbar on mobile */
   }
 
   .indicator-toolbar {
-    padding-left: 12px; /* 移动端恢复原始padding */
+    padding-left: 12px; /* Restore original padding on mobile */
   }
 
   .kline-chart-container {
-    margin-left: 0; /* 移动端恢复原始margin */
+    margin-left: 0; /* Restore original margin on mobile */
   }
 
   .chart-left {
@@ -3859,7 +3859,7 @@ registerOverlay({
   }
 
   .kline-chart-container {
-    height: calc(100% - 45px) !important; /* 减去工具栏高度 */
+    height: calc(100% - 45px) !important; /* Subtract toolbar height */
     min-height: 350px !important;
     max-height: calc(100% - 45px) !important;
   }
@@ -3879,7 +3879,7 @@ registerOverlay({
   }
 
   .kline-chart-container {
-    height: calc(100% - 45px) !important; /* 减去工具栏高度 */
+    height: calc(100% - 45px) !important; /* Subtract toolbar height */
     min-height: 300px !important;
     max-height: calc(100% - 45px) !important;
   }

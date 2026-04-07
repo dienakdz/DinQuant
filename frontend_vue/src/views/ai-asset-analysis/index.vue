@@ -30,31 +30,31 @@
             <div class="rc-metrics">
               <template v-if="opp.market !== 'PredictionMarket'">
                 <div class="rc-metric">
-                  <span class="rc-metric-label">{{ isZhLocale ? '当前价格' : 'Price' }}</span>
+                  <span class="rc-metric-label">{{ tt('aiAssetAnalysis.opportunities.metric.price', 'Price') }}</span>
                   <span class="rc-metric-value">${{ formatOppPrice(opp.price) }}</span>
                 </div>
                 <div class="rc-metric">
-                  <span class="rc-metric-label">{{ isZhLocale ? '24h涨跌' : '24h Change' }}</span>
+                  <span class="rc-metric-label">{{ tt('aiAssetAnalysis.opportunities.metric.change24h', '24h Change') }}</span>
                   <span class="rc-metric-value" :class="Number(opp.change_24h) >= 0 ? 'rc-up' : 'rc-down'">
                     {{ Number(opp.change_24h) >= 0 ? '+' : '' }}{{ Number(opp.change_24h || 0).toFixed(2) }}%
                   </span>
                 </div>
                 <div class="rc-metric">
-                  <span class="rc-metric-label">{{ isZhLocale ? '信号' : 'Signal' }}</span>
+                  <span class="rc-metric-label">{{ tt('aiAssetAnalysis.opportunities.metric.signal', 'Signal') }}</span>
                   <span class="rc-metric-value rc-signal-val" :class="`rc-signal-${opp.signal || ''}`">{{ getSignalLabel(opp.signal) }}</span>
                 </div>
               </template>
               <template v-else>
                 <div class="rc-metric">
-                  <span class="rc-metric-label">{{ isZhLocale ? '市场概率' : 'Probability' }}</span>
+                  <span class="rc-metric-label">{{ tt('aiAssetAnalysis.opportunities.metric.probability', 'Probability') }}</span>
                   <span class="rc-metric-value">{{ Number(opp.price || 0).toFixed(1) }}%</span>
                 </div>
                 <div v-if="opp.ai_analysis" class="rc-metric">
-                  <span class="rc-metric-label">{{ isZhLocale ? '机会评分' : 'Score' }}</span>
+                  <span class="rc-metric-label">{{ tt('aiAssetAnalysis.opportunities.metric.score', 'Score') }}</span>
                   <span class="rc-metric-value rc-up">{{ Number(opp.ai_analysis.opportunity_score || 0).toFixed(0) }}</span>
                 </div>
                 <div v-if="opp.ai_analysis" class="rc-metric">
-                  <span class="rc-metric-label">{{ isZhLocale ? '建议' : 'Rec.' }}</span>
+                  <span class="rc-metric-label">{{ tt('aiAssetAnalysis.opportunities.metric.recommendation', 'Rec.') }}</span>
                   <span class="rc-metric-value" :class="getRecommendationClass(opp.ai_analysis.recommendation)">
                     {{ getRecommendationLabel(opp.ai_analysis.recommendation) }}
                   </span>
@@ -114,21 +114,27 @@
           <span slot="tab"><a-icon type="radar-chart" /> {{ tt('aiAssetAnalysis.tabs.polymarket', 'Polymarket') }}</span>
           <div class="tab-body">
             <div class="polymarket-tab-content">
-              <div class="polymarket-placeholder">
-                <div class="placeholder-icon"><a-icon type="radar-chart" /></div>
-                <h3>{{ tt('polymarket.analysis.title', 'Polymarket Analysis') }}</h3>
-                <p>{{ tt('polymarket.analysis.description', 'Analyze a prediction market by URL or title and compare market pricing with AI probability.') }}</p>
-                <a-button style="margin-top: 16px" type="primary" size="large" icon="thunderbolt" @click="showPolymarketModal = true">
-                  {{ tt('polymarket.analysis.startAnalysis', 'Start analysis') }}
-                </a-button>
+              <div class="polymarket-hero">
+                <div class="polymarket-hero-copy">
+                  <div class="polymarket-hero-eyebrow">{{ tt('polymarket.analysis.title', 'Polymarket Analysis') }}</div>
+                  <h3>{{ tt('polymarket.analysis.heroTitle', 'Compare market pricing with AI conviction') }}</h3>
+                  <p>{{ tt('polymarket.analysis.description', 'Analyze a prediction market by URL or title and compare market pricing with AI probability.') }}</p>
+                </div>
+                <div class="polymarket-hero-actions">
+                  <a-button type="primary" size="large" icon="thunderbolt" @click="focusPolymarketWorkspace">
+                    {{ tt('polymarket.analysis.startAnalysis', 'Start analysis') }}
+                  </a-button>
+                  <a-button size="large" icon="export" @click="openPolymarketStandalone">
+                    {{ tt('polymarket.analysis.openStandalone', 'Open standalone page') }}
+                  </a-button>
+                </div>
               </div>
+              <polymarket-analysis-workspace ref="polymarketWorkspace" embedded />
             </div>
           </div>
         </a-tab-pane>
       </a-tabs>
     </a-card>
-
-    <polymarket-analysis-modal :visible="showPolymarketModal" @close="showPolymarketModal = false" />
   </div>
 </template>
 
@@ -137,14 +143,14 @@ import { mapState } from 'vuex'
 import AnalysisView from '@/views/ai-analysis'
 import { getTradingOpportunities } from '@/api/global-market'
 import QuickTradePanel from '@/components/QuickTradePanel.vue'
-import PolymarketAnalysisModal from '@/components/PolymarketAnalysisModal.vue'
+import PolymarketAnalysisWorkspace from '@/components/PolymarketAnalysisWorkspace.vue'
 
 export default {
   name: 'AIAssetAnalysis',
   components: {
     AnalysisView,
     QuickTradePanel,
-    PolymarketAnalysisModal
+    PolymarketAnalysisWorkspace
   },
   data () {
     return {
@@ -160,8 +166,7 @@ export default {
       qtPrice: 0,
       qtSource: 'ai_radar',
       currentAnalysisSymbol: '',
-      currentAnalysisMarket: '',
-      showPolymarketModal: false
+      currentAnalysisMarket: ''
     }
   },
   computed: {
@@ -170,9 +175,6 @@ export default {
     }),
     isDarkTheme () {
       return this.navTheme === 'dark' || this.navTheme === 'realdark'
-    },
-    isZhLocale () {
-      return this.$i18n && this.$i18n.locale === 'zh-CN'
     },
     carouselItems () {
       return this.opportunities.length === 0 ? [] : [...this.opportunities, ...this.opportunities]
@@ -185,8 +187,20 @@ export default {
   },
   created () {
     this.loadOpportunities()
+    this.applyRouteState()
+  },
+  watch: {
+    '$route.query.tab' () {
+      this.applyRouteState()
+    }
   },
   methods: {
+    applyRouteState () {
+      const query = (this.$route && this.$route.query) || {}
+      if (query.tab === 'polymarket' || query.tab === 'quick') {
+        this.activeTab = query.tab
+      }
+    },
     tt (key, fallback, params) {
       const translated = this.$t(key, params)
       return translated !== key ? translated : fallback
@@ -238,7 +252,15 @@ export default {
     analyzeOpportunity (opp) {
       if (opp.market === 'PredictionMarket') {
         this.activeTab = 'polymarket'
-        this.showPolymarketModal = true
+        this.$nextTick(() => {
+          const workspace = this.$refs.polymarketWorkspace
+          const input = opp.market_url || opp.name || opp.symbol
+          if (workspace && input && workspace.startFromInput) {
+            workspace.startFromInput(input)
+          } else if (workspace && workspace.focusInput) {
+            workspace.focusInput()
+          }
+        })
         return
       }
       this.activeTab = 'quick'
@@ -282,6 +304,18 @@ export default {
     },
     handleQuickTradeSymbolChange (symbol) {
       this.qtSymbol = symbol
+    },
+    focusPolymarketWorkspace () {
+      this.activeTab = 'polymarket'
+      this.$nextTick(() => {
+        const workspace = this.$refs.polymarketWorkspace
+        if (workspace && workspace.focusInput) {
+          workspace.focusInput()
+        }
+      })
+    },
+    openPolymarketStandalone () {
+      this.$router.push('/polymarket')
     },
     onAnalysisSymbolChange (value) {
       if (!value) {
@@ -348,16 +382,19 @@ export default {
 .qt-floating-btn { position: fixed; right: 26px; bottom: 28px; z-index: 9; display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9, #2563eb); color: #fff; font-size: 22px; box-shadow: 0 16px 30px rgba(37, 99, 235, 0.35); cursor: pointer; }
 .workspace-card { background: #fff; }
 .tab-body { min-height: 720px; }
-.polymarket-tab-content { display: flex; align-items: center; justify-content: center; min-height: 520px; padding: 24px; }
-.polymarket-placeholder { max-width: 560px; padding: 36px; border-radius: 24px; text-align: center; background: linear-gradient(180deg, #f8fafc, #eff6ff); }
-.placeholder-icon { display: inline-flex; align-items: center; justify-content: center; width: 72px; height: 72px; margin-bottom: 18px; border-radius: 50%; background: linear-gradient(135deg, #0ea5e9, #2563eb); color: #fff; font-size: 28px; }
-.polymarket-placeholder h3 { margin-bottom: 12px; color: #0f172a; font-size: 24px; }
-.polymarket-placeholder p { margin: 0; color: rgba(15, 23, 42, 0.66); line-height: 1.7; }
+.polymarket-tab-content { min-height: 520px; padding: 24px; }
+.polymarket-hero { display: flex; justify-content: space-between; gap: 18px; margin-bottom: 18px; padding: 24px; border-radius: 24px; background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #ffffff 100%); border: 1px solid #dbe7f5; }
+.polymarket-hero-copy { max-width: 720px; }
+.polymarket-hero-eyebrow { color: #2563eb; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.polymarket-hero h3 { margin: 10px 0 12px; color: #0f172a; font-size: 28px; font-weight: 700; }
+.polymarket-hero p { margin: 0; color: rgba(15, 23, 42, 0.66); line-height: 1.7; }
+.polymarket-hero-actions { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
 .theme-dark.ai-asset-analysis-page { background: #0b1220; }
 .theme-dark .workspace-card { background: #111827; }
-.theme-dark .polymarket-placeholder { background: linear-gradient(180deg, #111827, #1f2937); }
-.theme-dark .polymarket-placeholder h3 { color: #f8fafc; }
-.theme-dark .polymarket-placeholder p { color: rgba(248, 250, 252, 0.72); }
+.theme-dark .polymarket-hero { border-color: rgba(59, 130, 246, 0.16); background: linear-gradient(135deg, #111827 0%, #0f172a 60%, #161b22 100%); }
+.theme-dark .polymarket-hero-eyebrow { color: #60a5fa; }
+.theme-dark .polymarket-hero h3 { color: #f8fafc; }
+.theme-dark .polymarket-hero p { color: rgba(248, 250, 252, 0.72); }
 @keyframes radar-scroll {
   from { transform: translateX(0); }
   to { transform: translateX(calc(-50% - 7px)); }
@@ -368,5 +405,6 @@ export default {
   .radar-card.is-prediction { width: 280px; }
   .rc-metrics { grid-template-columns: 1fr; }
   .tab-body { min-height: auto; }
+  .polymarket-hero { flex-direction: column; }
 }
 </style>

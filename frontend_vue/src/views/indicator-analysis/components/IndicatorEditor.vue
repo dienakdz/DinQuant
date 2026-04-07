@@ -17,7 +17,7 @@
     >
       <div class="editor-content">
         <a-row :gutter="16" class="editor-layout" :class="{ 'mobile-layout': isMobile }">
-          <!-- 左侧：代码编辑器和智能生成 -->
+          <!-- Left: Code editor and AI generation -->
           <a-col :span="24" :xs="24" :sm="24" :md="24" class="code-editor-column">
             <div class="code-section">
               <div class="section-header">
@@ -50,14 +50,14 @@
                 :description="$t('dashboard.indicator.boundary.indicatorRule')"
               />
 
-              <!-- 代码编辑器模式 -->
+              <!-- Code editor mode -->
               <div class="code-mode-split">
                 <a-row :gutter="16" class="code-mode-row">
-                  <!-- 左：代码编辑器 -->
+                  <!-- Left: Code editor -->
                   <a-col :xs="24" :sm="24" :md="18" class="code-pane">
                     <div ref="codeEditorContainer" class="code-editor-container"></div>
                   </a-col>
-                  <!-- 右：AI 生成 -->
+                  <!-- Right: AI generation -->
                   <a-col :xs="24" :sm="24" :md="6" class="ai-pane">
                     <div class="ai-panel">
                       <div class="ai-panel-title">
@@ -104,12 +104,12 @@
 <script>
 import CodeMirror from 'codemirror'
 import 'codemirror/lib/codemirror.css'
-// Python 模式
+// Python mode
 import 'codemirror/mode/python/python'
-// 主题（可选）
+// Themes
 import 'codemirror/theme/monokai.css'
 import 'codemirror/theme/eclipse.css'
-// 常用插件
+// Common addons
 import 'codemirror/addon/edit/closebrackets'
 import 'codemirror/addon/edit/matchbrackets'
 import 'codemirror/addon/selection/active-line'
@@ -147,20 +147,20 @@ export default {
   watch: {
     visible (val) {
       if (val) {
-        // Modal 打开时，等待 DOM 更新后初始化编辑器
+        // Modal opens, wait for DOM update to initialize editor
         this.$nextTick(() => {
-          // 延迟一下确保 Modal 完全渲染，表单字段已注册
+          // Delay a bit to ensure Modal is fully rendered
           setTimeout(() => {
             if (!this.codeEditor && this.$refs.codeEditorContainer) {
               this.initCodeEditor()
             }
 
-            // 初始化表单数据
+            // Initialize form data
             this.initFormData()
           }, 200)
         })
       } else {
-        // Modal 关闭时，刷新编辑器以确保下次打开时正确显示
+        // Modal closes, refresh editor to ensure correct display next time
         if (this.codeEditor) {
           this.codeEditor.refresh()
         }
@@ -169,7 +169,7 @@ export default {
     indicator: {
       handler (val) {
         if (val && this.visible) {
-          // 当 indicator 变化且弹窗可见时，等待一下再更新表单数据
+          // When indicator changes and modal is visible, wait before updating form data
           this.$nextTick(() => {
             setTimeout(() => {
               this.initFormData()
@@ -181,11 +181,11 @@ export default {
     }
   },
   mounted () {
-    // 检测是否为手机端
+    // Check if mobile
     this.checkMobile()
     window.addEventListener('resize', this.checkMobile)
 
-    // 如果 visible 初始为 true，也要初始化
+    // If visible is initially true, initialize
     if (this.visible) {
       this.$nextTick(() => {
         setTimeout(() => {
@@ -242,170 +242,17 @@ export default {
 #}
 `
     },
-    // 检测是否为手机端
+    // Check if mobile
     checkMobile () {
       this.isMobile = window.innerWidth <= 768
     },
 
-    /* Visual editor removed (code mode only).
-
-      // Helper function for crossovers
-      code += `def crossover(series1, series2):\n`
-      code += `    return (series1 > series2) & (series1.shift(1) <= series2.shift(1))\n\n`
-      code += `def crossunder(series1, series2):\n`
-      code += `    return (series1 < series2) & (series1.shift(1) >= series2.shift(1))\n\n`
-
-      modules.forEach((mod, idx) => {
-        const id = mod.id || (idx + 1)
-        const s = mod.style
-
-        if (mod.type === 'SMA') {
-          code += `# Module ${id}: SMA\n`
-          code += `sma_${id} = df['${mod.params.source}'].rolling(${mod.params.period}).mean()\n`
-          code += `output_plots.append({ "name": "SMA ${mod.params.period} (#${id})", "data": sma_${id}.tolist(), "color": "${s.color}", "overlay": ${s.overlay ? 'True' : 'False'} })\n\n`
-        } else if (mod.type === 'EMA') {
-          code += `# Module ${id}: EMA\n`
-          code += `ema_${id} = df['${mod.params.source}'].ewm(span=${mod.params.period}, adjust=False).mean()\n`
-          code += `output_plots.append({ "name": "EMA ${mod.params.period} (#${id})", "data": ema_${id}.tolist(), "color": "${s.color}", "overlay": ${s.overlay ? 'True' : 'False'} })\n\n`
-        } else if (mod.type === 'RSI') {
-          code += `# Module ${id}: RSI\n`
-          code += `delta_${id} = df['close'].diff()\n`
-          code += `gain_${id} = (delta_${id}.where(delta_${id} > 0, 0)).ewm(alpha=1/${mod.params.period}, adjust=False).mean()\n`
-          code += `loss_${id} = (-delta_${id}.where(delta_${id} < 0, 0)).ewm(alpha=1/${mod.params.period}, adjust=False).mean()\n`
-          code += `rs_${id} = gain_${id} / loss_${id}\n`
-          code += `rsi_${id} = 100 - (100 / (1 + rs_${id}))\n`
-          code += `output_plots.append({ "name": "RSI ${mod.params.period} (#${id})", "data": rsi_${id}.tolist(), "color": "${s.color}", "overlay": False })\n`
-          code += `output_plots.append({ "name": "Overbought", "data": [70]*len(df), "color": "#999", "style": "dashed", "overlay": False })\n`
-          code += `output_plots.append({ "name": "Oversold", "data": [30]*len(df), "color": "#999", "style": "dashed", "overlay": False })\n\n`
-        } else if (mod.type === 'MACD') {
-            code += `# Module ${id}: MACD\n`
-            code += `exp1_${id} = df['close'].ewm(span=${mod.params.fast}, adjust=False).mean()\n`
-            code += `exp2_${id} = df['close'].ewm(span=${mod.params.slow}, adjust=False).mean()\n`
-            code += `macd_${id} = exp1_${id} - exp2_${id}\n`
-            code += `signal_${id} = macd_${id}.ewm(span=${mod.params.signal}, adjust=False).mean()\n`
-            code += `hist_${id} = macd_${id} - signal_${id}\n`
-            code += `output_plots.append({ "name": "MACD (#${id})", "data": macd_${id}.tolist(), "color": "${s.color}", "overlay": False })\n`
-            code += `output_plots.append({ "name": "Signal (#${id})", "data": signal_${id}.tolist(), "color": "#ff9f43", "overlay": False })\n`
-            code += `output_plots.append({ "name": "Hist (#${id})", "data": hist_${id}.tolist(), "color": "#ccc", "type": "bar", "overlay": False })\n\n`
-        } else if (mod.type === 'BOLL') {
-            code += `# Module ${id}: BOLL\n`
-            code += `mid_${id} = df['close'].rolling(${mod.params.period}).mean()\n`
-            code += `std_${id} = df['close'].rolling(${mod.params.period}).std()\n`
-            code += `upper_${id} = mid_${id} + (${mod.params.std} * std_${id})\n`
-            code += `lower_${id} = mid_${id} - (${mod.params.std} * std_${id})\n`
-            code += `output_plots.append({ "name": "Boll Upper (#${id})", "data": upper_${id}.tolist(), "color": "${s.color}", "overlay": True })\n`
-            code += `output_plots.append({ "name": "Boll Lower (#${id})", "data": lower_${id}.tolist(), "color": "${s.color}", "overlay": True })\n`
-            code += `output_plots.append({ "name": "Boll Mid (#${id})", "data": mid_${id}.tolist(), "color": "${s.color}", "style": "dashed", "overlay": True })\n\n`
-        } else if (mod.type === 'KDJ') {
-            code += `# Module ${id}: KDJ\n`
-            code += `low_min_${id} = df['low'].rolling(${mod.params.period}).min()\n`
-            code += `high_max_${id} = df['high'].rolling(${mod.params.period}).max()\n`
-            code += `rsv_${id} = (df['close'] - low_min_${id}) / (high_max_${id} - low_min_${id}) * 100\n`
-            code += `k_${id} = rsv_${id}.ewm(alpha=1/${mod.params.m1}, adjust=False).mean()\n`
-            code += `d_${id} = k_${id}.ewm(alpha=1/${mod.params.m2}, adjust=False).mean()\n`
-            code += `j_${id} = 3 * k_${id} - 2 * d_${id}\n`
-            code += `output_plots.append({ "name": "K (#${id})", "data": k_${id}.tolist(), "color": "${s.color}", "overlay": False })\n`
-            code += `output_plots.append({ "name": "D (#${id})", "data": d_${id}.tolist(), "color": "#ff9f43", "overlay": False })\n`
-            code += `output_plots.append({ "name": "J (#${id})", "data": j_${id}.tolist(), "color": "#ffec3d", "overlay": False })\n\n`
-        } else if (mod.type === 'CCI') {
-            code += `# Module ${id}: CCI\n`
-            code += `tp_${id} = (df['high'] + df['low'] + df['close']) / 3\n`
-            code += `ma_${id} = tp_${id}.rolling(${mod.params.period}).mean()\n`
-            code += `md_${id} = tp_${id}.rolling(${mod.params.period}).apply(lambda x: np.mean(np.abs(x - np.mean(x))))\n`
-            code += `cci_${id} = (tp_${id} - ma_${id}) / (0.015 * md_${id})\n`
-            code += `output_plots.append({ "name": "CCI (#${id})", "data": cci_${id}.tolist(), "color": "${s.color}", "overlay": False })\n`
-            code += `output_plots.append({ "name": "Upper", "data": [100]*len(df), "color": "#999", "style": "dashed", "overlay": False })\n`
-            code += `output_plots.append({ "name": "Lower", "data": [-100]*len(df), "color": "#999", "style": "dashed", "overlay": False })\n\n`
-        } else if (mod.type === 'ATR') {
-            code += `# Module ${id}: ATR\n`
-            code += `tr1_${id} = df['high'] - df['low']\n`
-            code += `tr2_${id} = (df['high'] - df['close'].shift(1)).abs()\n`
-            code += `tr3_${id} = (df['low'] - df['close'].shift(1)).abs()\n`
-            code += `tr_${id} = pd.concat([tr1_${id}, tr2_${id}, tr3_${id}], axis=1).max(axis=1)\n`
-            code += `atr_${id} = tr_${id}.rolling(${mod.params.period}).mean()\n`
-            code += `output_plots.append({ "name": "ATR (#${id})", "data": atr_${id}.tolist(), "color": "${s.color}", "overlay": False })\n\n`
-        } else if (mod.type === 'SIGNAL') {
-            code += `# Module ${id}: Signal Logic\n`
-
-            // Helper to get variable name or default to 'close' if not found or 'close'
-            const getVar = (val) => {
-                if (!val || val === 'close') return "df['close']"
-                // Check if it's a numeric constant
-                if (!isNaN(parseFloat(val))) return parseFloat(val)
-                return val
-            }
-
-            const leftBuy = getVar(mod.params.buy_cond_left)
-            const rightBuy = getVar(mod.params.buy_cond_right)
-            let buyCond = ''
-
-            if (mod.params.buy_op === '>') buyCond = `(${leftBuy} > ${rightBuy})`
-            else if (mod.params.buy_op === '<') buyCond = `(${leftBuy} < ${rightBuy})`
-            else if (mod.params.buy_op === 'cross_up') buyCond = `crossover(${leftBuy}, ${rightBuy})`
-            else if (mod.params.buy_op === 'cross_down') buyCond = `crossunder(${leftBuy}, ${rightBuy})`
-
-            const leftSell = getVar(mod.params.sell_cond_left)
-            const rightSell = getVar(mod.params.sell_cond_right)
-            let sellCond = ''
-
-            if (mod.params.sell_op === '>') sellCond = `(${leftSell} > ${rightSell})`
-            else if (mod.params.sell_op === '<') sellCond = `(${leftSell} < ${rightSell})`
-            else if (mod.params.sell_op === 'cross_up') sellCond = `crossover(${leftSell}, ${rightSell})`
-            else if (mod.params.sell_op === 'cross_down') sellCond = `crossunder(${leftSell}, ${rightSell})`
-
-            code += `buy_signal_${id} = ${buyCond}\n`
-            code += `sell_signal_${id} = ${sellCond}\n`
-
-            code += `output_signals.append({\n`
-            code += `    "type": "buy",\n`
-            code += `    "text": "B",\n`
-            code += `    "data": [df['low'].iloc[i] * 0.995 if buy_signal_${id}.iloc[i] else None for i in range(len(df))],\n`
-            code += `    "color": "#00E676"\n`
-            code += `})\n`
-            code += `output_signals.append({\n`
-            code += `    "type": "sell",\n`
-            code += `    "text": "S",\n`
-            code += `    "data": [df['high'].iloc[i] * 1.005 if sell_signal_${id}.iloc[i] else None for i in range(len(df))],\n`
-            code += `    "color": "#FF5252"\n`
-            code += `})\n\n`
-        }
-      })
-
-      code += `output = {\n`
-      code += `    "name": my_indicator_name,\n`
-      code += `    "plots": output_plots,\n`
-      code += `    "signals": output_signals\n`
-      code += `}\n`
-
-      this.codeEditor.setValue(code)
-      this.editMode = 'code'
-      this.$message.success('代码生成成功！')
-    },
-    parseConfigFromCode (code) {
-      if (!code) return
-      const regex = /# <VISUAL_CONF>\s*\n# (.*?)\s*\n# <\/VISUAL_CONF>/s
-      const match = code.match(regex)
-      if (match && match[1]) {
-        try {
-          this.visualModules = JSON.parse(match[1])
-          this.editMode = 'visual' // Auto-switch to visual if config found
-        } catch (e) {
-          console.error('Failed to parse visual config', e)
-        }
-      } else {
-        this.editMode = 'code'
-        this.visualModules = []
-      }
-    },
-
-    */
-
-    // 跳转到文档中心
+    // Jump to docs
     goToDocs () {
       window.open('https://github.com/brokermr810/QuantDinger/blob/main/docs/STRATEGY_DEV_GUIDE.md', '_blank')
     },
 
-    // 验证代码
+    // Verify code
     handleVerifyCode () {
       const code = this.codeEditor ? this.codeEditor.getValue() : ''
       if (!code || !code.trim()) {
@@ -414,7 +261,7 @@ export default {
       }
 
       this.verifying = true
-      // 使用 request 工具（axios）发送请求，它会自动处理 baseURL 和 token
+      // Use request tool (axios) which handles baseURL and token
       request({
         url: '/api/indicator/verifyCode',
         method: 'post',
@@ -424,7 +271,7 @@ export default {
           const data = res.data || {}
           this.$message.success(`${this.$t('dashboard.indicator.editor.verifyCodeSuccess')} (${data.plots_count || 0} plots, ${data.signals_count || 0} signals)`)
         } else {
-          // 显示详细错误
+          // Show detailed error
           const errorData = res.data || {}
           this.$error({
             title: this.$t('dashboard.indicator.editor.verifyCodeFailed'),
@@ -454,7 +301,7 @@ export default {
       })
     },
 
-    // 清理代码中的 markdown 代码块标记
+    // Clean markdown code block markers
     cleanMarkdownCodeBlocks (code) {
       if (!code || typeof code !== 'string') {
         return code
@@ -462,42 +309,41 @@ export default {
 
       let cleanedCode = code.trim()
 
-      // 检查是否包含代码块标记
+      // Check for code block markers
       const hasCodeBlockMarkers = /```/.test(cleanedCode)
 
       if (!hasCodeBlockMarkers) {
-        // 如果没有代码块标记，直接返回
+        // If no markers, return
         return cleanedCode
       }
 
-      // 移除开头的代码块标记（如 ```python、```py、``` 等）
-      // 匹配 ``` 开头，可能包含语言标识（python, py, python3 等），后面可能有空格和换行
+      // Remove starting marker (e.g. ```python, ```py, ``` etc.)
       cleanedCode = cleanedCode.replace(/^```[\w]*\s*\n?/i, '')
 
-      // 如果还有开头标记（可能没有语言标识），再次尝试移除
+      // If still has opening marker, try again
       if (cleanedCode.startsWith('```')) {
         cleanedCode = cleanedCode.replace(/^```\s*\n?/g, '')
       }
 
-      // 移除结尾的代码块标记（```）
+      // Remove ending marker
       if (cleanedCode.endsWith('```')) {
         cleanedCode = cleanedCode.replace(/\n?```\s*$/g, '')
       }
 
-      // 移除代码块中间可能出现的 ```标记（通常是错误标记）
-      // 匹配单独的代码块标记行（整行只有```和可能的语言标识）
+      // Remove internal markers (usually errors)
+      // Match lines with only markers
       cleanedCode = cleanedCode.replace(/^\s*```[\w]*\s*$/gm, '')
       cleanedCode = cleanedCode.replace(/^\s*```\s*$/gm, '')
 
-      // 清理多余的空行（连续两个以上换行变为两个）
+      // Clean extra newlines
       cleanedCode = cleanedCode.replace(/\n{3,}/g, '\n\n')
 
-      // 再次清理首尾空白
+      // Trim again
       cleanedCode = cleanedCode.trim()
 
       return cleanedCode
     },
-    // 初始化弹窗数据（编辑/新建）
+    // Initialize modal data (edit/new)
     initFormData () {
       if (!this.visible) {
         return
@@ -515,7 +361,6 @@ export default {
             this.codeEditor.setValue(code)
             this.codeEditor.refresh()
           }
-          // Visual editor removed
         }, 50)
       })
     },
@@ -524,7 +369,7 @@ export default {
         return
       }
 
-      // 如果编辑器已存在，先销毁
+      // If editor exists, destroy first
       if (this.codeEditor) {
         try {
           if (typeof this.codeEditor.toTextArea === 'function') {
@@ -541,12 +386,13 @@ export default {
       }
 
       try {
-        // 清空容器
+        // Clear container
         this.$refs.codeEditorContainer.innerHTML = ''
 
-        // 创建新的编辑器实例
+        // Create new editor instance
         this.codeEditor = CodeMirror(this.$refs.codeEditorContainer, {
           value: (() => {
+            const lang = (this.$i18n && this.$i18n.locale) ? this.$i18n.locale : 'en-US'
             const existing = this.indicator ? (this.indicator.code || '') : ''
             return existing && String(existing).trim() ? existing : this.getDefaultIndicatorCode()
           })(),
@@ -566,13 +412,13 @@ export default {
           viewportMargin: Infinity
         })
 
-        // 监听代码变化，同步到表单
+        // Listen for code changes
         this.codeEditor.on('change', (editor) => {
           // no-op: form fields removed; code is read from editor on save
           editor.getValue()
         })
 
-        // 刷新编辑器以确保正确显示
+        // Refresh editor
         this.$nextTick(() => {
           if (this.codeEditor) {
             this.codeEditor.refresh()
@@ -582,7 +428,7 @@ export default {
       }
     },
     handleSave () {
-      // 先从编辑器获取代码
+      // Get code from editor
       const code = this.codeEditor ? this.codeEditor.getValue() : ''
       const finalCode = code || ''
       if (!finalCode.trim()) {
@@ -591,7 +437,7 @@ export default {
       }
 
       this.saving = true
-      // 触发保存事件：name/description 等字段已移除，后端会从代码中解析
+      // Trigger save event
       this.$emit('save', {
         id: this.indicator ? this.indicator.id : 0,
         code: finalCode,
@@ -605,7 +451,7 @@ export default {
       this.$emit('cancel')
     },
     handleAfterClose () {
-      // Modal 完全关闭后，刷新编辑器以确保下次打开时正确显示
+      // Refresh editor after modal closed
       if (this.codeEditor) {
         this.$nextTick(() => {
           if (this.codeEditor) {
@@ -614,7 +460,7 @@ export default {
         })
       }
 
-      // 清空 AI 生成输入框内容
+      // Clear AI prompt
       this.aiPrompt = ''
     },
     async handleAIGenerate () {
@@ -625,13 +471,13 @@ export default {
 
       this.aiGenerating = true
 
-      // 获取编辑器中的现有代码作为上下文
+      // Get existing code as context
       let existingCode = ''
       if (this.codeEditor) {
         existingCode = this.codeEditor.getValue() || ''
       }
 
-      // 先给一个可见反馈，避免用户感觉“没反应”
+      // Provide feedback
       if (this.codeEditor) {
         this.codeEditor.setValue('# AI generating...\n')
         this.codeEditor.refresh()
@@ -643,20 +489,20 @@ export default {
         // Local python API (SSE)
         const url = '/api/indicator/aiGenerate'
 
-        // 获取 token
+        // Get token
         const token = storage.get(ACCESS_TOKEN)
 
-        // 构建请求体，包含现有代码作为上下文
+        // Build request body
         const requestBody = {
           prompt: this.aiPrompt.trim()
         }
 
-        // 如果有现有代码，将其作为上下文传递
+        // Pass existing code as context if available
         if (existingCode.trim()) {
           requestBody.existingCode = existingCode.trim()
         }
 
-        // 使用 fetch 处理流式响应
+        // Use fetch for streaming response
         const response = await fetch(url, {
           method: 'POST',
           headers: {
@@ -674,9 +520,9 @@ export default {
           throw new Error(text || `HTTP error! status: ${response.status}`)
         }
 
-        // 处理流式响应
+        // Handle streaming response
         if (!response.body || typeof response.body.getReader !== 'function') {
-          throw new Error('AI 服务未返回可读取的流（response.body 不存在）')
+          throw new Error('AI service did not return a readable stream (response.body missing)')
         }
         const reader = response.body.getReader()
         const decoder = new TextDecoder()
@@ -689,22 +535,21 @@ export default {
             break
           }
 
-          // 解码数据块
+          // Decode chunk
           buffer += decoder.decode(value, { stream: true })
 
-          // 处理完整的 SSE 消息
+          // Process SSE messages
           const lines = buffer.split('\n\n')
-          buffer = lines.pop() || '' // 保留最后一个不完整的消息
+          buffer = lines.pop() || '' // Keep incomplete message
 
           for (const line of lines) {
             if (!line.trim() || !line.startsWith('data: ')) {
               continue
             }
 
-            const data = line.substring(6) // 移除 "data: " 前缀
+            const data = line.substring(6) // Remove "data: " prefix
 
             if (data === '[DONE]') {
-              // 流式传输完成
               break
             }
 
@@ -716,16 +561,16 @@ export default {
               }
 
               if (json.content) {
-                // 追加内容到代码
+                // Append content
                 generatedCode += json.content
 
-                // 清理 markdown 代码块标记
+                // Clean markdown markers
                 const cleanedCode = this.cleanMarkdownCodeBlocks(generatedCode)
 
-                // 实时更新编辑器
+                // Real-time update
                 if (this.codeEditor) {
                   this.codeEditor.setValue(cleanedCode)
-                  // 滚动到末尾
+                  // Scroll to end
                   const lineCount = this.codeEditor.lineCount()
                   this.codeEditor.setCursor({ line: lineCount - 1, ch: 0 })
                   this.codeEditor.refresh()
@@ -736,19 +581,19 @@ export default {
           }
         }
 
-        // 最终更新 - 清理 markdown 代码块标记
+        // Final update - clean markers
         if (this.codeEditor && generatedCode) {
           const cleanedCode = this.cleanMarkdownCodeBlocks(generatedCode)
           this.codeEditor.setValue(cleanedCode)
           this.codeEditor.refresh()
           this.$message.success(this.$t('dashboard.indicator.editor.aiGenerateSuccess'))
         } else if (!generatedCode) {
-          this.$message.warning('未生成任何代码，请尝试更详细的提示词')
+          this.$message.warning('No code generated, please try more detailed prompts')
         }
       } catch (error) {
         this.$message.error(error.message || this.$t('dashboard.indicator.editor.aiGenerateError'))
 
-        // 如果有部分生成的代码，保留它（清理 markdown 标记）
+        // If partial code generated, keep it
         if (generatedCode && this.codeEditor) {
           const cleanedCode = this.cleanMarkdownCodeBlocks(generatedCode)
           this.codeEditor.setValue(cleanedCode)
@@ -757,7 +602,7 @@ export default {
         this.aiGenerating = false
       }
     }
-    // 发布到社区 / 定价 / 预览图上传 等功能已移除（开源本地版不需要）
+    // Community / Pricing / Preview upload removed (not needed for local version)
   }
 }
 </script>
@@ -842,7 +687,7 @@ export default {
   border-top: 1px solid #e8e8e8;
 }
 
-/* 手机端适配 */
+/* Mobile adaptation */
 @media (max-width: 768px) {
   .visual-editor-container {
       height: auto;
@@ -1072,7 +917,7 @@ export default {
   }
 }
 
-/* 手机端适配 */
+/* Mobile adaptation */
 @media (max-width: 768px) {
   .indicator-editor-modal {
     :deep(.ant-modal) {
@@ -1123,13 +968,13 @@ export default {
     min-height: auto !important;
   }
 
-  /* 左右布局改为上下布局 */
+  /* Switch left-right layout to top-bottom layout */
   .code-editor-column {
     width: 100% !important;
     margin-bottom: 16px;
   }
 
-  /* 代码编辑器区域 */
+  /* Code editor area */
   .code-section {
     margin-bottom: 16px;
 
@@ -1158,13 +1003,13 @@ export default {
     }
   }
 
-  /* 智能生成区域 */
+  /* AI generation area */
   .ai-panel {
     height: auto !important;
     min-height: auto !important;
   }
 
-  /* 底部按钮 */
+  /* Footer buttons */
   .editor-footer {
     flex-direction: column-reverse;
     gap: 8px;

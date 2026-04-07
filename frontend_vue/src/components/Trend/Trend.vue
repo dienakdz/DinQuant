@@ -19,14 +19,14 @@ export default {
       default: 'ant-pro-trend'
     },
     /**
-       * 上升下降标识：up|down
+       * Trend direction indicator: up|down
        */
     flag: {
       type: String,
       required: true
     },
     /**
-       * 颜色反转
+       * Reverse color
        */
     reverseColor: {
       type: Boolean,

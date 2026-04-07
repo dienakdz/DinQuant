@@ -9,14 +9,14 @@ export const asyncRouterMap = [
     meta: { title: 'menu.home' },
     redirect: '/ai-asset-analysis',
     children: [
-      // 仪表盘
+      // Dashboard
       {
         path: '/dashboard',
         name: 'Dashboard',
         component: () => import('@/views/dashboard'),
         meta: { title: 'menu.dashboard', keepAlive: true, icon: 'dashboard', permission: ['dashboard'] }
       },
-      // AI 分析
+      // AI analysis
       {
         path: '/ai-analysis/:pageNo([1-9]\\d*)?',
         name: 'Analysis',
@@ -24,35 +24,49 @@ export const asyncRouterMap = [
         hidden: true,
         meta: { title: 'menu.dashboard.analysis', keepAlive: false, icon: 'thunderbolt', permission: ['dashboard'] }
       },
-      // AI资产分析（统一入口）
+      // AI asset analysis (unified entry)
       {
         path: '/ai-asset-analysis',
         name: 'AIAssetAnalysis',
         component: () => import('@/views/ai-asset-analysis'),
         meta: { title: 'menu.dashboard.aiAssetAnalysis', keepAlive: false, icon: 'appstore', permission: ['dashboard'] }
       },
-      // 指标分析
+      // Polymarket analysis
+      {
+        path: '/polymarket',
+        name: 'Polymarket',
+        component: () => import('@/views/polymarket'),
+        meta: { title: 'Polymarket', keepAlive: false, icon: 'radar-chart', permission: ['dashboard'] }
+      },
+      // Indicator analysis
       {
         path: '/indicator-analysis',
         name: 'Indicator',
         component: () => import('@/views/indicator-analysis'),
         meta: { title: 'menu.dashboard.indicator', keepAlive: true, icon: 'line-chart', permission: ['dashboard'] }
       },
-      // 指标市场（放在指标分析下面）
+      // Indicator marketplace
       {
         path: '/indicator-community',
         name: 'IndicatorCommunity',
         component: () => import('@/views/indicator-community'),
         meta: { title: 'menu.dashboard.community', keepAlive: false, icon: 'shop', permission: ['dashboard'] }
       },
-      // 交易助手
+      // Trading assistant
       {
         path: '/trading-assistant',
         name: 'TradingAssistant',
         component: () => import('@/views/trading-assistant'),
         meta: { title: 'menu.dashboard.tradingAssistant', keepAlive: true, icon: 'robot', permission: ['dashboard'] }
       },
-      // 资产监测
+      // Backtest center
+      {
+        path: '/backtest-center',
+        name: 'BacktestCenter',
+        component: () => import('@/views/backtest-center'),
+        meta: { title: 'Backtest Center', keepAlive: true, icon: 'experiment', permission: ['dashboard'] }
+      },
+      // Portfolio monitor
       {
         path: '/portfolio',
         name: 'Portfolio',
@@ -60,28 +74,28 @@ export const asyncRouterMap = [
         hidden: true,
         meta: { title: 'menu.dashboard.portfolio', keepAlive: true, icon: 'fund', permission: ['dashboard'] }
       },
-      // 用户管理 (admin only)
+      // User management (admin only)
       {
         path: '/user-manage',
         name: 'UserManage',
         component: () => import('@/views/user-manage'),
         meta: { title: 'menu.userManage', keepAlive: false, icon: 'team', permission: ['admin'] }
       },
-      // 个人中心
+      // Profile
       {
         path: '/profile',
         name: 'Profile',
         component: () => import('@/views/profile'),
         meta: { title: 'menu.myProfile', keepAlive: false, icon: 'user', permission: ['dashboard'] }
       },
-      // 会员/充值
+      // Billing
       {
         path: '/billing',
         name: 'Billing',
         component: () => import('@/views/billing'),
         meta: { title: 'menu.billing', keepAlive: false, icon: 'wallet', permission: ['dashboard'] }
       },
-      // 系统设置 (admin only) - 放在最后
+      // Settings (admin only) - keep last
       {
         path: '/settings',
         name: 'Settings',
@@ -95,7 +109,7 @@ export const asyncRouterMap = [
         path: '/other',
         name: 'otherPage',
         component: PageView,
-        meta: { title: '其他组件', icon: 'slack', permission: [ 'dashboard' ] },
+        meta: { title: 'Other Components', icon: 'slack', permission: [ 'dashboard' ] },
         redirect: '/other/icon-selector',
         children: [
           {
@@ -107,44 +121,44 @@ export const asyncRouterMap = [
           {
             path: '/other/list',
             component: RouteView,
-            meta: { title: '业务布局', icon: 'layout', permission: [ 'support' ] },
+            meta: { title: 'Business Layout', icon: 'layout', permission: [ 'support' ] },
             redirect: '/other/list/tree-list',
             children: [
               {
                 path: '/other/list/tree-list',
                 name: 'TreeList',
                 component: () => import('@/views/other/TreeList'),
-                meta: { title: '树目录表格', keepAlive: true }
+                meta: { title: 'Tree Table', keepAlive: true }
               },
               {
                 path: '/other/list/edit-table',
                 name: 'EditList',
                 component: () => import('@/views/other/TableInnerEditList'),
-                meta: { title: '内联编辑表格', keepAlive: true }
+                meta: { title: 'Inline Edit Table', keepAlive: true }
               },
               {
                 path: '/other/list/user-list',
                 name: 'UserList',
                 component: () => import('@/views/other/UserList'),
-                meta: { title: '用户列表', keepAlive: true }
+                meta: { title: 'User List', keepAlive: true }
               },
               {
                 path: '/other/list/role-list',
                 name: 'RoleList',
                 component: () => import('@/views/other/RoleList'),
-                meta: { title: '角色列表', keepAlive: true }
+                meta: { title: 'Role List', keepAlive: true }
               },
               {
                 path: '/other/list/system-role',
                 name: 'SystemRole',
                 component: () => import('@/views/role/RoleList'),
-                meta: { title: '角色列表2', keepAlive: true }
+                meta: { title: 'Role List 2', keepAlive: true }
               },
               {
                 path: '/other/list/permission-list',
                 name: 'PermissionList',
                 component: () => import('@/views/other/PermissionList'),
-                meta: { title: '权限列表', keepAlive: true }
+                meta: { title: 'Permission List', keepAlive: true }
               }
             ]
           }
@@ -161,7 +175,7 @@ export const asyncRouterMap = [
 ]
 
 /**
- * 基础路由
+ * Base routes
  * @type { *[] }
  */
 export const constantRouterMap = [

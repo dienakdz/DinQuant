@@ -4,6 +4,9 @@ const api = {
   // Local Python backend
   strategies: '/api/strategies',
   strategyDetail: '/api/strategies/detail',
+  strategyBacktest: '/api/strategies/backtest',
+  strategyBacktestHistory: '/api/strategies/backtest/history',
+  strategyBacktestRun: '/api/strategies/backtest/get',
   createStrategy: '/api/strategies/create',
   batchCreateStrategies: '/api/strategies/batch-create',
   updateStrategy: '/api/strategies/update',
@@ -22,9 +25,9 @@ const api = {
 }
 
 /**
- * 获取策略列表
- * @param {Object} params - 查询参数
- * @param {number} params.user_id - 用户ID（可选）
+ * Get strategy list.
+ * @param {Object} params - Query parameters.
+ * @param {number} params.user_id - User ID (optional).
  */
 export function getStrategyList (params = {}) {
   return request({
@@ -35,8 +38,8 @@ export function getStrategyList (params = {}) {
 }
 
 /**
- * 获取策略详情
- * @param {number} id - 策略ID
+ * Get strategy detail.
+ * @param {number} id - Strategy ID.
  */
 export function getStrategyDetail (id) {
   return request({
@@ -47,14 +50,60 @@ export function getStrategyDetail (id) {
 }
 
 /**
- * 创建策略
- * @param {Object} data - 策略数据
- * @param {number} data.user_id - 用户ID
- * @param {string} data.strategy_name - 策略名称
- * @param {string} data.strategy_type - 策略类型
- * @param {Object} data.llm_model_config - LLM模型配置
- * @param {Object} data.exchange_config - 交易所配置
- * @param {Object} data.trading_config - 交易配置
+ * Run a strategy backtest.
+ * @param {Object} data - Backtest request payload.
+ * @param {number} data.strategyId - Strategy ID.
+ * @param {string} data.startDate - Start date in YYYY-MM-DD.
+ * @param {string} data.endDate - End date in YYYY-MM-DD.
+ * @param {Object} data.overrideConfig - Optional override config.
+ */
+export function runStrategyBacktest (data) {
+  return request({
+    url: api.strategyBacktest,
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * Get strategy backtest history.
+ * @param {Object} params - Query parameters.
+ * @param {number} params.strategyId - Strategy ID.
+ * @param {number} params.limit - Max record count (optional).
+ * @param {number} params.offset - Pagination offset (optional).
+ * @param {string} params.symbol - Symbol filter (optional).
+ * @param {string} params.market - Market filter (optional).
+ * @param {string} params.timeframe - Timeframe filter (optional).
+ */
+export function getStrategyBacktestHistory (params = {}) {
+  return request({
+    url: api.strategyBacktestHistory,
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * Get a single strategy backtest run.
+ * @param {number} runId - Backtest run ID.
+ */
+export function getStrategyBacktestRun (runId) {
+  return request({
+    url: api.strategyBacktestRun,
+    method: 'get',
+    params: { runId }
+  })
+}
+
+/**
+ * Create a strategy.
+ * @param {Object} data - Strategy payload.
+ * @param {number} data.user_id - User ID.
+ * @param {string} data.strategy_name - Strategy name.
+ * @param {string} data.strategy_type - Strategy type.
+ * @param {Object} data.llm_model_config - LLM model config.
+ * @param {Object} data.exchange_config - Exchange config.
+ * @param {Object} data.trading_config - Trading config.
  */
 export function createStrategy (data) {
   return request({
@@ -65,10 +114,10 @@ export function createStrategy (data) {
 }
 
 /**
- * 批量创建策略（多币种）
- * @param {Object} data - 策略数据
- * @param {string} data.strategy_name - 策略基础名称
- * @param {Array} data.symbols - 币种数组，如 ["Crypto:BTC/USDT", "Crypto:ETH/USDT"]
+ * Batch create strategies for multiple symbols.
+ * @param {Object} data - Strategy payload.
+ * @param {string} data.strategy_name - Base strategy name.
+ * @param {Array} data.symbols - Symbol list, for example ["Crypto:BTC/USDT", "Crypto:ETH/USDT"].
  */
 export function batchCreateStrategies (data) {
   return request({
@@ -79,13 +128,13 @@ export function batchCreateStrategies (data) {
 }
 
 /**
- * 更新策略
- * @param {number} id - 策略ID
- * @param {Object} data - 策略数据
- * @param {string} data.strategy_name - 策略名称（可选）
- * @param {Object} data.indicator_config - 技术指标配置（可选）
- * @param {Object} data.exchange_config - 交易所配置（可选）
- * @param {Object} data.trading_config - 交易配置（可选）
+ * Update a strategy.
+ * @param {number} id - Strategy ID.
+ * @param {Object} data - Strategy payload.
+ * @param {string} data.strategy_name - Strategy name (optional).
+ * @param {Object} data.indicator_config - Indicator config (optional).
+ * @param {Object} data.exchange_config - Exchange config (optional).
+ * @param {Object} data.trading_config - Trading config (optional).
  */
 export function updateStrategy (id, data) {
   return request({
@@ -97,8 +146,8 @@ export function updateStrategy (id, data) {
 }
 
 /**
- * 停止策略
- * @param {number} id - 策略ID
+ * Stop a strategy.
+ * @param {number} id - Strategy ID.
  */
 export function stopStrategy (id) {
   return request({
@@ -109,8 +158,8 @@ export function stopStrategy (id) {
 }
 
 /**
- * 启动策略
- * @param {number} id - 策略ID
+ * Start a strategy.
+ * @param {number} id - Strategy ID.
  */
 export function startStrategy (id) {
   return request({
@@ -121,8 +170,8 @@ export function startStrategy (id) {
 }
 
 /**
- * 删除策略
- * @param {number} id - 策略ID
+ * Delete a strategy.
+ * @param {number} id - Strategy ID.
  */
 export function deleteStrategy (id) {
   return request({
@@ -133,10 +182,10 @@ export function deleteStrategy (id) {
 }
 
 /**
- * 批量启动策略
+ * Batch start strategies.
  * @param {Object} data
- * @param {Array} data.strategy_ids - 策略ID数组
- * @param {string} data.strategy_group_id - 策略组ID（可选，与strategy_ids二选一）
+ * @param {Array} data.strategy_ids - Strategy ID list.
+ * @param {string} data.strategy_group_id - Strategy group ID (optional, mutually exclusive with strategy_ids).
  */
 export function batchStartStrategies (data) {
   return request({
@@ -147,10 +196,10 @@ export function batchStartStrategies (data) {
 }
 
 /**
- * 批量停止策略
+ * Batch stop strategies.
  * @param {Object} data
- * @param {Array} data.strategy_ids - 策略ID数组
- * @param {string} data.strategy_group_id - 策略组ID（可选，与strategy_ids二选一）
+ * @param {Array} data.strategy_ids - Strategy ID list.
+ * @param {string} data.strategy_group_id - Strategy group ID (optional, mutually exclusive with strategy_ids).
  */
 export function batchStopStrategies (data) {
   return request({
@@ -161,10 +210,10 @@ export function batchStopStrategies (data) {
 }
 
 /**
- * 批量删除策略
+ * Batch delete strategies.
  * @param {Object} data
- * @param {Array} data.strategy_ids - 策略ID数组
- * @param {string} data.strategy_group_id - 策略组ID（可选，与strategy_ids二选一）
+ * @param {Array} data.strategy_ids - Strategy ID list.
+ * @param {string} data.strategy_group_id - Strategy group ID (optional, mutually exclusive with strategy_ids).
  */
 export function batchDeleteStrategies (data) {
   return request({
@@ -175,8 +224,8 @@ export function batchDeleteStrategies (data) {
 }
 
 /**
- * 测试交易所连接
- * @param {Object} exchangeConfig - 交易所配置
+ * Test exchange connection.
+ * @param {Object} exchangeConfig - Exchange config.
  */
 export function testExchangeConnection (exchangeConfig) {
   return request({
@@ -187,8 +236,8 @@ export function testExchangeConnection (exchangeConfig) {
 }
 
 /**
- * 获取策略交易记录
- * @param {number} id - 策略ID
+ * Get strategy trade records.
+ * @param {number} id - Strategy ID.
  */
 export function getStrategyTrades (id) {
   return request({
@@ -199,8 +248,8 @@ export function getStrategyTrades (id) {
 }
 
 /**
- * 获取策略持仓记录
- * @param {number} id - 策略ID
+ * Get strategy position records.
+ * @param {number} id - Strategy ID.
  */
 export function getStrategyPositions (id) {
   return request({
@@ -211,8 +260,8 @@ export function getStrategyPositions (id) {
 }
 
 /**
- * 获取策略净值曲线
- * @param {number} id - 策略ID
+ * Get strategy equity curve.
+ * @param {number} id - Strategy ID.
  */
 export function getStrategyEquityCurve (id) {
   return request({
@@ -223,9 +272,9 @@ export function getStrategyEquityCurve (id) {
 }
 
 /**
- * 获取策略运行日志
- * @param {number} id - 策略ID
- * @param {number} limit - 最大日志条数
+ * Get strategy runtime logs.
+ * @param {number} id - Strategy ID.
+ * @param {number} limit - Maximum log count.
  */
 export function getStrategyLogs (id, limit = 200) {
   return request({

@@ -139,7 +139,7 @@ export default {
       handler (val) {
         if (val) {
           this.loadPositions()
-          // 每5秒刷新一次持仓
+          // Refresh positions every 5 seconds
           this.startPolling()
         } else {
           this.stopPolling()
@@ -158,7 +158,7 @@ export default {
       try {
         const res = await getStrategyPositions(this.strategyId)
         if (res.code === 1) {
-          // 确保数据格式正确，处理可能的字段名不一致
+          // Ensure data format is correct, handle potential field name inconsistencies
           const rawPositions = res.data.positions || []
 
           this.positions = rawPositions.map((position, index) => {
@@ -167,7 +167,7 @@ export default {
             if (!isFinite(lev) || lev <= 0) lev = 1
             if (mt === 'spot') lev = 1
 
-            // 处理 entry_price：不要回退到 current_price，避免误导显示开仓价=现价
+            // Handle entry_price: do not fall back to current_price, to avoid misleadingly showing entry price = current price
             const entryPrice = parseFloat(position.entry_price || position.entryPrice || 0)
             const size = parseFloat(position.size || '0') || 0
             const pnl = parseFloat(position.unrealized_pnl || position.unrealizedPnl || '0') || 0
@@ -195,7 +195,7 @@ export default {
             return mapped
           })
         } else {
-          // 不显示错误，可能策略还没有持仓
+          // Do not show error, strategy might not have positions yet
           this.positions = []
         }
       } catch (error) {
@@ -223,7 +223,7 @@ export default {
 </script>
 
 <style lang="less" scoped>
-// 颜色变量
+// Color variables
 @primary-color: #1890ff;
 @success-color: #0ecb81;
 @danger-color: #f6465d;
@@ -249,7 +249,7 @@ export default {
     color: #333;
   }
 
-  // 自定义细滚动条
+  // Custom thin scrollbar
   ::v-deep .ant-table-body {
     overflow-x: auto;
     scrollbar-width: thin;
@@ -271,7 +271,7 @@ export default {
     }
   }
 
-  // 表格容器的滚动条样式
+  // Scrollbar style for table container
   ::v-deep .ant-table-container {
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
@@ -292,7 +292,7 @@ export default {
     }
   }
 
-  // 所有可能的表格滚动容器的滚动条样式
+  // Scrollbar style for all possible table scroll containers
   ::v-deep .ant-table-content,
   ::v-deep .ant-table-wrapper {
     scrollbar-width: thin;
@@ -341,7 +341,7 @@ export default {
     }
   }
 
-  // 方向标签美化
+  // Direction tag beautification
   ::v-deep .ant-tag {
     border-radius: 6px;
     padding: 2px 10px;
@@ -362,7 +362,7 @@ export default {
     }
   }
 
-  // 暗黑主题适配
+  // Dark theme adaptation
   &.theme-dark,
   .theme-dark & {
     ::v-deep .ant-table {
@@ -436,12 +436,12 @@ export default {
     }
   }
 
-  // 移动端适配
+  // Mobile adaptation
   @media (max-width: 768px) {
     min-height: 200px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    // 移动端也使用细滚动条
+    // Mobile also uses thin scrollbar
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
     &::-webkit-scrollbar {
@@ -467,10 +467,10 @@ export default {
 
     ::v-deep .ant-table {
       font-size: 12px;
-      min-width: 700px; // 确保表格最小宽度，触发横向滚动
+      min-width: 700px; // Ensure minimum table width to trigger horizontal scroll
     }
 
-    // 移动端也使用细滚动条
+    // Mobile also uses thin scrollbar
     ::v-deep .ant-table-body,
     ::v-deep .ant-table-container,
     ::v-deep .ant-table-wrapper {
@@ -535,8 +535,8 @@ export default {
 </style>
 
 <style lang="less">
-// 暗黑主题适配 - 使用更高优先级的选择器覆盖 scoped 样式
-// 必须使用完整的 scoped 选择器路径来覆盖
+// Dark theme adaptation - Use higher priority selectors to override scoped styles
+// Must use full scoped selector path to override
 .theme-dark .position-records .ant-table-tbody > tr > td,
 .theme-dark .position-records[data-v] .ant-table-tbody > tr > td,
 body.dark .position-records .ant-table-tbody > tr > td,
@@ -578,7 +578,7 @@ body.realdark .position-records .ant-table-tbody > tr:hover > td {
   background: #2a2e39 !important;
 }
 
-// 确保表头文字可见
+// Ensure table header text is visible
 .theme-dark .position-records .ant-table-thead > tr > th,
 .theme-dark .position-records[data-v] .ant-table-thead > tr > th,
 body.dark .position-records .ant-table-thead > tr > th,
@@ -588,7 +588,7 @@ body.realdark .position-records .ant-table-thead > tr > th {
   }
 }
 
-// 通用选择器作为后备
+// Universal selector as fallback
 .theme-dark .position-records[data-v] .ant-table-tbody > tr > td,
 .theme-dark [class*="position-records"][data-v] .ant-table-tbody > tr > td {
   color: #d1d4dc !important;
@@ -605,11 +605,11 @@ body.realdark .position-records .ant-table-thead > tr > th {
 </style>
 
 <style lang="less">
-// 暗黑主题适配 - 使用最高优先级的选择器覆盖 scoped 样式
-// 关键：必须使用与 scoped 样式完全相同的选择器结构，加上 theme-dark 前缀
-// 使用属性选择器的精确匹配来覆盖 scoped 样式
+// Dark theme adaptation - Use highest priority selectors to override scoped styles
+// Key: Must use exactly the same selector structure as scoped styles, plus theme-dark prefix
+// Use attribute selector exact matching to override scoped styles
 
-// 方法1：精确匹配 data-v-6c1eb557
+// Method 1: Exact match data-v-6c1eb557
 .theme-dark .position-records[data-v-6c1eb557] .ant-table-tbody > tr > td,
 .theme-dark [data-v-6c1eb557].position-records .ant-table-tbody > tr > td,
 .theme-dark [data-v-6c1eb557] .position-records .ant-table-tbody > tr > td {
@@ -618,7 +618,7 @@ body.realdark .position-records .ant-table-thead > tr > th {
   border-bottom-color: #363c4e !important;
 }
 
-// 方法2：使用属性选择器前缀匹配（更通用）
+// Method 2: Use attribute selector prefix matching (more universal)
 .theme-dark [data-v-6c1eb557] .ant-table-tbody > tr > td {
   color: #d1d4dc !important;
   background: #1e222d !important;
@@ -643,7 +643,7 @@ body.realdark .position-records .ant-table-thead > tr > th {
   background: #2a2e39 !important;
 }
 
-// body.dark 和 body.realdark 支持
+// body.dark and body.realdark support
 body.dark .position-records[data-v-6c1eb557] .ant-table-tbody > tr > td,
 body.dark [data-v-6c1eb557].position-records .ant-table-tbody > tr > td,
 body.dark [data-v-6c1eb557] .position-records .ant-table-tbody > tr > td,
@@ -655,7 +655,7 @@ body.realdark [data-v-6c1eb557] .position-records .ant-table-tbody > tr > td {
   border-bottom-color: #363c4e !important;
 }
 
-// 方法2：使用属性选择器前缀匹配（更通用）
+// Method 2: Use attribute selector prefix matching (more universal)
 body.dark [data-v-6c1eb557] .ant-table-tbody > tr > td,
 body.realdark [data-v-6c1eb557] .ant-table-tbody > tr > td {
   color: #d1d4dc !important;
@@ -674,7 +674,7 @@ body.realdark [data-v-6c1eb557] .position-records .ant-table-thead > tr > th {
   border-bottom-color: #363c4e !important;
 }
 
-// 方法2：使用属性选择器前缀匹配（更通用）
+// Method 2: Use attribute selector prefix matching (more universal)
 body.dark [data-v-6c1eb557] .ant-table-thead > tr > th,
 body.realdark [data-v-6c1eb557] .ant-table-thead > tr > th {
   background: #2a2e39 !important;
@@ -682,7 +682,7 @@ body.realdark [data-v-6c1eb557] .ant-table-thead > tr > th {
   border-bottom-color: #363c4e !important;
 }
 
-// 通用后备选择器（如果 data-v 值变化）
+// Universal fallback selector (if data-v value changes)
 .theme-dark .position-records[data-v] .ant-table-tbody > tr > td,
 body.dark .position-records[data-v] .ant-table-tbody > tr > td,
 body.realdark .position-records[data-v] .ant-table-tbody > tr > td {
@@ -699,7 +699,7 @@ body.realdark .position-records[data-v] .ant-table-thead > tr > th {
   border-bottom-color: #363c4e !important;
 }
 
-// 其他样式
+// Other styles
 .theme-dark .position-records[data-v-6c1eb557] .ant-empty .ant-empty-description,
 body.dark .position-records[data-v-6c1eb557] .ant-empty .ant-empty-description,
 body.realdark .position-records[data-v-6c1eb557] .ant-empty .ant-empty-description {
@@ -720,8 +720,8 @@ body.realdark .position-records[data-v-6c1eb557] .loss {
 </style>
 
 <style lang="less">
-// 最终覆盖方案：使用更长的选择器链确保最高优先级
-// 直接匹配 scoped 样式生成的完整选择器路径
+// Final override solution: Use longer selector chain to ensure highest priority
+// Directly match the full selector path generated by scoped styles
 .theme-dark .trading-assistant .position-records[data-v-6c1eb557] .ant-table-tbody > tr > td,
 .theme-dark .trading-assistant [data-v-6c1eb557].position-records .ant-table-tbody > tr > td,
 body.dark .trading-assistant .position-records[data-v-6c1eb557] .ant-table-tbody > tr > td,
@@ -744,7 +744,7 @@ body.realdark .trading-assistant [data-v-6c1eb557].position-records .ant-table-t
   border-bottom-color: #363c4e !important;
 }
 
-// 暗黑主题滚动条样式
+// Dark theme scrollbar style
 .theme-dark .position-records[data-v-6c1eb557] .ant-table-body,
 .theme-dark .position-records[data-v-6c1eb557] .ant-table-container,
 .theme-dark .position-records[data-v-6c1eb557] .ant-table-content,
@@ -776,7 +776,7 @@ body.realdark .position-records[data-v-6c1eb557] .ant-table-wrapper {
   }
 }
 
-// 通用后备选择器
+// Universal fallback selector
 .theme-dark .position-records[data-v] .ant-table-body,
 .theme-dark .position-records[data-v] .ant-table-container,
 .theme-dark .position-records[data-v] .ant-table-content,

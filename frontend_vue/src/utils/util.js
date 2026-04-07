@@ -5,13 +5,13 @@ export function timeFix () {
 }
 
 export function welcome () {
-  const arr = ['休息一会儿吧', '准备吃什么呢?', '要不要打一把 DOTA', '我猜你可能累了']
+  const arr = ['Take a break', 'What are you going to eat?', 'How about a game of DOTA?', 'I guess you might be tired']
   const index = Math.floor(Math.random() * arr.length)
   return arr[index]
 }
 
 /**
- * 触发 window.resize
+ * Trigger window.resize event
  */
 export function triggerWindowResizeEvent () {
   const event = document.createEvent('HTMLEvents')

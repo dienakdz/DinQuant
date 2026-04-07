@@ -17,7 +17,7 @@ export default {
   },
   computed: {
     locale () {
-      // 只是为了切换语言时，更新标题
+      // Simply to update the title when switching languages
       const { title } = this.$route.meta
       title && (setDocumentTitle(`${i18nRender(title)} - ${domTitle}`))
 

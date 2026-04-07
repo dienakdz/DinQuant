@@ -309,7 +309,7 @@
 
           <!-- Step 2: trading settings -->
           <div v-show="currentStep === 1">
-            <!-- 合并的信息提示：交易对信息 + 精度信息 -->
+            <!-- Merged info tips: Symbol information + Precision information -->
             <a-alert
               :type="combinedAlertType"
               show-icon
@@ -317,7 +317,7 @@
             >
               <template slot="message">
                 <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
-                  <!-- 基本信息 -->
+                  <!-- Basic info -->
                   <span>
                     <strong>Symbol:</strong> {{ symbol || '-' }}
                     <span style="color: #999; margin: 0 6px;">|</span>
@@ -325,7 +325,7 @@
                     <span style="color: #999; margin: 0 6px;">|</span>
                     <strong>Timeframe:</strong> {{ selectedTimeframe || timeframe || '-' }}
                   </span>
-                  <!-- 精度信息 -->
+                  <!-- Precision info -->
                   <span v-if="precisionInfo && precisionInfo.enabled" style="margin-left: 12px; border-left: 1px solid #d9d9d9; padding-left: 12px;">
                     <a-icon :type="precisionInfo.precision === 'high' ? 'thunderbolt' : 'clock-circle'" style="margin-right: 4px;" />
                     {{ $t('dashboard.indicator.backtest.precisionMode') }}:
@@ -352,9 +352,9 @@
               </template>
             </a-alert>
 
-            <!-- 快捷日期选择按钮 -->
+            <!-- Quick date selection buttons -->
             <div class="date-quick-select" style="margin-bottom: 12px;">
-              <span style="margin-right: 8px; color: #666; font-size: 13px;">{{ $t('dashboard.indicator.backtest.quickSelect') || '快速选择' }}:</span>
+              <span style="margin-right: 8px; color: #666; font-size: 13px;">{{ $t('dashboard.indicator.backtest.quickSelect') || 'Quick Select' }}:</span>
               <a-button-group size="small">
                 <a-button
                   v-for="preset in datePresets"
@@ -487,7 +487,7 @@
         </a-form>
       </div>
 
-      <!-- 回测结果区域 -->
+      <!-- Backtest results area -->
       <div v-show="currentStep === 2 && hasResult" class="result-section">
         <a-alert
           v-if="backtestRunId"
@@ -497,7 +497,7 @@
           :message="$t('dashboard.indicator.backtest.savedRunId', { id: backtestRunId })"
         />
 
-        <!-- 关键指标卡片 -->
+        <!-- Key metrics cards -->
         <div class="metrics-cards">
           <div class="metric-card" :class="{ positive: result.totalReturn > 0, negative: result.totalReturn < 0 }">
             <div class="metric-label">{{ $t('dashboard.indicator.backtest.totalReturn') }}</div>
@@ -534,13 +534,13 @@
           </div>
         </div>
 
-        <!-- 收益曲线图表 -->
+        <!-- Equity curve chart -->
         <div class="chart-section">
           <div class="chart-title">{{ $t('dashboard.indicator.backtest.equityCurve') }}</div>
           <div ref="equityChartRef" class="equity-chart"></div>
         </div>
 
-        <!-- 交易记录表格 -->
+        <!-- Trade history table -->
         <div class="trades-section">
           <div class="chart-title">{{ $t('dashboard.indicator.backtest.tradeHistory') }}</div>
           <a-table
@@ -569,7 +569,7 @@
         </div>
       </div>
 
-      <!-- 加载状态 - 增强版动画 -->
+      <!-- Loading state - Enhanced animation -->
       <div v-if="loading" class="loading-overlay">
         <div class="loading-content">
           <div class="loading-animation">
@@ -667,9 +667,9 @@ export default {
       // Step1 UI state (Ant Form getFieldValue is not reactive)
       trailingEnabledUi: false,
       entryPctMaxUi: 100,
-      precisionInfo: null, // 回测精度信息
-      selectedDatePreset: null, // 当前选中的快捷日期
-      selectedTimeframe: '1D', // 用户选择的时间周期（默认使用props传入的值）
+      precisionInfo: null, // Backtest precision info
+      selectedDatePreset: null, // Currently selected quick date
+      selectedTimeframe: '1D', // User selected timeframe (defaulting to prop value)
       result: {
         totalReturn: 0,
         annualReturn: 0,
@@ -688,29 +688,29 @@ export default {
     }
   },
   computed: {
-    // 根据周期计算最大回测时间范围
+    // Calculate max backtest time range based on timeframe
     maxBacktestRange () {
-      // 1分钟线：最多1个月
+      // 1 minute: max 1 month
       const tf = this.selectedTimeframe || this.timeframe || '1D'
       if (tf === '1m') {
-        return { days: 30, label: '1个月' }
+        return { days: 30, label: '1 month' }
       }
-      // 5分钟线：最多6个月
+      // 5 minutes: max 6 months
       if (tf === '5m') {
-        return { days: 180, label: '6个月' }
+        return { days: 180, label: '6 months' }
       }
-      // 15分钟和30分钟：最多1年
+      // 15 and 30 minutes: max 1 year
       if (['15m', '30m'].includes(tf)) {
-        return { days: 365, label: '1年' }
+        return { days: 365, label: '1 year' }
       }
-      // 1小时及以上：最多3年
-      return { days: 1095, label: '3年' }
+      // 1 hour and above: max 3 years
+      return { days: 1095, label: '3 years' }
     },
-    // 根据时间周期推荐的默认日期范围 - 统一默认30天
+    // Recommended default date range - consistent 30 days
     recommendedRange () {
-      return { days: 30, label: '30天', key: '30d' }
+      return { days: 30, label: '30 days', key: '30d' }
     },
-    // 合并提示框的类型
+    // Combined alert type
     combinedAlertType () {
       if (this.precisionInfo && this.precisionInfo.enabled) {
         return this.precisionInfo.precision === 'high' ? 'success' : 'info'
@@ -720,12 +720,12 @@ export default {
       }
       return 'info'
     },
-    // 快捷日期选项 - 所有周期都包含30天作为默认选项
+    // Quick date options - all periods include 30 days as default
     datePresets () {
       const presets = []
       const tf = this.selectedTimeframe || this.timeframe || '1D'
-      // 根据时间周期动态生成合理的快捷选项
-      // 使用国际通用格式：7D, 14D, 30D, 3M, 6M, 1Y
+      // Dynamically generate reasonable quick options based on timeframe
+      // Use international standard format: 7D, 14D, 30D, 3M, 6M, 1Y
       if (tf === '1m') {
         presets.push({ key: '7d', days: 7, label: '7D' })
         presets.push({ key: '14d', days: 14, label: '14D' })
@@ -750,14 +750,14 @@ export default {
       return presets
     },
     defaultStartDate () {
-      // 默认开始日期：使用推荐范围
+      // Default start date: use recommended range
       return moment().subtract(this.recommendedRange.days, 'days')
     },
     defaultEndDate () {
-      // 默认结束日期：今天
+      // Default end date: today
       return moment()
     },
-    // 最早可选日期
+    // Earliest selectable date
     earliestDate () {
       return moment().subtract(this.maxBacktestRange.days, 'days')
     },
@@ -775,7 +775,7 @@ export default {
   watch: {
     visible (val) {
       if (val) {
-        // 弹窗打开时重置状态
+        // Reset state when modal opens
         this.currentStep = 0
         this.hasResult = false
         this.backtestRunId = null
@@ -784,7 +784,7 @@ export default {
         this.entryPctMaxUi = 100
         this.precisionInfo = null
         this.selectedDatePreset = null
-        this.selectedTimeframe = this.timeframe || '1D' // 初始化为props传入的时间周期
+        this.selectedTimeframe = this.timeframe || '1D' // Initialize from prop value
         this.result = {
           totalReturn: 0,
           annualReturn: 0,
@@ -804,14 +804,14 @@ export default {
             // Sync non-reactive form values into UI state
             this.trailingEnabledUi = !!this.form.getFieldValue('trailingEnabled')
             this.recalcEntryPctMaxUi()
-            // 默认选中30天
+            // Default select 30 days
             this.selectedDatePreset = '30d'
-            // 弹窗打开时立即获取精度信息（使用默认日期范围）
+            // Get precision info immediately on modal open (using default range)
             this.fetchPrecisionInfo()
           }
         })
       } else {
-        // 弹窗关闭时销毁图表
+        // Destroy chart when modal closes
         if (this.equityChart) {
           this.equityChart.dispose()
           this.equityChart = null
@@ -820,7 +820,7 @@ export default {
     }
   },
   created () {
-    // 初始化表格列（需要在created中初始化才能使用$t）
+    // Initialize table columns (needs created hook for $t)
     this.tradeColumns = [
       {
         title: this.$t('dashboard.indicator.backtest.tradeTime'),
@@ -930,14 +930,14 @@ export default {
         this.form.setFieldsValue({ trailingStopPct: 0, trailingActivationPct: 0 })
       }
     },
-    // 获取交易类型颜色
+    // Get trade type color
     getTradeTypeColor (type) {
       const colorMap = {
-        // 旧格式
+        // Old format
         'buy': 'green',
         'sell': 'red',
         'liquidation': 'orange',
-        // 新格式 - 做多
+        // New format - Long
         'open_long': 'green',
         'add_long': 'cyan',
         'close_long': 'orange',
@@ -945,7 +945,7 @@ export default {
         'close_long_profit': 'lime',
         'close_long_trailing': 'gold',
         'reduce_long': 'volcano',
-        // 新格式 - 做空
+        // New format - Short
         'open_short': 'red',
         'add_short': 'magenta',
         'close_short': 'blue',
@@ -956,14 +956,14 @@ export default {
       }
       return colorMap[type] || 'default'
     },
-    // 获取交易类型文本
+    // Get trade type text
     getTradeTypeText (type) {
       const textMap = {
-        // 旧格式
+        // Old format
         'buy': this.$t('dashboard.indicator.backtest.buy'),
         'sell': this.$t('dashboard.indicator.backtest.sell'),
         'liquidation': this.$t('dashboard.indicator.backtest.liquidation'),
-        // 新格式 - 做多
+        // New format - Long
         'open_long': this.$t('dashboard.indicator.backtest.openLong'),
         'add_long': this.$t('dashboard.indicator.backtest.addLong'),
         'close_long': this.$t('dashboard.indicator.backtest.closeLong'),
@@ -971,7 +971,7 @@ export default {
         'close_long_profit': this.$t('dashboard.indicator.backtest.closeLongProfit'),
         'close_long_trailing': this.$t('dashboard.indicator.backtest.closeLongTrailing'),
         'reduce_long': this.$t('dashboard.indicator.backtest.reduceLong'),
-        // 新格式 - 做空
+        // New format - Short
         'open_short': this.$t('dashboard.indicator.backtest.openShort'),
         'add_short': this.$t('dashboard.indicator.backtest.addShort'),
         'close_short': this.$t('dashboard.indicator.backtest.closeShort'),
@@ -984,20 +984,20 @@ export default {
     },
     disabledStartDate (current) {
       if (!current) return false
-      // 不能选择今天之后的日期
+      // Cannot select dates after today
       if (current > moment().endOf('day')) return true
-      // 不能选择最早日期之前的日期
+      // Cannot select dates before earliest date
       if (current < this.earliestDate.startOf('day')) return true
       return false
     },
     disabledEndDate (current) {
       if (!current) return false
-      // 不能选择今天之后的日期
+      // Cannot select dates after today
       if (current > moment().endOf('day')) return true
-      // 不能选择最早日期之前的日期
+      // Cannot select dates before earliest date
       if (current < this.earliestDate.startOf('day')) return true
 
-      // 如果已选择开始日期，限制结束日期不能超过开始日期+最大回测范围
+      // If start date is selected, limit end date to start date + max range
       const startDate = this.form.getFieldValue('startDate')
       if (startDate) {
         const maxDays = this.maxBacktestRange.days || 365
@@ -1007,7 +1007,7 @@ export default {
 
       return false
     },
-    // 应用快捷日期选择
+    // Apply quick date selection
     applyDatePreset (preset) {
       this.selectedDatePreset = preset.key
       const endDate = moment()
@@ -1016,21 +1016,21 @@ export default {
         startDate: startDate,
         endDate: endDate
       })
-      // 更新精度信息
+      // Update precision info
       this.fetchPrecisionInfo(startDate, endDate)
     },
-    // 获取精度信息
+    // Get precision info
     async fetchPrecisionInfo (startDate, endDate) {
-      // 如果没有传入日期，尝试从表单获取或使用默认值
+      // If no date provided, try from form or use default
       if (!startDate || !endDate) {
         startDate = this.form ? this.form.getFieldValue('startDate') : null
         endDate = this.form ? this.form.getFieldValue('endDate') : null
       }
-      // 如果还是没有，使用默认值
+      // Use defaults if still null
       if (!startDate) startDate = this.defaultStartDate
       if (!endDate) endDate = this.defaultEndDate
 
-      // 仅加密货币市场支持高精度回测
+      // Only crypto market supports high precision backtest
       if (!this.market || this.market.toLowerCase() !== 'crypto') {
         this.precisionInfo = {
           enabled: false,
@@ -1055,13 +1055,13 @@ export default {
           this.precisionInfo = response.data
         }
       } catch (e) {
-        // 静默失败，不影响正常使用
+        // Fail silently
         this.precisionInfo = null
       }
     },
-    // 时间周期变化时重新获取精度信息和更新快捷日期选项
+    // Re-fetch precision info and update quick dates when timeframe changes
     onTimeframeChange () {
-      // 重置日期选择为默认30天
+      // Reset date selection to default 30 days
       this.selectedDatePreset = '30d'
       const endDate = moment()
       const startDate = moment().subtract(30, 'days')
@@ -1069,17 +1069,17 @@ export default {
         startDate: startDate,
         endDate: endDate
       })
-      // 重新获取精度信息
+      // Re-fetch precision info
       this.fetchPrecisionInfo(startDate, endDate)
     },
-    // 日期变化时获取精度信息
+    // Get precision info when date changes
     onDateChange () {
-      this.selectedDatePreset = null // 清除快捷选择状态
+      this.selectedDatePreset = null // Clear quick select state
       this.$nextTick(() => {
         this.fetchPrecisionInfo()
       })
     },
-    // 验证日期范围
+    // Validate date range
     validateDateRange (startDate, endDate) {
       if (!startDate || !endDate) return true
       const diffDays = endDate.diff(startDate, 'days')
@@ -1096,13 +1096,13 @@ export default {
     },
     formatPercent (value) {
       if (value === null || value === undefined) return '--'
-      // 后端返回的已经是百分比数值（如59.34表示59.34%），不需要再乘100
+      // Backend returns percentage values already (e.g. 59.34 for 59.34%)
       const sign = value >= 0 ? '+' : ''
       return `${sign}${value.toFixed(2)}%`
     },
     formatMoney (value) {
       if (value === null || value === undefined) return '--'
-      // 正数显示+，负数显示-
+      // Positive shows +, negative shows -
       const sign = value >= 0 ? '+' : '-'
       return `${sign}$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     },
@@ -1132,14 +1132,14 @@ export default {
       this.hasResult = false
       this.backtestRunId = null
     },
-    // 加载动画提示轮播
+    // Loading animation carousel
     startLoadingAnimation () {
       const tips = [
-        this.$t('dashboard.indicator.backtest.loadingTip1') || '正在获取历史K线数据...',
-        this.$t('dashboard.indicator.backtest.loadingTip2') || '正在执行策略信号计算...',
-        this.$t('dashboard.indicator.backtest.loadingTip3') || '正在模拟交易执行...',
-        this.$t('dashboard.indicator.backtest.loadingTip4') || '正在计算回测指标...',
-        this.$t('dashboard.indicator.backtest.loadingTip5') || '即将完成，请稍候...'
+        this.$t('dashboard.indicator.backtest.loadingTip1') || 'Getting historical K-line data...',
+        this.$t('dashboard.indicator.backtest.loadingTip2') || 'Calculating strategy signals...',
+        this.$t('dashboard.indicator.backtest.loadingTip3') || 'Simulating trade execution...',
+        this.$t('dashboard.indicator.backtest.loadingTip4') || 'Computing backtest metrics...',
+        this.$t('dashboard.indicator.backtest.loadingTip5') || 'Finishing up, please wait...'
       ]
       let idx = 0
       this.loadingTip = tips[0]
@@ -1243,7 +1243,7 @@ export default {
             leverage: values.leverage || 1,
             tradeDirection: values.tradeDirection || 'long',
             strategyConfig,
-            // 启用多时间框架高精度回测（加密货币市场）
+            // Enable multi-timeframe high-precision backtest (Crypto market)
             enableMtf: this.market && this.market.toLowerCase() === 'crypto'
           }
 
@@ -1254,7 +1254,7 @@ export default {
           })
 
           if (response.code === 1 && response.data) {
-            // Backward compatible: data can be { runId, result } or raw result
+            // Backward compatible
             if (response.data.runId) {
               this.backtestRunId = response.data.runId
             }
@@ -1286,12 +1286,12 @@ export default {
       this.equityChart = echarts.init(this.$refs.equityChartRef)
 
       const data = this.result.equityCurve || []
-      // 后端返回格式：{ time: "2025-06-01 00:00", value: 100000 }
-      // 前端需要：dates, equity (value字段), benchmark (可选)
+      // Backend format: { time: "2025-06-01 00:00", value: 100000 }
+      // Frontend needs: dates, equity (value field), benchmark (optional)
       const dates = data.map(item => item.time || item.date)
       const equity = data.map(item => item.value !== undefined ? item.value : item.equity)
 
-      // 计算收益是正还是负，用于渐变颜色
+      // Determine if return is positive or negative for gradient color
       const initialValue = equity[0] || 100000
       const finalValue = equity[equity.length - 1] || initialValue
       const isPositive = finalValue >= initialValue
@@ -1345,7 +1345,7 @@ export default {
             color: '#8c8c8c',
             fontSize: 11,
             rotate: 0,
-            interval: Math.floor(dates.length / 6) // 自动间隔显示
+            interval: Math.floor(dates.length / 6) // Auto interval display
           }
         },
         yAxis: {
@@ -1373,9 +1373,9 @@ export default {
             name: this.$t('dashboard.indicator.backtest.strategy'),
             type: 'line',
             data: equity,
-            smooth: 0.4, // 平滑系数，0-1之间，值越大越平滑
-            symbol: 'none', // 不显示数据点
-            sampling: 'lttb', // 使用 LTTB 算法降采样，保持曲线形状
+            smooth: 0.4, // Smoothing factor, between 0-1, larger means smoother
+            symbol: 'none', // Do not show data points
+            sampling: 'lttb', // Use LTTB algorithm for downsampling
             lineStyle: {
               width: 2.5,
               color: mainColor,
@@ -1397,7 +1397,7 @@ export default {
 
       this.equityChart.setOption(option)
 
-      // 响应式调整
+      // Responsive adjustment
       window.addEventListener('resize', () => {
         if (this.equityChart) {
           this.equityChart.resize()

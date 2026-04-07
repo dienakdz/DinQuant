@@ -69,11 +69,11 @@ const user = {
   },
 
   actions: {
-    // 登录
+    // Login
     Login ({ commit, dispatch }, userInfo) {
       return new Promise((resolve, reject) => {
         login(userInfo).then(response => {
-          // 适配 Python 后端响应格式
+          // Adapt to Python backend response format
           if (response && response.code === 1 && response.data) {
             const result = response.data
             const token = result.token
@@ -85,12 +85,12 @@ const user = {
             commit('SET_INFO', info)
             storage.set(USER_INFO, info, expiresAt)
 
-            // 设置基本信息
+            // Set basic information
             const name = info.nickname || info.username || 'User'
             commit('SET_NAME', { name: name, welcome: welcome() })
             commit('SET_AVATAR', info.avatar || '/avatar2.jpg')
 
-            // 从服务器返回的角色信息设置角色
+            // Set roles based on role information returned from the server
             let roles = [DEFAULT_ROLE]
             if (info.role) {
               // role: { id: 'admin', permissions: [...] }
@@ -104,7 +104,7 @@ const user = {
             commit('SET_ROLES', roles)
             storage.set(USER_ROLES, roles, expiresAt)
 
-            // 重置路由，强制重新生成（根据新用户的角色）
+            // Reset routes, force regeneration (based on new user's roles)
             dispatch('ResetRoutes')
 
             resolve(response)
@@ -117,13 +117,13 @@ const user = {
       })
     },
 
-    // Web3 登录完成后的统一处理
+    // Unified processing after Web3 login is completed
     Web3LoginFinalize ({ commit }, payload) {
       return new Promise((resolve, reject) => {
         try {
           const { token, userInfo } = payload
           if (!token || !userInfo) {
-            reject(new Error('登录数据异常'))
+            reject(new Error('Login data exception'))
             return
           }
           storage.set(ACCESS_TOKEN, token, new Date().getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -155,7 +155,7 @@ const user = {
       })
     },
 
-    // 刷新用户信息
+    // Refresh user info
     FetchUserInfo ({ commit }) {
       return new Promise((resolve, reject) => {
         getUserInfo().then(res => {
@@ -172,19 +172,19 @@ const user = {
             }
             resolve(info)
           } else {
-            reject(new Error((res && res.msg) || '获取用户信息失败'))
+            reject(new Error((res && res.msg) || 'Failed to fetch user info'))
           }
         }).catch(err => reject(err))
       })
     },
 
-    // 获取用户信息（从 store 中获取，不再请求接口）
+    // Get user info (get from store, no longer request interface)
     GetInfo ({ commit, state }) {
       return new Promise((resolve, reject) => {
-        // 用户信息已经在登录时保存到 store 中，直接返回
-        // 增加 check: 必须包含 is_demo 字段，否则视为过期缓存，强制刷新
+        // User info is already saved in store during login, return directly
+        // Add check: must include is_demo field; otherwise regarded as stale cache, force refresh
         if (state.info && Object.keys(state.info).length > 0 && typeof state.info.is_demo !== 'undefined') {
-          // 补全 Roles
+          // Complete Roles
           const info = state.info
           if (info.role) {
             const roles = normalizeRoles(info.role)
@@ -200,7 +200,7 @@ const user = {
           }
           resolve(state.info)
         } else {
-          // 尝试主动拉取一次
+          // Attempt to actively pull once
           getUserInfo().then(res => {
             if (res && res.code === 1 && res.data) {
               const info = res.data
@@ -214,7 +214,7 @@ const user = {
               if (info.avatar) {
                 commit('SET_AVATAR', info.avatar)
               }
-              // 关键修复：设置角色，防止路由守卫死循环
+              // Critical fix: set roles to prevent infinite loop in route guard
               if (info.role) {
                 const roles = normalizeRoles(info.role)
                 commit('SET_ROLES', roles)
@@ -229,14 +229,14 @@ const user = {
               }
               resolve(info)
             } else {
-              reject(new Error((res && res.msg) || '用户信息不存在'))
+              reject(new Error((res && res.msg) || 'User info does not exist'))
             }
           }).catch(err => reject(err))
         }
       })
     },
 
-    // 登出
+    // Logout
     Logout ({ commit, dispatch }) {
       return new Promise((resolve) => {
         logout().then(() => {
@@ -248,15 +248,15 @@ const user = {
           storage.remove(ACCESS_TOKEN)
           storage.remove(USER_INFO)
           storage.remove(USER_ROLES)
-          // 重置路由
+          // Reset routes
           dispatch('ResetRoutes')
           resolve()
         }).catch(() => {
-          // 登出失败时也继续执行，确保清理本地状态
+          // Continue even if logout fails to ensure local state is cleared
           storage.remove(ACCESS_TOKEN)
           storage.remove(USER_INFO)
           storage.remove(USER_ROLES)
-          // 重置路由
+          // Reset routes
           dispatch('ResetRoutes')
           resolve()
         }).finally(() => {

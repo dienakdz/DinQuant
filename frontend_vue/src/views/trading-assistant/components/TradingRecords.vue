@@ -138,10 +138,10 @@ export default {
       try {
         const res = await getStrategyTrades(this.strategyId)
         if (res.code === 1) {
-          // 确保数据格式正确
+          // Ensure data format is correct
           this.records = (res.data.trades || []).map(trade => ({
             ...trade,
-            // 确保时间字段存在
+            // Ensure time field exists
             time: trade.created_at || trade.time
           }))
         } else {
@@ -157,37 +157,31 @@ export default {
         let date
 
         if (typeof time === 'number') {
-          // 数字类型：判断是秒级还是毫秒级时间戳
+          // Number type: determine if it's second or millisecond timestamp
           const timestampMs = time < 1e12 ? time * 1000 : time
           date = new Date(timestampMs)
         } else if (typeof time === 'string') {
-          // 字符串类型
+          // String type
           if (/^\d+$/.test(time)) {
-            // 纯数字字符串（时间戳）
+            // Pure numeric string (timestamp)
             const timestamp = parseInt(time, 10)
             const timestampMs = timestamp < 1e12 ? timestamp * 1000 : timestamp
             date = new Date(timestampMs)
           } else {
-            // ISO 日期字符串或其他格式，直接解析
+            // ISO date string or other format, parse directly
             date = new Date(time)
           }
         } else {
           return '--'
         }
 
-        // 检查日期是否有效
+        // Check if date is valid
         if (isNaN(date.getTime())) {
           return '--'
         }
 
-        // 使用24小时制格式化时间
-        const locale = this.$i18n.locale || 'zh-CN'
-        const localeMap = {
-          'zh-CN': 'zh-CN',
-          'zh-TW': 'zh-TW',
-          'en-US': 'en-US'
-        }
-        return date.toLocaleString(localeMap[locale] || 'zh-CN', {
+        // Format time using 24-hour clock
+        return date.toLocaleString('en-US', {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
@@ -200,20 +194,20 @@ export default {
         return '--'
       }
     },
-    // 获取交易类型颜色
+    // Get trade type color
     getTradeTypeColor (type) {
       const colorMap = {
-        // 旧格式
+        // Old format
         'buy': 'green',
         'sell': 'red',
         'liquidation': 'orange',
-        // 新格式 - 做多
+        // New format - Long
         'open_long': 'green',
         'add_long': 'cyan',
         'close_long': 'orange',
         'close_long_stop': 'red',
         'close_long_profit': 'lime',
-        // 新格式 - 做空
+        // New format - Short
         'open_short': 'red',
         'add_short': 'magenta',
         'close_short': 'blue',
@@ -222,20 +216,20 @@ export default {
       }
       return colorMap[type] || 'default'
     },
-    // 获取交易类型文本
+    // Get trade type text
     getTradeTypeText (type) {
       const textMap = {
-        // 旧格式
+        // Old format
         'buy': this.$t('dashboard.indicator.backtest.buy'),
         'sell': this.$t('dashboard.indicator.backtest.sell'),
         'liquidation': this.$t('dashboard.indicator.backtest.liquidation'),
-        // 新格式 - 做多
+        // New format - Long
         'open_long': this.$t('dashboard.indicator.backtest.openLong'),
         'add_long': this.$t('dashboard.indicator.backtest.addLong'),
         'close_long': this.$t('dashboard.indicator.backtest.closeLong'),
         'close_long_stop': this.$t('dashboard.indicator.backtest.closeLongStop'),
         'close_long_profit': this.$t('dashboard.indicator.backtest.closeLongProfit'),
-        // 新格式 - 做空
+        // New format - Short
         'open_short': this.$t('dashboard.indicator.backtest.openShort'),
         'add_short': this.$t('dashboard.indicator.backtest.addShort'),
         'close_short': this.$t('dashboard.indicator.backtest.closeShort'),
@@ -244,31 +238,31 @@ export default {
       }
       return textMap[type] || type
     },
-    // 格式化金额（盈亏）
+    // Format money (profit/loss)
     formatMoney (value) {
       if (value === null || value === undefined) return '--'
-      // 正数显示+，负数显示-
+      // Positive shows +, negative shows -
       const sign = value >= 0 ? '+' : '-'
       return `${sign}$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     },
-    // 格式化盈亏（处理信号模式下没有实盘的情况）
+    // Format profit (handle cases in signal mode with no live trades)
     formatProfit (value, record) {
-      // 如果是信号模式（没有实盘交易），profit为0或null时显示--
-      // 判断依据：如果是开仓信号且profit为0，或者record.is_signal_only为true
+      // If signal mode (no live trades), show -- when profit is 0 or null
+      // Criteria: If entry signal and profit is 0, or record.is_signal_only is true
       if (value === null || value === undefined) return '--'
 
       const numValue = parseFloat(value)
 
-      // 如果值为0且是开仓信号（open_long/open_short），显示--
-      // 因为开仓时还没有盈亏
+      // If value is 0 and it's an entry signal (open_long/open_short), show --
+      // Because there's no profit/loss at entry
       const openTypes = ['open_long', 'open_short', 'add_long', 'add_short']
       if (numValue === 0 && record && openTypes.includes(record.type)) {
         return '--'
       }
 
-      // 如果值极小（科学计数法如0E-8），视为0
+      // If value is extremely small (scientific notation like 0E-8), treat as 0
       if (Math.abs(numValue) < 0.000001) {
-        // 开仓类型显示--，平仓类型显示$0.00
+        // Entry types show --, cover types show $0.00
         if (record && openTypes.includes(record.type)) {
           return '--'
         }
@@ -277,18 +271,18 @@ export default {
 
       return this.formatMoney(numValue)
     },
-    // 格式化手续费（避免科学计数法如0E-8）
+    // Format commission (avoid scientific notation like 0E-8)
     formatCommission (value) {
       if (value === null || value === undefined) return '--'
 
       const numValue = parseFloat(value)
 
-      // 如果值极小（科学计数法如0E-8），显示为0或--
+      // If value is extremely small (scientific notation like 0E-8), show as 0 or --
       if (isNaN(numValue) || Math.abs(numValue) < 0.000001) {
         return '--'
       }
 
-      // 正常格式化显示
+      // Normal formatting display
       return `$${numValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}`
     }
   }
@@ -296,7 +290,7 @@ export default {
 </script>
 
 <style lang="less" scoped>
-// 颜色变量
+// Color variables
 @primary-color: #1890ff;
 @success-color: #0ecb81;
 @danger-color: #f6465d;
@@ -446,7 +440,7 @@ export default {
     }
   }
 
-  // 交易类型标签美化
+  // Trade type tag beautification
   ::v-deep .ant-tag {
     border-radius: 6px;
     padding: 3px 10px;
@@ -480,7 +474,7 @@ export default {
     }
   }
 
-  // 分页器美化
+  // Pager beautification
   ::v-deep .ant-pagination {
     margin-top: 16px;
     display: flex;
@@ -524,7 +518,7 @@ export default {
     }
   }
 
-  // 暗黑主题适配
+  // Dark theme adaptation
   &.theme-dark,
   .theme-dark & {
     ::v-deep .ant-table {
@@ -558,7 +552,7 @@ export default {
     background: #fafafa;
   }
 
-  // 移动端适配
+  // Mobile adaptation
   @media (max-width: 768px) {
     min-height: 200px;
     overflow-x: visible;
@@ -567,7 +561,7 @@ export default {
       font-size: 12px;
     }
 
-    // 移动端也使用细滚动条
+    // Mobile also uses thin scrollbar
     ::v-deep .ant-table-body,
     ::v-deep .ant-table-container,
     ::v-deep .ant-table-wrapper {
@@ -635,12 +629,12 @@ export default {
   }
 }
 
-// 暗黑主题 - 在 scoped 中处理，确保优先级足够高
+// Dark theme - handled in scoped to ensure high priority
 </style>
 
 <style lang="less">
-// 暗黑主题适配 - 使用最高优先级的选择器覆盖 scoped 样式
-// 关键：必须使用与 scoped 样式完全相同的选择器结构，加上 theme-dark 前缀
+// Dark theme adaptation - Use highest priority selectors to override scoped styles
+// Key: Must use exactly the same selector structure as scoped styles, plus theme-dark prefix
 .theme-dark .trading-records .ant-table-tbody > tr > td,
 .theme-dark .trading-records[data-v] .ant-table-tbody > tr > td,
 body.dark .trading-records .ant-table-tbody > tr > td,
@@ -682,7 +676,7 @@ body.realdark .trading-records .ant-table-tbody > tr:hover > td {
   background: #2a2e39 !important;
 }
 
-// 确保表头文字可见
+// Ensure table header text is visible
 .theme-dark .trading-records .ant-table-thead > tr > th,
 .theme-dark .trading-records[data-v] .ant-table-thead > tr > th,
 body.dark .trading-records .ant-table-thead > tr > th,
@@ -696,7 +690,7 @@ body.realdark .trading-records .ant-table-thead > tr > th {
   background: #2a2e39 !important;
 }
 
-// body.dark 和 body.realdark 支持
+// body.dark and body.realdark support
 body.dark .trading-records[data-v-8a68b65a] .ant-table-tbody > tr > td,
 body.realdark .trading-records[data-v-8a68b65a] .ant-table-tbody > tr > td {
   color: #d1d4dc !important;
@@ -711,7 +705,7 @@ body.realdark .trading-records[data-v-8a68b65a] .ant-table-thead > tr > th {
   border-bottom-color: #363c4e !important;
 }
 
-// 通用后备选择器（如果 data-v 值变化）
+// Universal fallback selector (if data-v value changes)
 .theme-dark .trading-records[data-v] .ant-table-tbody > tr > td,
 body.dark .trading-records[data-v] .ant-table-tbody > tr > td,
 body.realdark .trading-records[data-v] .ant-table-tbody > tr > td {
@@ -728,7 +722,7 @@ body.realdark .trading-records[data-v] .ant-table-thead > tr > th {
   border-bottom-color: #363c4e !important;
 }
 
-// 分页器样式
+// Pager styles
 .theme-dark .trading-records[data-v-8a68b65a] .ant-pagination-item,
 body.dark .trading-records[data-v-8a68b65a] .ant-pagination-item,
 body.realdark .trading-records[data-v-8a68b65a] .ant-pagination-item {
@@ -780,7 +774,7 @@ body.realdark .trading-records[data-v-8a68b65a] .ant-pagination-next:hover .ant-
   color: #1890ff !important;
 }
 
-// 通用后备选择器
+// Universal fallback selector
 .theme-dark .trading-records[data-v] .ant-pagination-item,
 body.dark .trading-records[data-v] .ant-pagination-item,
 body.realdark .trading-records[data-v] .ant-pagination-item {
@@ -832,7 +826,7 @@ body.realdark .trading-records[data-v] .ant-pagination-next:hover .ant-paginatio
   color: #1890ff !important;
 }
 
-// 暗黑主题滚动条样式
+// Dark theme scrollbar styles
 .theme-dark .trading-records[data-v-8a68b65a] .ant-table-body,
 .theme-dark .trading-records[data-v-8a68b65a] .ant-table-container,
 .theme-dark .trading-records[data-v-8a68b65a] .ant-table-content,
@@ -864,7 +858,7 @@ body.realdark .trading-records[data-v-8a68b65a] .ant-table-wrapper {
   }
 }
 
-// 通用后备选择器
+// Universal fallback selector
 .theme-dark .trading-records[data-v] .ant-table-body,
 .theme-dark .trading-records[data-v] .ant-table-container,
 .theme-dark .trading-records[data-v] .ant-table-content,
@@ -898,7 +892,7 @@ body.realdark .trading-records[data-v] .ant-table-wrapper {
 </style>
 
 <style lang="less">
-// 暗黑主题适配 - 使用全局样式确保能够覆盖
+// Dark theme adaptation - Use global styles to ensure overrides
 .theme-dark .trading-records {
   ::v-deep .ant-table {
     background: #1e222d !important;
@@ -942,7 +936,7 @@ body.realdark .trading-records[data-v] .ant-table-wrapper {
     color: #868993 !important;
   }
 
-  // 暗黑主题滚动条样式
+  // Dark theme scrollbar styles
   ::v-deep .ant-table-body,
   ::v-deep .ant-table-container,
   ::v-deep .ant-table-content,
@@ -1063,7 +1057,7 @@ body.realdark .trading-records {
     color: #868993 !important;
   }
 
-  // 暗黑主题滚动条样式
+  // Dark theme scrollbar styles
   ::v-deep .ant-table-body,
   ::v-deep .ant-table-container,
   ::v-deep .ant-table-content,
@@ -1142,7 +1136,7 @@ body.realdark .trading-records {
 </style>
 
 <style lang="less">
-/* 暗黑主题适配 - 使用更高优先级的选择器 */
+/* Dark theme adaptation - Use higher priority selectors */
 .theme-dark .trading-records,
 .theme-dark .trading-records *,
 body.dark .trading-records,

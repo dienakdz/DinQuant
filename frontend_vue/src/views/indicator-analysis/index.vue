@@ -83,7 +83,7 @@
 
     <div class="chart-content">
       <div class="chart-main-row">
-        <!-- 手机端：币种和价格信息显示在K线图上方 -->
+        <!-- Mobile: Symbol and price info displayed above K-line chart -->
         <div class="mobile-symbol-price" v-if="currentSymbol">
           <div class="mobile-symbol-info">
             <span class="mobile-market-tag">{{ currentMarket }}</span><span>-</span>
@@ -115,7 +115,7 @@
             <div class="panel-header">
               <span>{{ $t('dashboard.indicator.panel.title') }}</span>
               <div style="display: flex; align-items: center; margin-left: auto; gap: 8px;">
-                <!-- 手机端：创建指标按钮 -->
+                <!-- Mobile: Create indicator button -->
                 <a-button
                   v-if="isMobile"
                   type="primary"
@@ -126,7 +126,7 @@
                 >
                   {{ $t('dashboard.indicator.create') }}
                 </a-button>
-                <!-- 实时更新开关 -->
+                <!-- Real-time update switch -->
                 <a-tooltip :title="realtimeEnabled ? $t('dashboard.indicator.panel.realtimeOn') : $t('dashboard.indicator.panel.realtimeOff')">
                   <a-button
                     type="text"
@@ -141,9 +141,9 @@
             </div>
 
             <div class="panel-body">
-              <!-- PC端：两个区域各占一半 -->
+              <!-- PC: Two sections each taking half -->
               <template v-if="!isMobile">
-                <!-- 我创建的指标 -->
+                <!-- My Created Indicators -->
                 <div class="indicator-section" :class="{ 'section-empty': customIndicators.length === 0 }">
                   <div class="section-label">
                     <div class="section-label-left" @click="toggleCustomSection">
@@ -239,7 +239,7 @@
                   </div>
                 </div>
 
-                <!-- 我购买的指标 -->
+                <!-- My Purchased Indicators -->
                 <div class="indicator-section" :class="{ 'section-empty': purchasedIndicators.length === 0 }">
                   <div class="section-label">
                     <div class="section-label-left" @click="purchasedSectionCollapsed = !purchasedSectionCollapsed">
@@ -270,7 +270,7 @@
                             {{ indicator.name }}
                           </span>
                           <div class="card-actions">
-                            <!-- 购买的指标：只能启动/停止和回测，不能编辑删除 -->
+                            <!-- Purchased indicators: can only start/stop and backtest, cannot edit/delete -->
                             <a-tooltip :title="isIndicatorActive('purchased-' + indicator.id) ? $t('dashboard.indicator.action.stop') : $t('dashboard.indicator.action.start')">
                               <a-icon
                                 :type="isIndicatorActive('purchased-' + indicator.id) ? 'pause-circle' : 'play-circle'"
@@ -307,7 +307,7 @@
 
               </template>
 
-              <!-- 手机端：显示指标列表 -->
+              <!-- Mobile: Show indicator list -->
               <template v-else>
                 <div class="mobile-tab-content">
                   <div class="section-content custom-scrollbar">
@@ -458,7 +458,7 @@
         </div>
       </div>
 
-      <!-- 指标编辑器弹窗 -->
+      <!-- Indicator editor modal -->
       <indicator-editor
         ref="indicatorEditor"
         :visible="showIndicatorEditor"
@@ -469,7 +469,7 @@
         @cancel="showIndicatorEditor = false; editingIndicator = null"
       />
 
-      <!-- 回测弹窗 -->
+      <!-- Backtest modal -->
       <backtest-modal
         :visible="showBacktestModal"
         :userId="userId"
@@ -480,7 +480,7 @@
         @cancel="showBacktestModal = false; backtestIndicator = null"
       />
 
-      <!-- 指标参数配置弹窗 -->
+      <!-- Indicator parameter configuration modal -->
       <a-modal
         :visible="showParamsModal"
         :title="$t('dashboard.indicator.paramsConfig.title')"
@@ -505,26 +505,26 @@
                   <a-icon type="question-circle" style="color: #999; margin-left: 4px;" />
                 </a-tooltip>
               </div>
-              <!-- 整数类型 -->
+              <!-- Integer type -->
               <a-input-number
                 v-if="param.type === 'int'"
                 v-model="indicatorParamValues[param.name]"
                 :precision="0"
                 style="width: 100%;"
               />
-              <!-- 浮点数类型 -->
+              <!-- Float type -->
               <a-input-number
                 v-else-if="param.type === 'float'"
                 v-model="indicatorParamValues[param.name]"
                 :precision="4"
                 style="width: 100%;"
               />
-              <!-- 布尔类型 -->
+              <!-- Boolean type -->
               <a-switch
                 v-else-if="param.type === 'bool'"
                 v-model="indicatorParamValues[param.name]"
               />
-              <!-- 字符串类型 -->
+              <!-- String type -->
               <a-input
                 v-else
                 v-model="indicatorParamValues[param.name]"
@@ -535,7 +535,7 @@
         </div>
       </a-modal>
 
-      <!-- 回测记录抽屉 -->
+      <!-- Backtest history drawer -->
       <backtest-history-drawer
         :visible="showBacktestHistoryDrawer"
         :userId="userId"
@@ -548,7 +548,7 @@
         @view="handleViewBacktestRun"
       />
 
-      <!-- 回测记录详情 -->
+      <!-- Backtest run details -->
       <backtest-run-viewer
         :visible="showBacktestRunViewer"
         :run="selectedBacktestRun"
@@ -566,7 +566,7 @@
         @update:symbol="qtSymbol = $event"
       />
 
-      <!-- 发布到社区弹窗 -->
+      <!-- Publish to community modal -->
       <a-modal
         :title="publishIndicator && publishIndicator.publish_to_community ? $t('dashboard.indicator.publish.editTitle') : $t('dashboard.indicator.publish.title')"
         :visible="showPublishModal"
@@ -627,7 +627,7 @@
         </a-form-model>
       </a-modal>
 
-      <!-- 添加股票弹窗 -->
+      <!-- Add stock modal -->
       <a-modal
         :title="$t('dashboard.analysis.modal.addStock.title')"
         :visible="showAddStockModal"
@@ -639,7 +639,7 @@
         :cancelText="$t('dashboard.analysis.modal.addStock.cancel')"
       >
         <div class="add-stock-modal-content">
-          <!-- Tab标签 -->
+          <!-- Tabs -->
           <a-tabs v-model="selectedMarketTab" @change="handleMarketTabChange" class="market-tabs">
             <a-tab-pane
               v-for="marketType in marketTypes"
@@ -649,7 +649,7 @@
             </a-tab-pane>
           </a-tabs>
 
-          <!-- 搜索/输入框（整合搜索和手动输入） -->
+          <!-- Search/Input box (integrated search and manual input) -->
           <div class="symbol-search-section">
             <a-input-search
               v-model="symbolSearchKeyword"
@@ -666,7 +666,7 @@
             </a-input-search>
           </div>
 
-          <!-- 搜索结果 -->
+          <!-- Search results -->
           <div v-if="symbolSearchResults.length > 0" class="search-results-section">
             <div class="section-title">
               <a-icon type="search" style="margin-right: 4px;" />
@@ -694,7 +694,7 @@
             </a-list>
           </div>
 
-          <!-- 热门标的 -->
+          <!-- Hot symbols -->
           <div class="hot-symbols-section">
             <div class="section-title">
               <a-icon type="fire" style="color: #ff4d4f; margin-right: 4px;" />
@@ -725,7 +725,7 @@
             </a-spin>
           </div>
 
-          <!-- 选中的标的显示 -->
+          <!-- Selected symbol display -->
           <div v-if="selectedSymbolForAdd" class="selected-symbol-section">
             <a-alert
               :message="$t('dashboard.analysis.modal.addStock.selectedSymbol')"
@@ -780,9 +780,9 @@ export default {
     ...mapState({
       navTheme: state => state.app.theme
     }),
-    // 图表主题 - 从 store 获取
+    // Chart theme - get from store
     chartTheme () {
-      // 将 'dark' 或 'realdark' 都映射为 'dark'，其他为 'light'
+      // Map 'dark' or 'realdark' to 'dark', others to 'light'
       return (this.navTheme === 'dark' || this.navTheme === 'realdark') ? 'dark' : 'light'
     },
     // 判断是否为暗黑主题（用于添加类名）
@@ -799,27 +799,27 @@ export default {
     const userId = ref(1)
     const loadingUserInfo = ref(false)
 
-    // 搜索相关
+    // Search related
     const searchSymbol = ref(undefined)
     const symbolSuggestions = ref([])
-    const watchlist = ref([]) // 自选股列表
+    const watchlist = ref([]) // Watchlist
     const loadingWatchlist = ref(false)
-    const symbolSearchValue = ref('') // 搜索输入值
-    const symbolSearchOpen = ref(false) // 下拉框是否打开
+    const symbolSearchValue = ref('') // Search input value
+    const symbolSearchOpen = ref(false) // Whether dropdown is open
 
     // 添加股票弹窗相关
     const showAddStockModal = ref(false)
     const addingStock = ref(false)
-    const selectedMarketTab = ref('') // 当前选中的市场类型tab
-    const symbolSearchKeyword = ref('') // 搜索关键词
-    const symbolSearchResults = ref([]) // 搜索结果
-    const searchingSymbols = ref(false) // 是否正在搜索
-    const hotSymbols = ref([]) // 热门标的列表
-    const loadingHotSymbols = ref(false) // 是否正在加载热门标的
-    const selectedSymbolForAdd = ref(null) // 选中的标的（用于添加）
-    const searchTimer = ref(null) // 搜索防抖定时器
-    const marketTypes = ref([]) // 股票类型列表
-    const hasSearched = ref(false) // 是否已经搜索过（用于显示无结果提示）
+    const selectedMarketTab = ref('') // Currently selected market type tab
+    const symbolSearchKeyword = ref('') // Search keyword
+    const symbolSearchResults = ref([]) // Search results
+    const searchingSymbols = ref(false) // Whether searching
+    const hotSymbols = ref([]) // Hot symbols list
+    const loadingHotSymbols = ref(false) // Whether loading hot symbols
+    const selectedSymbolForAdd = ref(null) // Selected symbol (for addition)
+    const searchTimer = ref(null) // Search debounce timer
+    const marketTypes = ref([]) // Symbol types list
+    const hasSearched = ref(false) // Whether searched (for no results hint)
 
     const currentSymbol = ref('')
     const currentMarket = ref('')
@@ -844,74 +844,68 @@ export default {
     const activeIndicators = ref([])
     const isMobile = ref(false)
 
-    // SMA和EMA的均线组合定义（已废弃，保留用于兼容性检查）
+    // SMA and EMA moving average group definition (deprecated, kept for compatibility)
     const smaGroup = [
-      { id: 'sma5', name: 'SMA5 (5日均线)', shortName: 'SMA5', type: 'line', defaultParams: { length: 5 } },
-      { id: 'sma10', name: 'SMA10 (10日均线)', shortName: 'SMA10', type: 'line', defaultParams: { length: 10 } },
-      { id: 'sma20', name: 'SMA20 (20日均线)', shortName: 'SMA20', type: 'line', defaultParams: { length: 20 } },
-      { id: 'sma30', name: 'SMA30 (30日均线)', shortName: 'SMA30', type: 'line', defaultParams: { length: 30 } }
+      { id: 'sma5', name: 'SMA5 (5-day MA)', shortName: 'SMA5', type: 'line', defaultParams: { length: 5 } },
+      { id: 'sma10', name: 'SMA10 (10-day MA)', shortName: 'SMA10', type: 'line', defaultParams: { length: 10 } },
+      { id: 'sma20', name: 'SMA20 (20-day MA)', shortName: 'SMA20', type: 'line', defaultParams: { length: 20 } },
+      { id: 'sma30', name: 'SMA30 (30-day MA)', shortName: 'SMA30', type: 'line', defaultParams: { length: 30 } }
     ]
 
     const emaGroup = [
-      { id: 'ema5', name: 'EMA5 (5日指数均线)', shortName: 'EMA5', type: 'line', defaultParams: { length: 5 } },
-      { id: 'ema10', name: 'EMA10 (10日指数均线)', shortName: 'EMA10', type: 'line', defaultParams: { length: 10 } },
-      { id: 'ema20', name: 'EMA20 (20日指数均线)', shortName: 'EMA20', type: 'line', defaultParams: { length: 20 } },
-      { id: 'ema30', name: 'EMA30 (30日指数均线)', shortName: 'EMA30', type: 'line', defaultParams: { length: 30 } }
+      { id: 'ema5', name: 'EMA5 (5-day EMA)', shortName: 'EMA5', type: 'line', defaultParams: { length: 5 } },
+      { id: 'ema10', name: 'EMA10 (10-day EMA)', shortName: 'EMA10', type: 'line', defaultParams: { length: 10 } },
+      { id: 'ema20', name: 'EMA20 (20-day EMA)', shortName: 'EMA20', type: 'line', defaultParams: { length: 20 } },
+      { id: 'ema30', name: 'EMA30 (30-day EMA)', shortName: 'EMA30', type: 'line', defaultParams: { length: 30 } }
     ]
 
-    // 从数据库获取的指标
-    const customIndicators = ref([]) // 我创建的指标（is_buy=0）
-    const purchasedIndicators = ref([]) // 我购买的指标（is_buy=1）
-    const loadingIndicators = ref(false)
-
-    // 指标参数配置弹窗
-    const showParamsModal = ref(false)
-    const pendingIndicator = ref(null) // 待运行的指标
-    const pendingSource = ref('') // 待运行指标的来源 (custom/purchased)
-    const indicatorParams = ref([]) // 指标参数声明
-    const indicatorParamValues = ref({}) // 用户设置的参数值
+    // Indicator parameter configuration modal
+    const pendingIndicator = ref(null) // Indicator pending to run
+    const pendingSource = ref('') // Source of pending indicator (custom/purchased)
+    const indicatorParams = ref([]) // Indicator parameter declaration
+    const indicatorParamValues = ref({}) // Parameter values set by user
     const loadingParams = ref(false)
-    // 保存每个指标的参数值（key: indicatorId, value: { paramName: paramValue }）
+    // Save parameter values for each indicator (key: indicatorId, value: { paramName: paramValue })
     const savedIndicatorParams = ref({})
 
-    // 折叠状态
-    const customSectionCollapsed = ref(false) // 我创建的指标区域是否折叠
-    const purchasedSectionCollapsed = ref(false) // 我购买的指标区域是否折叠
+    // Collapse states
+    const customSectionCollapsed = ref(false) // Whether my created indicators section is collapsed
+    const purchasedSectionCollapsed = ref(false) // Whether my purchased indicators section is collapsed
 
-    // 指标编辑器相关
+    // Indicator editor related
     const showIndicatorEditor = ref(false)
     const editingIndicator = ref(null)
 
-    // 回测相关
+    // Backtest related
     const showBacktestModal = ref(false)
     const backtestIndicator = ref(null)
 
-    // 回测记录相关
+    // Backtest history related
     const showBacktestHistoryDrawer = ref(false)
     const backtestHistoryIndicator = ref(null)
     const showBacktestRunViewer = ref(false)
     const selectedBacktestRun = ref(null)
 
-    // 发布到社区相关
+    // Publish to community related
     const showPublishModal = ref(false)
     const publishIndicator = ref(null)
     const publishing = ref(false)
     const unpublishing = ref(false)
-    // 使用独立的 ref 变量，确保 v-model 正常工作
+    // Use independent ref variables to ensure v-model works correctly
     const publishPricingType = ref('free')
     const publishPrice = ref(10)
     const publishDescription = ref('')
     const publishVipFree = ref(false)
     const publishRules = {
       price: [
-        { required: true, message: '请输入价格', trigger: 'blur', type: 'number' }
+        { required: true, message: 'Please enter price', trigger: 'blur', type: 'number' }
       ]
     }
 
-    // 实时更新设置
-    const realtimeEnabled = ref(false) // 是否启用实时更新
+    // Real-time update settings
+    const realtimeEnabled = ref(false) // Whether real-time update is enabled
 
-    // 处理价格变化事件（从 KlineChart 组件接收）
+    // Handle price change event (receiving from KlineChart component)
     const handlePriceChange = ({ price, change }) => {
       currentPrice.value = price
       priceChange.value = change
@@ -925,20 +919,20 @@ export default {
       showQuickTrade.value = true
     }
 
-    // 处理图表重试事件
+    // Handle chart retry event
     const handleChartRetry = () => {
-      // KlineChart 组件会自己处理重试，这里可以添加额外的逻辑
+      // KlineChart component handles retry itself, additional logic can be added here
     }
 
-    // --- 指标定义（已废弃，保留用于兼容） ---
+    // --- Indicator definitions (deprecated, kept for compatibility) ---
     const trendIndicators = ref([])
     const oscillatorIndicators = ref([])
 
-    // --- 交互逻辑 ---
+    // --- Interaction logic ---
 
     const setTimeframe = (tf) => {
       timeframe.value = tf
-      // KlineChart 组件会通过 watch timeframe 自动加载数据
+      // KlineChart will automatically load data via watch timeframe
     }
 
     const formatParams = (params) => {
@@ -946,37 +940,37 @@ export default {
       return Object.values(params).join(', ')
     }
 
-    // 加载用户信息
+    // Load user info
     const loadUserInfo = async () => {
       loadingUserInfo.value = true
       try {
-        // 获取 store 实例
+        // Get store instance
         const instance = getCurrentInstance()
         const store = instance?.proxy?.$store
 
-        // 先从 store 获取
+        // Get from store first
         const storeUserInfo = store?.getters?.userInfo || {}
         if (storeUserInfo && storeUserInfo.email) {
           userId.value = storeUserInfo.id
           loadingUserInfo.value = false
-          // 加载数据
+          // Load data
           loadWatchlist()
-          // 加载指标列表
+          // Load indicator list
           loadIndicators()
           return
         }
 
-        // 如果 store 中没有，从 API 获取
+        // If not in store, get from API
         const res = await getUserInfo()
         if (res && res.code === 1 && res.data) {
           userId.value = res.data.id
-          // 更新 store
+          // Update store
           if (store) {
             store.commit('SET_INFO', res.data)
           }
-          // 加载数据
+          // Load data
           loadWatchlist()
-          // 加载指标列表
+          // Load indicator list
           loadIndicators()
         }
       } catch (error) {
@@ -985,7 +979,7 @@ export default {
       }
     }
 
-    // 加载自选股
+    // Load watchlist
     const loadWatchlist = async () => {
       if (!userId.value) return
       loadingWatchlist.value = true
@@ -997,10 +991,10 @@ export default {
             label: item.symbol + (item.name ? ` (${item.name})` : ''),
             value: `${item.market}:${item.symbol}`
           }))
-          // 更新 symbolSuggestions
+          // Update symbolSuggestions
           updateSymbolSuggestions()
 
-          // 如果有自选股，自动选择最新添加的那个（数组第一个，因为后端按 createtime desc 排序）
+          // If watchlist has items, select the latest one (first in array since backend sorts by createtime desc)
           if (watchlist.value.length > 0 && !currentSymbol.value) {
             const latestSymbol = watchlist.value[0]
             currentMarket.value = latestSymbol.market
@@ -1015,23 +1009,23 @@ export default {
       }
     }
 
-    // 更新搜索建议（基于自选股）
+    // Update symbol suggestions (based on watchlist)
     const updateSymbolSuggestions = () => {
       if (symbolSearchValue.value) {
-        // 如果有搜索输入，过滤自选股
+        // Filter watchlist if search input exists
         symbolSuggestions.value = watchlist.value.filter(item =>
           item.symbol.toLowerCase().includes(symbolSearchValue.value.toLowerCase()) ||
           (item.name && item.name.toLowerCase().includes(symbolSearchValue.value.toLowerCase()))
         )
       } else {
-        // 没有搜索输入时，显示所有自选股
+        // Show all watchlist items if no search input
         symbolSuggestions.value = watchlist.value
       }
     }
 
     const handleSymbolSearch = (value) => {
       symbolSearchValue.value = value
-      // 如果没有自选股且用户输入了内容，打开下拉框
+      // Open dropdown if watchlist empty and user entered content
       if (watchlist.value.length === 0 && value) {
         symbolSearchOpen.value = true
       }
@@ -1040,36 +1034,36 @@ export default {
 
     const handleDropdownVisibleChange = (open) => {
       symbolSearchOpen.value = open
-      // 如果关闭下拉框，清空搜索值
+      // Clear search value if dropdown closed
       if (!open) {
         symbolSearchValue.value = ''
       }
     }
 
     const handleSymbolSelect = (value) => {
-      // 如果是提示选项，不处理
+      // Ignore if hint option
       if (value === '__empty_watchlist_hint__') {
         return
       }
-      // 如果是添加股票选项
+      // If add stock option
       if (value === '__add_stock_option__') {
         showAddStockModal.value = true
-        // 重置选中项，避免显示内部值
+        // Reset selected item to avoid displaying internal value
         setTimeout(() => {
           searchSymbol.value = undefined
         }, 0)
         return
       }
 
-      // 从自选股列表中找到选中的项
+      // Find selected item from watchlist
       let selected = watchlist.value.find(s => s.value === value)
 
-      // 如果没找到，尝试从建议列表中找到
+      // Try finding from suggestions if not in watchlist
       if (!selected) {
         selected = symbolSuggestions.value.find(s => s.value === value)
       }
 
-      // 如果还是没找到，尝试解析格式 "market:symbol"
+      // Parse "market:symbol" if still not found
       if (!selected && value.includes(':')) {
         const [market, symbol] = value.split(':')
         selected = { market, symbol, value }
@@ -1078,22 +1072,22 @@ export default {
       if (selected) {
         currentMarket.value = selected.market
         currentSymbol.value = selected.symbol
-        searchSymbol.value = selected.value // 显示选中的值
-        // KlineChart 组件会通过 watch symbol 和 market 自动加载数据
+        searchSymbol.value = selected.value // Display selected value
+        // KlineChart component automatically loads data via watch symbol and market
       }
     }
 
-    // 过滤选项（用于搜索）
+    // Filter options (for search)
     const filterSymbolOption = (input, option) => {
       const value = option.componentOptions?.propsData?.value || ''
-      // 如果是提示选项或添加按钮，始终显示
+      // Always show hint option or add button
       if (value === '__empty_watchlist_hint__' || value === '__add_stock_option__') {
         return true
       }
       return value.toLowerCase().includes(input.toLowerCase())
     }
 
-    // 加载股票类型列表
+    // Load symbol type list
     const loadMarketTypes = async () => {
       try {
         const res = await getMarketTypes()
@@ -1117,7 +1111,7 @@ export default {
           ]
         }
 
-        // 初始化选中的市场类型tab
+        // Initialize selected market type tab
         if (marketTypes.value.length > 0 && !selectedMarketTab.value) {
           selectedMarketTab.value = marketTypes.value[0].value
         }
@@ -1132,7 +1126,7 @@ export default {
       }
     }
 
-    // 关闭添加股票弹窗
+    // Close add stock modal
     const handleCloseAddStockModal = () => {
       showAddStockModal.value = false
       selectedSymbolForAdd.value = null
@@ -1142,28 +1136,28 @@ export default {
       selectedMarketTab.value = marketTypes.value.length > 0 ? marketTypes.value[0].value : ''
     }
 
-    // 市场类型Tab切换
+    // Market type tab switch
     const handleMarketTabChange = (activeKey) => {
       selectedMarketTab.value = activeKey
       symbolSearchKeyword.value = ''
       symbolSearchResults.value = []
       selectedSymbolForAdd.value = null
       hasSearched.value = false
-      // 加载该市场类型的热门标的
+      // Load hot symbols for this market type
       loadHotSymbols(activeKey)
     }
 
-    // 搜索标的输入变化（防抖）
+    // Symbol search input change (debounce)
     const handleSymbolSearchInput = (e) => {
       const keyword = e.target.value
       symbolSearchKeyword.value = keyword
 
-      // 清除之前的定时器
+      // Clear previous timer
       if (searchTimer.value) {
         clearTimeout(searchTimer.value)
       }
 
-      // 如果关键词为空，清空搜索结果和状态
+      // Clear results if keyword empty
       if (!keyword || keyword.trim() === '') {
         symbolSearchResults.value = []
         hasSearched.value = false
@@ -1171,13 +1165,13 @@ export default {
         return
       }
 
-      // 防抖：500ms后执行搜索
+      // Debounce: execute search after 500ms
       searchTimer.value = setTimeout(() => {
         searchSymbolsInModal(keyword)
       }, 500)
     }
 
-    // 搜索或直接添加（整合逻辑）
+    // Search or direct add (integrated logic)
     const handleSearchOrInput = (keyword) => {
       if (!keyword || !keyword.trim()) {
         return
@@ -1188,21 +1182,21 @@ export default {
         return
       }
 
-      // 如果有搜索结果，不处理（让用户选择）
+      // Don't handle if search results exist (let user choose)
       if (symbolSearchResults.value.length > 0) {
         return
       }
 
-      // 如果没有搜索结果，直接添加
+      // Direct add if no search results
       if (hasSearched.value && symbolSearchResults.value.length === 0) {
         handleDirectAdd()
       } else {
-        // 执行搜索
+        // Execute search
         searchSymbolsInModal(keyword)
       }
     }
 
-    // 搜索标的（在添加股票弹窗中）
+    // Search symbols (in add stock modal)
     const searchSymbolsInModal = async (keyword) => {
       if (!keyword || keyword.trim() === '') {
         symbolSearchResults.value = []
@@ -1226,29 +1220,29 @@ export default {
         if (res && res.code === 1 && res.data && res.data.length > 0) {
           symbolSearchResults.value = res.data
         } else {
-          // 搜索无结果，不报错，允许直接添加
+          // Search no results, allow direct add
           symbolSearchResults.value = []
-          // 自动设置为手动输入模式
+          // Automatically set to manual input mode
           selectedSymbolForAdd.value = {
             market: selectedMarketTab.value,
             symbol: keyword.trim().toUpperCase(),
-            name: '' // 名称由后端通过API获取
+            name: '' // Name will be fetched by backend API
           }
         }
       } catch (error) {
-        // 搜索失败也不报错，允许直接添加
+        // Allow direct add even if search fails
         symbolSearchResults.value = []
         selectedSymbolForAdd.value = {
           market: selectedMarketTab.value,
           symbol: keyword.trim().toUpperCase(),
-          name: '' // 名称由后端通过API获取
+          name: '' // Name will be fetched by backend API
         }
       } finally {
         searchingSymbols.value = false
       }
     }
 
-    // 直接添加（搜索无结果时）
+    // Direct add (when no search results)
     const handleDirectAdd = () => {
       if (!symbolSearchKeyword.value || !symbolSearchKeyword.value.trim()) {
         message.warning(proxy.$t('dashboard.analysis.modal.addStock.pleaseEnterSymbol'))
@@ -1260,15 +1254,15 @@ export default {
         return
       }
 
-      // 设置选中的标的（手动输入，名称会在后端获取）
+      // Set selected symbol (manual input, name fetched by backend)
       selectedSymbolForAdd.value = {
         market: selectedMarketTab.value,
         symbol: symbolSearchKeyword.value.trim().toUpperCase(),
-        name: '' // 名称由后端通过API获取
+        name: '' // Name will be fetched by backend API
       }
     }
 
-    // 选择标的
+    // Select symbol
     const selectSymbol = (symbol) => {
       selectedSymbolForAdd.value = {
         market: symbol.market,
@@ -1277,7 +1271,7 @@ export default {
       }
     }
 
-    // 加载热门标的
+    // Load hot symbols
     const loadHotSymbols = async (market) => {
       if (!market) {
         market = selectedMarketTab.value || (marketTypes.value.length > 0 ? marketTypes.value[0].value : '')
@@ -1305,17 +1299,17 @@ export default {
       }
     }
 
-    // 添加自选股
+    // Add to watchlist
     const handleAddStock = async () => {
       let market = ''
       let symbol = ''
 
-      // 检查是否选中了标的（从数据库选择或手动输入）
+      // Check if symbol is selected (from database or manual)
       if (selectedSymbolForAdd.value) {
         market = selectedSymbolForAdd.value.market
         symbol = selectedSymbolForAdd.value.symbol.toUpperCase()
       } else if (symbolSearchKeyword.value && symbolSearchKeyword.value.trim()) {
-        // 如果没有选中，但搜索框有输入，使用搜索框的值
+        // Use search box value if nothing selected but input exists
         if (!selectedMarketTab.value) {
           message.warning(proxy.$t('dashboard.analysis.modal.addStock.pleaseSelectMarket'))
           return
@@ -1337,7 +1331,7 @@ export default {
         if (res && res.code === 1) {
           message.success(proxy.$t('dashboard.analysis.message.addStockSuccess'))
           handleCloseAddStockModal()
-          // 重新加载自选股
+          // Reload watchlist
           await loadWatchlist()
         } else {
           message.error(res?.msg || proxy.$t('dashboard.analysis.message.addStockFailed'))
@@ -1350,31 +1344,31 @@ export default {
       }
     }
 
-    // --- 数据加载和图表初始化函数已迁移到 KlineChart 组件 ---
+    // --- Data loading and chart initialization migrated to KlineChart component ---
 
     const addIndicator = (ind) => {
       if (isIndicatorActive(ind.id)) return
-      // 如果传入的指标已经有 params，使用传入的 params；否则使用 defaultParams
+      // Use provided params if exists, else use defaultParams
       const params = ind.params || ind.defaultParams || {}
       activeIndicators.value.push({
         ...ind,
-        id: ind.id, // 简单处理，如果允许多个同类指标需用 uniqueId
+        id: ind.id, // Simple handling, uniqueId needed for multiple indicators of same type
         params: { ...params }
       })
-      // KlineChart 组件会通过 watch activeIndicators 自动更新图表
+      // KlineChart automatically updates chart via watch activeIndicators
     }
 
     const removeIndicator = (id) => {
       // const beforeCount = activeIndicators.value.length
       activeIndicators.value = activeIndicators.value.filter(i => i.id !== id)
       // const afterCount = activeIndicators.value.length
-      // KlineChart 组件会通过 watch activeIndicators 自动更新图表
+      // KlineChart automatically updates chart via watch activeIndicators
     }
 
-    // 处理从 KlineChart 组件传来的指标切换事件
+    // Handle indicator toggle event from KlineChart
     const handleIndicatorToggle = ({ action, indicator }) => {
       if (action === 'add') {
-        // 需要为指标添加 calculate 函数
+        // Need to add calculate function to indicator
         const indicatorWithCalculate = {
           ...indicator,
           calculate: getIndicatorCalculateFunction(indicator.id)
@@ -1385,16 +1379,16 @@ export default {
       }
     }
 
-    // 根据指标 ID 获取对应的 calculate 函数
-    // 注意：计算函数已迁移到 KlineChart.vue，这里返回 null，让 KlineChart.vue 根据 id 处理
+    // Get calculate function by indicator ID
+    // Note: calculate function moved to KlineChart.vue, return null here
     const getIndicatorCalculateFunction = (indicatorId) => {
-      // KlineChart.vue 的 updateIndicators 函数会根据 indicator.id 直接处理
-      // 不再需要 Indicator.vue 中的计算函数
+      // KlineChart.vue updateIndicators handles it via indicator.id
+      // Calculate function in Indicator.vue no longer needed
       return null
     }
 
     const isIndicatorActive = (id) => {
-      // 特殊处理SMA和EMA组合
+      // Special handling for SMA and EMA groups
       if (id === 'sma') {
         return smaGroup.some(ind => activeIndicators.value.some(i => i.id === ind.id))
       }
@@ -1452,12 +1446,12 @@ export default {
       }
     }
 
-    // --- Python 相关函数已迁移到 KlineChart 组件 ---
+    // --- Python related functions migrated to KlineChart component ---
 
-    // KlineChart 组件引用
+    // KlineChart component reference
     const klineChart = ref(null)
 
-    // 添加Python代码指标
+    // Add Python code indicator
     const addPythonIndicator = async (indicator, source) => {
       const indicatorId = `${source}-${indicator.id}`
       if (isIndicatorActive(indicatorId)) {
@@ -1490,32 +1484,32 @@ export default {
           return
         }
 
-        // 用户传递的参数（来自参数配置弹窗）
+        // User parameters (from config modal)
         const userParams = indicator.userParams || {}
 
-        // 创建一个Python指标对象
-        // 保存代码到局部变量，避免闭包问题
+        // Create a Python indicator object
+        // Save code to local variable to avoid closure issues
         const savedCode = pythonCode
-        const savedUserParams = { ...userParams } // 保存用户参数
+        const savedUserParams = { ...userParams } // Save user parameters
         const pythonIndicator = {
-          id: indicatorId, // 格式化后的ID（如 bought-1）
+          id: indicatorId, // Formatted ID (e.g. purchased-1)
           name: indicator.name,
           type: 'python',
           code: savedCode,
           description: indicator.description,
-          parsed: parsed, // 保存解析结果
-          userParams: savedUserParams, // 保存用户参数
-          // 保存原始数据库ID和用户ID，用于解密
-          originalId: indicator.id, // 数据库中的真实ID
-          user_id: indicator.user_id || indicator.userId, // 用户ID
-          is_encrypted: indicator.is_encrypted || indicator.isEncrypted || 0, // 是否加密标记
+          parsed: parsed, // Save parse results
+          userParams: savedUserParams, // Save user parameters
+          // Save original DB ID and User ID for decryption
+          originalId: indicator.id, // Real ID in database
+          user_id: indicator.user_id || indicator.userId, // User ID
+          is_encrypted: indicator.is_encrypted || indicator.isEncrypted || 0, // Encryption flag
           calculate: (data, params) => {
-            // 通过 KlineChart 组件的 ref 访问 executePythonStrategy 函数
-            // 使用savedCode确保每个指标使用自己的代码（避免闭包问题）
-            // 传递完整的indicator信息用于解密
-            // 将用户参数直接合并到 params 中，让指标代码可以通过 params.get('name', default) 访问
+            // Access executePythonStrategy via KlineChart ref
+            // Use savedCode to ensure each indicator uses its own code
+            // Pass full indicator info for decryption
+            // Merge user parameters into params
             return klineChart.value.executePythonStrategy(savedCode, data, { ...params, ...savedUserParams }, {
-              id: indicator.id, // 使用原始数据库ID
+              id: indicator.id, // Use original database ID
               user_id: indicator.user_id || indicator.userId,
               is_encrypted: indicator.is_encrypted || indicator.isEncrypted || 0
             })
@@ -1533,35 +1527,35 @@ export default {
       }
     }
 
-    // 切换指标开关
+    // Toggle indicator switch
     const toggleIndicator = async (indicator, source) => {
       const indicatorId = `${source}-${indicator.id}`
       if (isIndicatorActive(indicatorId)) {
         removeIndicator(indicatorId)
       } else {
-        // 检查指标是否有参数声明
+        // Check if indicator has parameter declarations
         try {
           loadingParams.value = true
           const res = await proxy.$http.get('/api/indicator/getIndicatorParams', {
             params: { indicator_id: indicator.id }
           })
           if (res && res.code === 1 && Array.isArray(res.data) && res.data.length > 0) {
-            // 有参数，显示配置弹窗
+            // Has parameters, show config modal
             indicatorParams.value = res.data
-            // 获取指标的唯一标识（用于保存参数值）
+            // Get unique identifier for indicator (to save parameter values)
             const indicatorKey = `${source}-${indicator.id}`
-            // 先检查是否有保存的参数值
+            // Check for saved parameter values
             const savedParams = savedIndicatorParams.value[indicatorKey]
-            // 先清空，然后逐个设置，确保响应式正常工作
+            // Clear first, then set individually for reactivity
             const newParamValues = {}
             res.data.forEach(p => {
-              // 如果有保存的值，使用保存的值；否则使用默认值
-              // 需要处理类型转换
+              // Use saved value if exists, else use default
+              // Need to handle type conversion
               let value = savedParams && savedParams[p.name] !== undefined
                 ? savedParams[p.name]
                 : p.default
 
-              // 根据参数类型进行类型转换
+              // Type conversion based on parameter type
               if (p.type === 'int') {
                 value = parseInt(value) || 0
               } else if (p.type === 'float') {
@@ -1574,7 +1568,7 @@ export default {
 
               newParamValues[p.name] = value
             })
-            // 一次性设置所有值，确保响应式更新
+            // Set all values at once to ensure reactive update
             indicatorParamValues.value = newParamValues
             pendingIndicator.value = indicator
             pendingSource.value = source
@@ -1585,7 +1579,7 @@ export default {
           }
         } catch (err) {
           console.warn('Failed to load indicator params:', err)
-          // 出错时直接运行
+          // Run directly if error occurs
           addPythonIndicator(indicator, source)
         } finally {
           loadingParams.value = false
@@ -1593,10 +1587,10 @@ export default {
       }
     }
 
-    // 确认参数配置并运行指标
+    // Confirm parameter config and run indicator
     const confirmIndicatorParams = () => {
       if (pendingIndicator.value) {
-        // 保存参数值（用于下次打开时使用）
+        // Save parameter values (for next use)
         const indicatorKey = `${pendingSource.value}-${pendingIndicator.value.id}`
         savedIndicatorParams.value[indicatorKey] = { ...indicatorParamValues.value }
 
@@ -1612,34 +1606,34 @@ export default {
       pendingSource.value = ''
     }
 
-    // 取消参数配置
+    // Cancel parameter configuration
     const cancelIndicatorParams = () => {
-      // 保存参数值（在关闭前保存）
+      // Save parameter values before closing
       saveCurrentParams()
       showParamsModal.value = false
-      // 延迟清空，确保 afterClose 能访问到数据
+      // Delay clearing to ensure afterClose can access data
       setTimeout(() => {
         pendingIndicator.value = null
         pendingSource.value = ''
       }, 100)
     }
 
-    // 保存当前参数值
+    // Save current parameter values
     const saveCurrentParams = () => {
       if (pendingIndicator.value && pendingSource.value) {
         const indicatorKey = `${pendingSource.value}-${pendingIndicator.value.id}`
-        // 深拷贝参数值，确保保存的是当前值
+        // Deep copy parameter values to ensure current values are saved
         savedIndicatorParams.value[indicatorKey] = JSON.parse(JSON.stringify(indicatorParamValues.value))
       }
     }
 
-    // 弹窗关闭后的处理
+    // Handle after modal closed
     const handleParamsModalAfterClose = () => {
-      // 确保参数值已保存
+      // Ensure parameter values are saved
       saveCurrentParams()
     }
 
-    // 运行指标代码（从编辑器）
+    // Run indicator code (from editor)
     const handleRunIndicator = (data) => {
       const { code, name } = data
       if (!code || !code.trim()) {
@@ -1647,7 +1641,7 @@ export default {
         return
       }
 
-      // 创建一个临时指标对象用于运行
+      // Create a temporary indicator object for running
       try {
         // 检查图表组件是否已初始化
         if (!klineChart.value) {
@@ -1674,27 +1668,27 @@ export default {
         // 创建Python指标对象
         const pythonIndicator = {
           id: 'temp-editor-indicator',
-          name: name || '临时指标',
+          name: name || 'Temporary Indicator',
           type: 'python',
           code: code,
           description: '',
           parsed: parsed,
           calculate: (data, params) => {
-            // 通过 KlineChart 组件的 ref 访问 executePythonStrategy 函数
-            // 使用indicator.code确保每个指标使用自己的代码（避免闭包问题）
-            // 注意：这里使用indicatorCode，因为这是临时指标，需要从外部作用域获取code
+            // Access executePythonStrategy via KlineChart ref
+            // Use indicator.code to ensure each indicator uses its own code
+            // Note: use indicatorCode here as it is a temporary indicator
             const indicatorCode = code
             return klineChart.value.executePythonStrategy(indicatorCode, data, params)
           }
         }
 
-        // 如果已存在临时指标，先移除
+        // If temporary indicator already exists, remove it first
         const existingIndex = activeIndicators.value.findIndex(i => i.id === 'temp-editor-indicator')
         if (existingIndex >= 0) {
           activeIndicators.value.splice(existingIndex, 1)
         }
 
-        // 添加到活动指标列表
+        // Add to active indicators list
         activeIndicators.value.push({
           ...pythonIndicator,
           params: { ...parsed.params }
@@ -1703,28 +1697,28 @@ export default {
         // KlineChart 组件会通过 watch activeIndicators 自动更新图表
         message.success(proxy.$t('dashboard.indicator.success.runIndicator'))
       } catch (error) {
-        message.error(proxy.$t('dashboard.indicator.error.runIndicatorFailed') + ': ' + (error.message || '未知错误'))
+        message.error(proxy.$t('dashboard.indicator.error.runIndicatorFailed') + ': ' + (error.message || 'Unknown Error'))
       }
     }
 
-    // 创建指标
+    // Create indicator
     const handleCreateIndicator = () => {
       editingIndicator.value = null
       showIndicatorEditor.value = true
     }
 
-    // 编辑指标
+    // Edit indicator
     const handleEditIndicator = (indicator) => {
       editingIndicator.value = indicator
       showIndicatorEditor.value = true
     }
 
-    // 切换我创建的指标区域折叠状态
+    // Toggle collapse status of my created indicators section
     const toggleCustomSection = () => {
       customSectionCollapsed.value = !customSectionCollapsed.value
     }
 
-    // 删除指标
+    // Delete indicator
     const handleDeleteIndicator = (indicator) => {
       Modal.confirm({
         title: proxy.$t('dashboard.indicator.delete.confirmTitle'),
@@ -1745,24 +1739,24 @@ export default {
 
             if (res.code === 1) {
               message.success(proxy.$t('dashboard.indicator.delete.success'))
-              // 如果该指标正在使用，先移除
+              // If indicator is in use, remove it first
               const indicatorId = 'custom-' + indicator.id
               if (isIndicatorActive(indicatorId)) {
                 removeIndicator(indicatorId)
               }
-              // 重新加载指标列表
+              // Reload indicators list
               await loadIndicators()
             } else {
               message.error(res.msg || proxy.$t('dashboard.indicator.delete.failed'))
             }
           } catch (error) {
-            message.error(proxy.$t('dashboard.indicator.delete.failed') + ': ' + (error.message || '未知错误'))
+            message.error(proxy.$t('dashboard.indicator.delete.failed') + ': ' + (error.message || 'Unknown Error'))
           }
         }
       })
     }
 
-    // 打开回测弹窗（策略 = 指标信号 + 回测参数配置）
+    // Open backtest modal (Strategy = Indicator signals + Backtest parameter config)
     const handleOpenBacktest = (indicator) => {
       backtestIndicator.value = { ...indicator }
       showBacktestModal.value = true
@@ -1794,10 +1788,10 @@ export default {
       showBacktestRunViewer.value = true
     }
 
-    // 发布指标到社区
+    // Publish indicator to community
     const handlePublishIndicator = (indicator) => {
       publishIndicator.value = { ...indicator }
-      // 设置表单初始值
+      // Set initial form values
       publishPricingType.value = indicator.pricing_type || 'free'
       publishPrice.value = indicator.price || 10
       publishDescription.value = indicator.description || ''
@@ -1805,7 +1799,7 @@ export default {
       showPublishModal.value = true
     }
 
-    // 确认发布
+    // Confirm publish
     const handleConfirmPublish = async () => {
       if (!userId.value) {
         message.error(proxy.$t('dashboard.indicator.error.pleaseLogin'))
@@ -1845,7 +1839,7 @@ export default {
       }
     }
 
-    // 取消发布
+    // Unpublish indicator
     const handleUnpublish = async () => {
       if (!userId.value || !publishIndicator.value) return
 
@@ -1882,14 +1876,14 @@ export default {
       }
     }
 
-    // 保存指标到数据库
+    // Save indicator to database
     const handleSaveIndicator = async (data) => {
       if (!userId.value) {
         message.error(proxy.$t('dashboard.indicator.error.pleaseLogin'))
         return
       }
 
-      // 通过ref获取编辑器组件，设置saving状态
+      // Get editor component via ref and set saving state
       const editorRef = proxy.$refs.indicatorEditor
       if (editorRef) {
         editorRef.saving = true
@@ -1908,7 +1902,7 @@ export default {
 
         if (res.code === 1) {
           message.success(proxy.$t('dashboard.indicator.save.success'))
-          // 关闭弹窗
+          // Close modal
           showIndicatorEditor.value = false
           editingIndicator.value = null
           // 重新加载指标列表
@@ -1917,7 +1911,7 @@ export default {
           message.error(res.msg || proxy.$t('dashboard.indicator.save.failed'))
         }
       } catch (error) {
-        message.error(proxy.$t('dashboard.indicator.save.failed') + ': ' + (error.message || '未知错误'))
+        message.error(proxy.$t('dashboard.indicator.save.failed') + ': ' + (error.message || 'Unknown Error'))
       } finally {
         if (editorRef) {
           editorRef.saving = false
@@ -1925,7 +1919,7 @@ export default {
       }
     }
 
-    // 获取指标状态文本
+    // Get indicator status text
     const getIndicatorStatus = (indicator) => {
       const endTime = indicator.end_time
       if (endTime === 1 || endTime === '1') {
@@ -1941,7 +1935,7 @@ export default {
       return proxy.$t('dashboard.indicator.status.normal')
     }
 
-    // 获取指标状态图标
+    // Get indicator status icon
     const getIndicatorStatusIcon = (indicator) => {
       const endTime = indicator.end_time
       if (endTime === 1 || endTime === '1') {
@@ -1957,7 +1951,7 @@ export default {
       return 'check-circle'
     }
 
-    // 获取指标状态样式类
+    // Get indicator status style class
     const getIndicatorStatusClass = (indicator) => {
       const endTime = indicator.end_time
       if (endTime === 1 || endTime === '1') {
@@ -1973,7 +1967,7 @@ export default {
       return 'status-normal'
     }
 
-    // 获取到期时间文本
+    // Get expiry time text
     const getExpiryTimeText = (indicator) => {
       const endTime = indicator.end_time
       if (endTime === 1 || endTime === '1') {
@@ -1990,7 +1984,7 @@ export default {
       return proxy.$t('dashboard.indicator.expiry.expiresOn', { date })
     }
 
-    // 获取市场名称（多语言）
+    // Get market name (multi-language)
     const getMarketName = (market) => {
       const marketMap = {
         'USStock': 'dashboard.indicator.market.USStock',
@@ -2002,7 +1996,7 @@ export default {
       return key && proxy?.$t ? proxy.$t(key) : market
     }
 
-    // 获取市场颜色
+    // Get market color
     const getMarketColor = (market) => {
       const colors = {
         'USStock': 'green',
@@ -2013,68 +2007,68 @@ export default {
       return colors[market] || 'default'
     }
 
-    // --- 实时更新函数已迁移到 KlineChart 组件 ---
+    // --- Real-time update functions migrated to KlineChart component ---
 
-    // 切换实时更新状态
+    // Toggle real-time update status
     const toggleRealtime = () => {
       realtimeEnabled.value = !realtimeEnabled.value
       localStorage.setItem('realtimeEnabled', realtimeEnabled.value.toString())
-      // KlineChart 组件会通过 watch realtimeEnabled 自动启动或停止实时更新
+      // KlineChart automatically starts/stops real-time update via watch realtimeEnabled
     }
 
-    // 检测是否为手机端
+    // Detect if mobile device
     const checkMobile = () => {
       isMobile.value = window.innerWidth <= 768
     }
 
     onMounted(() => {
-      // 从 localStorage 加载实时更新设置
+      // Load real-time update settings from localStorage
       const savedRealtime = localStorage.getItem('realtimeEnabled')
       if (savedRealtime !== null) {
         realtimeEnabled.value = savedRealtime === 'true'
       }
 
-      // 检测设备类型
+      // Detect device type
       checkMobile()
       window.addEventListener('resize', checkMobile)
 
-      // 加载市场类型和热门标的
+      // Load market types and hot symbols
       loadMarketTypes()
 
-      // 加载用户信息（会尝试从 store/API 获取；本地单用户模式下 userId 默认=1）
+      // Load user info (local single-user mode: userId defaults to 1)
       loadUserInfo()
 
-      // 本地单用户模式：直接拉自选股，避免未登录导致左上角无标的可选
+      // Local single-user mode: pull watchlist directly
       loadWatchlist()
 
-      // 加载指标列表（仅“我创建的指标”）
+      // Load indicators list (My Created Indicators only)
       loadIndicators()
 
-      // KlineChart 组件会自动处理实时更新和图表初始化
+      // KlineChart automatically handles real-time updates and chart initialization
     })
 
     onBeforeUnmount(() => {
       window.removeEventListener('resize', checkMobile)
-      // 清理搜索定时器
+      // Clear search timer
       if (searchTimer.value) {
         clearTimeout(searchTimer.value)
       }
-      // KlineChart 组件会自动清理资源
+      // KlineChart automatically cleans up resources
     })
 
-    // 监听弹窗打开，初始化数据
+    // Watch modal open, initialize data
     watch(showAddStockModal, (newVal) => {
       if (newVal) {
-        // 初始化选中的市场类型
+        // Initialize selected market type
         if (marketTypes.value.length > 0 && !selectedMarketTab.value) {
           selectedMarketTab.value = marketTypes.value[0].value
         }
-        // 加载热门标的
+        // Load hot symbols
         if (selectedMarketTab.value) {
           loadHotSymbols(selectedMarketTab.value)
         }
       } else {
-        // 关闭时清理数据
+        // Clear data on close
         selectedSymbolForAdd.value = null
         symbolSearchKeyword.value = ''
         symbolSearchResults.value = []
@@ -2086,24 +2080,24 @@ export default {
       }
     })
 
-    // 监听参数值变化，实时保存
+    // Watch parameter value changes, save in real-time
     watch(
       () => indicatorParamValues.value,
       (newVal) => {
-        // 只有在弹窗打开且有 pendingIndicator 时才保存
+        // Only save if modal is open and pendingIndicator exists
         if (showParamsModal.value && pendingIndicator.value && pendingSource.value) {
           const indicatorKey = `${pendingSource.value}-${pendingIndicator.value.id}`
-          // 深拷贝保存，避免引用问题
+          // Deep copy to avoid reference issues
           savedIndicatorParams.value[indicatorKey] = JSON.parse(JSON.stringify(newVal))
         }
       },
       { deep: true, immediate: false }
     )
 
-    // 监听参数配置弹窗关闭
+    // Watch parameter configuration modal close
     watch(showParamsModal, (newVal) => {
       if (!newVal) {
-        // 弹窗关闭时，确保参数值已保存
+        // Ensure parameter values are saved when modal closes
         saveCurrentParams()
       }
     })
@@ -2171,7 +2165,7 @@ getMarketColor,
       handlePriceChange,
       handleChartRetry,
       handleIndicatorToggle,
-      // 指标参数配置相关
+      // Indicator parameter configuration
       showParamsModal,
       pendingIndicator,
       indicatorParams,
@@ -2180,11 +2174,11 @@ getMarketColor,
       confirmIndicatorParams,
       cancelIndicatorParams,
       handleParamsModalAfterClose,
-      // 回测相关
+      // Backtest
       showBacktestModal,
       backtestIndicator,
       handleOpenBacktest,
-      // 回测记录相关
+      // Backtest history
       showBacktestHistoryDrawer,
       backtestHistoryIndicator,
       handleOpenBacktestHistory,
@@ -2193,7 +2187,7 @@ getMarketColor,
       handleViewBacktestRun,
       handleCreateStrategyFromIndicator,
       goToIndicatorMarket,
-      // 发布到社区相关
+      // Publish to community
       showPublishModal,
       publishIndicator,
       publishing,
@@ -2206,13 +2200,13 @@ getMarketColor,
       handlePublishIndicator,
       handleConfirmPublish,
       handleUnpublish,
-      // 暴露给回测弹窗使用的选中值
+      // Expose selected values to backtest modal
       selectedSymbol: currentSymbol,
       selectedMarket: currentMarket,
       selectedTimeframe: timeframe,
-      // 手机端相关
+      // Mobile related
       isMobile,
-      // 添加股票弹窗相关
+      // Add stock modal related
       showAddStockModal,
       addingStock,
       selectedMarketTab,
@@ -2240,21 +2234,19 @@ getMarketColor,
 </script>
 
 <style lang="less" scoped>
-/* 整体容器：浅色主题背景 */
+/* Overall container: light theme background */
 .chart-container {
   display: flex;
   flex-direction: column;
   width: 100%;
-  // height: 100vh; /* 使用100vh，让chart-content的70vh生效 */
   min-width: 100%;
-  // max-width: 100%;
   background: #f0f2f5;
   color: #333;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   box-sizing: border-box;
 }
 
-/* 顶部 Header */
+/* Top Header */
 .chart-header {
   display: flex;
   flex-direction: column;
@@ -2281,7 +2273,7 @@ getMarketColor,
   gap: 20px;
 }
 
-/* 搜索框美化 */
+/* Search box beautification */
 .symbol-select {
   width: 220px;
 
@@ -2311,7 +2303,7 @@ getMarketColor,
   }
 }
 
-/* 时间周期按钮 */
+/* Timeframe buttons */
 .timeframe-group {
   display: flex;
   background: #f0f2f5;
@@ -2340,7 +2332,7 @@ getMarketColor,
   }
 }
 
-/* 当前标的信息 */
+/* Current symbol info */
 .current-symbol {
   display: flex;
   align-items: center;
@@ -2401,13 +2393,12 @@ getMarketColor,
   font-size: 12px;
 }
 
-/* 手机端：币种和价格信息显示在K线图上方 */
+/* Mobile: symbol and price info displayed above K-line chart */
 .mobile-symbol-price {
-  display: none; /* 默认隐藏，只在移动端显示 */
+  display: none; /* Hidden by default, only displayed on mobile */
 }
 
-/* 主题切换按钮 */
-/* 主题切换按钮 - 在 panel-header 中 */
+/* Theme switcher button - in panel-header */
 .panel-header .theme-switcher {
   margin-left: auto;
   display: flex;
@@ -2442,7 +2433,7 @@ getMarketColor,
   }
 }
 
-/* 主内容区 */
+/* Main content area */
 .chart-content {
   display: flex;
   flex-direction: column;
@@ -2457,15 +2448,15 @@ getMarketColor,
   display: flex;
   overflow: hidden;
   width: 100%;
-  height: 80vh !important; /* K线图占屏幕高度70% */
-  min-height: 500px !important; /* 最小高度保证 */
-  max-height: 80vh !important; /* 限制最大高度 */
-  flex-shrink: 0; /* 防止被压缩 */
+  height: 80vh !important;
+  min-height: 500px !important;
+  max-height: 80vh !important;
+  flex-shrink: 0;
 }
 
-/* 图表相关样式已迁移到 KlineChart 组件 */
+/* Chart related styles migrated to KlineChart component */
 
-/* 右侧指标侧边栏 */
+/* Right indicator sidebar */
 .chart-right {
   width: 30% !important;
   flex: 0 0 30% !important;
@@ -2562,7 +2553,7 @@ getMarketColor,
   margin-right: 0px;
 }
 
-/* 手机端隐藏PC端的创建按钮 */
+/* Hide PC create button on mobile */
 @media (max-width: 768px) {
   .create-indicator-btn {
     display: none !important;
@@ -2576,7 +2567,7 @@ getMarketColor,
   min-height: 0;
 }
 
-/* 指标卡片 */
+/* Indicator card */
 .indicator-card {
   display: flex;
   justify-content: space-between;
@@ -2784,7 +2775,7 @@ getMarketColor,
   font-size: 13px;
 }
 
-/* 自定义滚动条 - 隐藏滚动条但保持滚动功能 */
+/* Custom scrollbar - Hide scrollbar but keep scroll function */
 .custom-scrollbar {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE 10+ */
@@ -2796,7 +2787,7 @@ getMarketColor,
   height: 0;
 }
 
-/* 覆盖 Ant Design 下拉框样式 */
+/* Override Ant Design dropdown styles */
 :global(.dark-dropdown) {
   background-color: #fff;
   border: 1px solid #e8e8e8;
@@ -2838,7 +2829,7 @@ getMarketColor,
   font-size: 12px;
 }
 
-/* 响应式样式 - 手机端 */
+/* Responsive styles - Mobile */
 @media (max-width: 768px) {
   .chart-container {
     padding: 0;
@@ -2881,7 +2872,7 @@ getMarketColor,
 
       .timeframe-item {
         flex: 1;
-        min-width: calc(14.28% - 4px); /* 7个按钮，每个占约14.28% */
+        min-width: calc(14.28% - 4px); /* 7 buttons, each occupies about 14.28% */
         text-align: center;
         padding: 6px 8px;
         font-size: 12px;
@@ -2889,7 +2880,7 @@ getMarketColor,
     }
 
     .current-symbol {
-      display: none; /* 在移动端隐藏header中的币种信息，改用K线图上方的显示 */
+      display: none; /* Hide symbol info in header on mobile, use display above K-line instead */
     }
   }
 
@@ -2915,14 +2906,13 @@ getMarketColor,
     align-items: center;
     padding: 12px 16px;
     background: #fff;
-    // border-bottom: 1px solid #e8e8e8;
     width: 100%;
 
     .mobile-price-info {
       display: flex;
       align-items: center;
       gap: 12px;
-      flex-direction: row; /* 确保在一行显示 */
+      flex-direction: row; /* Ensure display in one line */
 
       &.color-up { color: #0ecb81; }
       &.color-down { color: #f6465d; }
@@ -2940,7 +2930,7 @@ getMarketColor,
     }
   }
 
-  /* K线图在上方 */
+  /* K-line chart on top */
   kline-chart {
     order: 1 !important;
     width: 100% !important;
@@ -2958,7 +2948,7 @@ getMarketColor,
     border-bottom: 1px solid #e8e8e8 !important;
   }
 
-  /* 指标列表在下方 */
+  /* Indicator list at bottom */
   .chart-right {
     order: 2 !important;
     width: 100% !important;
@@ -2966,7 +2956,7 @@ getMarketColor,
     max-width: 100% !important;
     flex: 0 0 auto !important;
     height: auto !important;
-    max-height: calc(100vh - 350px - 120px) !important; /* 减去K线图高度和header高度 */
+    max-height: calc(100vh - 350px - 120px) !important; /* Subtract K-line chart height and header height */
     border-left: none !important;
     border-top: none !important;
     margin-top: 0 !important;
@@ -2976,8 +2966,8 @@ getMarketColor,
 
     .indicators-panel {
       height: auto !important;
-      min-height: 600px !important; /* 增加最小高度 */
-      max-height: calc(100vh - 350px - 60px) !important; /* 增加高度，减去K线图高度和header高度 */
+      min-height: 600px !important; /* Increase minimum height */
+      max-height: calc(100vh - 350px - 60px) !important; /* Increase height, subtract K-line height and header height */
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -3013,7 +3003,7 @@ getMarketColor,
         flex: 1;
         display: flex;
         flex-direction: column;
-        overflow: hidden; /* 防止整个tabs滚动 */
+        overflow: hidden; /* Prevent entire tabs from scrolling */
         min-height: 0;
         height: 100%;
 
@@ -3038,7 +3028,7 @@ getMarketColor,
 
         :deep(.ant-tabs-content) {
           flex: 1;
-          overflow: auto; /* 防止content区域滚动 */
+          overflow: auto; /* Prevent content area from scrolling */
           min-height: 0;
           display: flex;
           flex-direction: column;
@@ -3047,7 +3037,7 @@ getMarketColor,
 
         :deep(.ant-tabs-tabpane) {
           height: 100%;
-          overflow: hidden; /* 防止tabpane滚动 */
+          overflow: hidden; /* Prevent tabpane from scrolling */
           display: none;
           flex-direction: column;
           min-height: 0;
@@ -3058,12 +3048,12 @@ getMarketColor,
           flex-direction: column;
           min-height: 0;
           height: 100%;
-          overflow: hidden; /* 防止激活的tabpane滚动 */
+          overflow: hidden; /* Prevent active tabpane from scrolling */
         }
 
         :deep(.ant-tabs-content-holder) {
           flex: 1;
-          overflow: hidden; /* 防止content-holder滚动 */
+          overflow: hidden; /* Prevent content-holder from scrolling */
           min-height: 0;
           display: flex;
           flex-direction: column;
@@ -3092,11 +3082,11 @@ getMarketColor,
         }
 
         .mobile-create-btn-wrapper {
-          display: none !important; /* 手机端不再需要这个wrapper，按钮已移到header */
+          display: none !important; /* Wrapper no longer needed on mobile, button moved to header */
         }
 
         .mobile-create-btn {
-          display: none !important; /* 手机端不再需要这个按钮，已移到header */
+          display: none !important; /* Button no longer needed on mobile, moved to header */
         }
       }
 
@@ -3127,9 +3117,9 @@ getMarketColor,
   }
 }
 
-/* ========== 暗黑主题样式 ========== */
-/* 根据框架主题自动应用暗黑样式 */
-/* 当主题为暗色时应用的样式 - 通过组件类名或全局类名 */
+/* ========== Dark Theme Styles ========== */
+/* Automatically apply dark styles based on framework theme */
+/* Styles applied when theme is dark - via component class or global class */
 .chart-container.theme-dark,
 :global(body.dark) .chart-container,
 :global(body.realdark) .chart-container,
@@ -3414,7 +3404,7 @@ getMarketColor,
     }
   }
 
-  /* 移动端适配 */
+  /* Mobile adaptation */
   @media (max-width: 768px) {
     .chart-header {
       background: #1e222d;
@@ -3489,7 +3479,7 @@ getMarketColor,
   }
 }
 
-/* 添加股票弹窗样式 */
+/* Add stock modal styles */
 .add-stock-modal-content {
   .market-tabs {
     margin-bottom: 16px;
@@ -3561,7 +3551,7 @@ getMarketColor,
 
 }
 
-/* 暗黑主题下的弹窗样式 */
+/* Modal styles in dark theme */
 .chart-container.theme-dark,
 :global(body.dark) .chart-container,
 :global(body.realdark) .chart-container {
@@ -3596,7 +3586,7 @@ getMarketColor,
   }
 }
 
-/* 指标参数配置弹窗 */
+/* Indicator parameter configuration modal */
 .params-config-modal {
   .indicator-info {
     text-align: center;

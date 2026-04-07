@@ -2,7 +2,7 @@ import { asyncRouterMap, constantRouterMap } from '@/config/router.config'
 import cloneDeep from 'lodash.clonedeep'
 
 /**
- * 单账户多角色时，使用该方法可过滤角色不存在的菜单
+ * Filter menus that do not exist for the role in case of single account with multiple roles
  *
  * @param roles
  * @param route
@@ -18,7 +18,7 @@ function hasRole(roles, route) {
 }
 
 function filterAsyncRouter (routerMap, role) {
-  // 不进行权限过滤，直接返回所有路由（后端会验证token）
+  // Do not perform permission filtering, return all routes directly (backend will verify token)
   return routerMap.map(route => {
     if (route.children && route.children.length) {
       route.children = filterAsyncRouter(route.children, role)
@@ -42,7 +42,7 @@ const permission = {
     GenerateRoutes ({ commit }, data) {
       return new Promise(resolve => {
         const routerMap = cloneDeep(asyncRouterMap)
-        // 不进行权限过滤，直接返回所有路由（后端会验证token）
+        // Do not perform permission filtering, return all routes directly (backend will verify token)
         const accessedRouters = filterAsyncRouter(routerMap, null)
         commit('SET_ROUTERS', accessedRouters)
         resolve()
