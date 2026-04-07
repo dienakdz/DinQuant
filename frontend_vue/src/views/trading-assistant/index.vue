@@ -1999,6 +1999,7 @@ export default {
   mounted () {
     this.loadStrategies()
     this.loadUserNotificationSettings()
+    this.handleRouteCreateStrategyPrefill()
   },
   beforeDestroy () {
     this.stopEquityPolling()
@@ -2590,6 +2591,52 @@ export default {
         this.loadIndicators()
         this.loadExchangeCredentials()
       })
+    },
+    async handleRouteCreateStrategyPrefill () {
+      const query = (this.$route && this.$route.query) || {}
+      if (query.open !== 'from-indicator') {
+        return
+      }
+
+      this.handleCreateStrategy()
+      await this.$nextTick()
+      await Promise.all([
+        this.loadIndicators(),
+        this.loadWatchlist(),
+        this.loadExchangeCredentials()
+      ])
+
+      const indicatorId = query.indicator_id ? String(query.indicator_id) : ''
+      const market = query.market || 'Crypto'
+      const symbol = query.symbol || ''
+      const timeframe = query.timeframe || '1D'
+      const fullSymbol = symbol ? (String(symbol).includes(':') ? String(symbol) : `${market}:${symbol}`) : ''
+
+      this.selectedMarketCategory = market
+      if (fullSymbol) {
+        this.handleMultiSymbolChange([fullSymbol])
+      }
+
+      const fieldValues = {
+        timeframe
+      }
+      if (indicatorId) {
+        fieldValues.indicator_id = indicatorId
+      }
+      this.form.setFieldsValue(fieldValues)
+
+      if (indicatorId) {
+        await this.handleIndicatorChange(indicatorId)
+        const indicator = this.availableIndicators.find(ind => String(ind.id) === indicatorId)
+        if (indicator) {
+          const strategyName = fullSymbol ? `${indicator.name} ${symbol}` : indicator.name
+          this.form.setFieldsValue({
+            strategy_name: strategyName
+          })
+        }
+      }
+
+      this.$router.replace({ path: this.$route.path, query: {} }).catch(() => {})
     },
     handleEditStrategy (strategy) {
       // 如果策略正在运行，提示用户先停止

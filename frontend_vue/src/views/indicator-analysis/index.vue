@@ -68,6 +68,15 @@
               {{ priceChange > 0 ? '+' : '' }}{{ priceChange.toFixed(2) }}%
             </span>
           </div>
+          <a-button
+            v-if="isCryptoMarket"
+            class="qt-header-btn"
+            size="small"
+            @click="openQuickTrade"
+          >
+            <a-icon type="thunderbolt" theme="filled" />
+            {{ tt('quickTrade.openPanel', 'Quick Trade') }}
+          </a-button>
         </div>
       </div>
     </div>
@@ -210,6 +219,13 @@
                                 @click.stop="handlePublishIndicator(indicator)"
                               />
                             </a-tooltip>
+                            <a-tooltip :title="tt('trading-assistant.createStrategy', 'Create Strategy')">
+                              <a-icon
+                                type="rocket"
+                                class="action-icon create-strategy-icon"
+                                @click.stop="handleCreateStrategyFromIndicator(indicator)"
+                              />
+                            </a-tooltip>
                           </div>
                         </div>
                         <span class="card-desc">{{ indicator.description || '' }}</span>
@@ -230,6 +246,15 @@
                       <a-icon :type="purchasedSectionCollapsed ? 'right' : 'down'" class="collapse-icon" />
                       <span>{{ $t('dashboard.indicator.section.purchased') }} ({{ purchasedIndicators.length }})</span>
                     </div>
+                    <a-button
+                      type="link"
+                      size="small"
+                      icon="shop"
+                      class="buy-indicator-btn"
+                      @click.stop="goToIndicatorMarket"
+                    >
+                      {{ $t('menu.dashboard.community') }}
+                    </a-button>
                   </div>
                   <div v-show="!purchasedSectionCollapsed" class="section-content custom-scrollbar">
                     <div
@@ -460,6 +485,17 @@
         @cancel="showBacktestRunViewer = false; selectedBacktestRun = null"
       />
 
+      <quick-trade-panel
+        :visible="showQuickTrade"
+        :symbol="qtSymbol"
+        :preset-side="qtSide"
+        :preset-price="qtPrice"
+        source="indicator"
+        market-type="swap"
+        @close="showQuickTrade = false"
+        @update:symbol="qtSymbol = $event"
+      />
+
       <!-- 发布到社区弹窗 -->
       <a-modal
         :title="publishIndicator && publishIndicator.publish_to_community ? $t('dashboard.indicator.publish.editTitle') : $t('dashboard.indicator.publish.title')"
@@ -658,6 +694,7 @@ import KlineChart from '@/views/indicator-analysis/components/KlineChart.vue'
 import BacktestModal from '@/views/indicator-analysis/components/BacktestModal.vue'
 import BacktestHistoryDrawer from '@/views/indicator-analysis/components/BacktestHistoryDrawer.vue'
 import BacktestRunViewer from '@/views/indicator-analysis/components/BacktestRunViewer.vue'
+import QuickTradePanel from '@/components/QuickTradePanel.vue'
 
 export default {
   name: 'DashboardIndicator',
@@ -666,7 +703,8 @@ export default {
     KlineChart,
     BacktestModal,
     BacktestHistoryDrawer,
-    BacktestRunViewer
+    BacktestRunViewer,
+    QuickTradePanel
   },
   computed: {
     ...mapState({
@@ -717,10 +755,20 @@ export default {
     const currentMarket = ref('')
     const currentPrice = ref('--')
     const priceChange = ref(0)
+    const showQuickTrade = ref(false)
+    const qtSymbol = ref('')
+    const qtSide = ref('')
+    const qtPrice = ref(0)
 
     const priceChangeClass = computed(() => {
       return priceChange.value > 0 ? 'color-up' : priceChange.value < 0 ? 'color-down' : ''
     })
+    const isCryptoMarket = computed(() => currentMarket.value === 'Crypto')
+
+    const tt = (key, fallback, params) => {
+      const translated = proxy.$t(key, params)
+      return translated !== key ? translated : fallback
+    }
 
     const timeframe = ref('1D')
     const activeIndicators = ref([])
@@ -797,6 +845,14 @@ export default {
     const handlePriceChange = ({ price, change }) => {
       currentPrice.value = price
       priceChange.value = change
+    }
+
+    const openQuickTrade = () => {
+      if (!isCryptoMarket.value || !currentSymbol.value) return
+      qtSymbol.value = currentSymbol.value
+      qtSide.value = ''
+      qtPrice.value = Number(String(currentPrice.value || '').replace(/,/g, '')) || 0
+      showQuickTrade.value = true
     }
 
     // 处理图表重试事件
@@ -1647,6 +1703,22 @@ export default {
       showBacktestHistoryDrawer.value = true
     }
 
+    const handleCreateStrategyFromIndicator = (indicator) => {
+      if (!indicator || !indicator.id) return
+      const query = {
+        open: 'from-indicator',
+        indicator_id: String(indicator.id)
+      }
+      if (currentMarket.value) query.market = currentMarket.value
+      if (currentSymbol.value) query.symbol = currentSymbol.value
+      if (timeframe.value) query.timeframe = timeframe.value
+      proxy.$router.push({ path: '/trading-assistant', query })
+    }
+
+    const goToIndicatorMarket = () => {
+      proxy.$router.push('/indicator-community')
+    }
+
     const handleViewBacktestRun = (run) => {
       selectedBacktestRun.value = run
       showBacktestRunViewer.value = true
@@ -1968,6 +2040,7 @@ export default {
 
     return {
       userId,
+      tt,
       klineChart,
       searchSymbol,
       symbolSuggestions,
@@ -1979,6 +2052,12 @@ currentMarket,
       currentPrice,
       priceChange,
       priceChangeClass,
+      isCryptoMarket,
+      showQuickTrade,
+      qtSymbol,
+      qtSide,
+      qtPrice,
+      openQuickTrade,
       timeframe,
 loadingWatchlist,
       activeIndicators,
@@ -2042,6 +2121,8 @@ getMarketColor,
       showBacktestRunViewer,
       selectedBacktestRun,
       handleViewBacktestRun,
+      handleCreateStrategyFromIndicator,
+      goToIndicatorMarket,
       // 发布到社区相关
       showPublishModal,
       publishIndicator,
@@ -2194,6 +2275,18 @@ getMarketColor,
   display: flex;
   align-items: center;
   gap: 24px;
+}
+
+.qt-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border-color: rgba(24, 144, 255, 0.24);
+  color: #1890ff;
+  background: rgba(24, 144, 255, 0.08);
 }
 
 .symbol-info {
@@ -2576,6 +2669,13 @@ getMarketColor,
       &:hover {
         color: #73d13d;
       }
+    }
+  }
+
+  &.create-strategy-icon {
+    color: #fa8c16;
+    &:hover {
+      color: #ffa940;
     }
   }
 
@@ -2995,6 +3095,12 @@ getMarketColor,
             color: #f6465d;
           }
         }
+
+        .qt-header-btn {
+          color: #40a9ff;
+          background: rgba(24, 144, 255, 0.14);
+          border-color: rgba(24, 144, 255, 0.28);
+        }
       }
     }
   }
@@ -3196,6 +3302,14 @@ getMarketColor,
 
             &:hover {
               color: #d3adf7;
+            }
+          }
+
+          &.create-strategy-icon {
+            color: #faad14;
+
+            &:hover {
+              color: #ffc53d;
             }
           }
           &.backtest-history-icon {
