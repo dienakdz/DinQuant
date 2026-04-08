@@ -1,6 +1,6 @@
 <template>
   <div class="fast-analysis-report" :class="{ 'theme-dark': isDarkTheme }">
-    <!-- Loading State - 专业进度条 -->
+    <!-- Loading State - progress tracker -->
     <div v-if="loading" class="loading-container">
       <div class="loading-content-pro">
         <div class="loading-header">
@@ -8,7 +8,7 @@
           <span class="loading-title">{{ $t('fastAnalysis.analyzing') }}</span>
         </div>
 
-        <!-- 进度条 -->
+        <!-- Progress bar -->
         <div class="progress-wrapper">
           <a-progress
             :percent="progressPercent"
@@ -19,32 +19,32 @@
           <span class="progress-text">{{ progressPercent }}%</span>
         </div>
 
-        <!-- 当前步骤 -->
+        <!-- Current step -->
         <div class="current-step">
           <a-icon type="loading" spin />
           <span>{{ currentStepText }}</span>
         </div>
 
-        <!-- 步骤列表 -->
+        <!-- Step list -->
         <div class="steps-list">
           <div class="step-item" :class="{ done: step > 1, active: step === 1 }">
             <span class="step-dot"></span>
-            <span class="step-text">{{ $t('fastAnalysis.step1') || '获取实时数据' }}</span>
+            <span class="step-text">{{ $t('fastAnalysis.step1') || 'Fetch live market data' }}</span>
             <a-icon v-if="step > 1" type="check" class="step-check" />
           </div>
           <div class="step-item" :class="{ done: step > 2, active: step === 2 }">
             <span class="step-dot"></span>
-            <span class="step-text">{{ $t('fastAnalysis.step2') || '计算技术指标' }}</span>
+            <span class="step-text">{{ $t('fastAnalysis.step2') || 'Compute technical indicators' }}</span>
             <a-icon v-if="step > 2" type="check" class="step-check" />
           </div>
           <div class="step-item" :class="{ done: step > 3, active: step === 3 }">
             <span class="step-dot"></span>
-            <span class="step-text">{{ $t('fastAnalysis.step3') || 'AI深度分析' }}</span>
+            <span class="step-text">{{ $t('fastAnalysis.step3') || 'Run AI analysis' }}</span>
             <a-icon v-if="step > 3" type="check" class="step-check" />
           </div>
           <div class="step-item" :class="{ done: step > 4, active: step === 4 }">
             <span class="step-dot"></span>
-            <span class="step-text">{{ $t('fastAnalysis.step4') || '生成报告' }}</span>
+            <span class="step-text">{{ $t('fastAnalysis.step4') || 'Generate report' }}</span>
             <a-icon v-if="step > 4" type="check" class="step-check" />
           </div>
         </div>
@@ -57,7 +57,10 @@
 
     <!-- Error State -->
     <div v-else-if="error" class="error-container">
-      <a-result status="error" :title="$t('fastAnalysis.error')" :sub-title="error">
+      <a-result
+        :status="errorTone === 'warning' ? 'warning' : 'error'"
+        :title="errorTone === 'warning' ? $t('fastAnalysis.analysisInProgressTitle') : $t('fastAnalysis.error')"
+        :sub-title="error">
         <template #extra>
           <a-button type="primary" @click="$emit('retry')">
             {{ $t('fastAnalysis.retry') }}
@@ -196,7 +199,7 @@
             <a-icon type="line-chart" />
             <span>{{ $t('fastAnalysis.technicalAnalysis') }}</span>
             <a-tag :color="getScoreTagColor(result.scores?.technical)">
-              {{ result.scores?.technical || 50 }}分
+              {{ result.scores?.technical || 50 }} pts
             </a-tag>
           </div>
           <div class="analysis-card-content">
@@ -210,7 +213,7 @@
             <a-icon type="bank" />
             <span>{{ $t('fastAnalysis.fundamentalAnalysis') }}</span>
             <a-tag :color="getScoreTagColor(result.scores?.fundamental)">
-              {{ result.scores?.fundamental || 50 }}分
+              {{ result.scores?.fundamental || 50 }} pts
             </a-tag>
           </div>
           <div class="analysis-card-content">
@@ -224,7 +227,7 @@
             <a-icon type="heart" />
             <span>{{ $t('fastAnalysis.sentimentAnalysis') }}</span>
             <a-tag :color="getScoreTagColor(result.scores?.sentiment)">
-              {{ result.scores?.sentiment || 50 }}分
+              {{ result.scores?.sentiment || 50 }} pts
             </a-tag>
           </div>
           <div class="analysis-card-content">
@@ -353,13 +356,17 @@ export default {
     error: {
       type: String,
       default: null
+    },
+    errorTone: {
+      type: String,
+      default: 'error'
     }
   },
   data () {
     return {
       userFeedback: null,
       feedbackLoading: null,
-      // 简化的进度系统
+      // Simplified progress state
       progress: 0, // 0-95
       elapsedSeconds: 0,
       mainTimer: null
@@ -375,7 +382,7 @@ export default {
     progressPercent () {
       return this.progress
     },
-    // 根据进度计算当前步骤
+    // Map progress to the visible analysis step.
     step () {
       if (this.progress < 25) return 1
       if (this.progress < 50) return 2
@@ -384,12 +391,12 @@ export default {
     },
     currentStepText () {
       const steps = {
-        1: this.$t('fastAnalysis.step1') || '获取实时数据',
-        2: this.$t('fastAnalysis.step2') || '计算技术指标',
-        3: this.$t('fastAnalysis.step3') || 'AI深度分析',
-        4: this.$t('fastAnalysis.step4') || '生成报告'
+        1: this.$t('fastAnalysis.step1') || 'Fetch live market data',
+        2: this.$t('fastAnalysis.step2') || 'Compute technical indicators',
+        3: this.$t('fastAnalysis.step3') || 'Run AI analysis',
+        4: this.$t('fastAnalysis.step4') || 'Generate report'
       }
-      return steps[this.step] || this.$t('fastAnalysis.preparing') || '准备中...'
+      return steps[this.step] || this.$t('fastAnalysis.preparing') || 'Preparing...'
     },
     elapsedTimeText () {
       if (this.elapsedSeconds < 60) {
@@ -437,7 +444,7 @@ export default {
     }
   },
   mounted () {
-    // 双重保险
+    // Start the progress timer on mount if loading is already active.
     if (this.loading) {
       this.startProgressTimer()
     }
@@ -490,22 +497,22 @@ export default {
       if (level === 'low') return 'low-volatility'
       return ''
     },
-    // 翻译技术指标信号
+    // Translate technical indicator signals.
     translateSignal (signal) {
       if (!signal) return '--'
       const key = `fastAnalysis.signal.${signal}`
       const translated = this.$t(key)
-      // 如果翻译键不存在,返回原值
+      // Fall back to the raw value if no translation key exists.
       return translated === key ? signal : translated
     },
-    // 翻译趋势
+    // Translate trend labels.
     translateTrend (trend) {
       if (!trend) return '--'
       const key = `fastAnalysis.trend.${trend}`
       const translated = this.$t(key)
       return translated === key ? trend : translated
     },
-    // 翻译波动性
+    // Translate volatility labels.
     translateVolatility (level) {
       if (!level) return '--'
       const key = `fastAnalysis.volatilityLevel.${level}`
@@ -514,8 +521,8 @@ export default {
     },
     async submitFeedback (feedback) {
       if (!this.result?.memory_id) {
-        // memory_id 不存在时提示用户（可能是后端版本旧或存储失败）
-        this.$message.warning(this.$t('fastAnalysis.feedbackUnavailable') || '反馈功能暂不可用，请刷新后重试')
+        // Warn the user when `memory_id` is unavailable. This usually means the backend is outdated or persistence failed.
+        this.$message.warning(this.$t('fastAnalysis.feedbackUnavailable') || 'Feedback is unavailable right now. Refresh and try again.')
         return
       }
 
@@ -535,32 +542,32 @@ export default {
       }
     },
     startProgressTimer () {
-      // 先清除已有的定时器
+      // Clear any existing timer before starting a new cycle.
       this.stopProgressTimer()
 
-      // 重置状态
+      // Reset the local progress state.
       this.progress = 0
       this.elapsedSeconds = 0
 
       const startTime = Date.now()
 
-      // 单一定时器：每100ms更新一次
+      // Use a single timer that updates every 100ms.
       this.mainTimer = window.setInterval(() => {
-        // 更新秒数
+        // Update the elapsed time in seconds.
         this.elapsedSeconds = Math.floor((Date.now() - startTime) / 1000)
 
-        // 更新进度 - 大约12秒走完95%
+        // Advance toward 95% over roughly 12 seconds, then wait for the real completion event.
         if (this.progress < 75) {
-          // 前75%：每100ms增加1% (约7.5秒)
+          // First 75%: +1 every 100ms, about 7.5 seconds.
           this.progress = Math.min(this.progress + 1, 75)
         } else if (this.progress < 90) {
-          // 75-90%：每100ms增加0.5% (约3秒)
+          // 75-90%: +0.5 every 100ms, about 3 seconds.
           this.progress = Math.min(this.progress + 0.5, 90)
         } else if (this.progress < 95) {
-          // 90-95%：每100ms增加0.2% (约2.5秒)
+          // 90-95%: +0.2 every 100ms, about 2.5 seconds.
           this.progress = Math.min(this.progress + 0.2, 95)
         }
-        // 95%后停止增长，等待实际完成
+        // Stop growing after 95% and wait for the actual backend completion.
       }, 100)
     },
     stopProgressTimer () {
@@ -583,7 +590,7 @@ export default {
   background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
   border-radius: 12px;
 
-  // Loading State - 专业进度条
+  // Loading state with the professional progress tracker.
   .loading-container {
     display: flex;
     align-items: center;
@@ -901,8 +908,7 @@ export default {
       }
     }
 
-    // Analysis Details
-    // 详细分析卡片
+    // Detailed analysis cards.
     .detailed-analysis {
       display: flex;
       flex-direction: column;

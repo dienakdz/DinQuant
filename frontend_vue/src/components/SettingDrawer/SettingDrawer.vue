@@ -153,7 +153,7 @@
             @click="doCopy"
             icon="copy"
             block
-          >拷贝设置</a-button>
+          >Copy Settings</a-button>
         </div> -->
       </div>
     </a-drawer>
@@ -218,7 +218,7 @@ export default {
 
   },
   mounted () {
-    // 初始化时静默更新主题色，不显示消息
+    // Silently update the theme color during initialization without showing a message
     updateTheme(this.currentPrimaryColor, true)
     if (this.currentColorWeak !== config.colorWeak) {
       updateColorWeak(this.currentColorWeak)
@@ -266,7 +266,7 @@ export default {
     },
     handleLayout (mode) {
       this.$emit('change', { type: 'layout', value: mode })
-      // 因为顶部菜单不能固定左侧菜单栏，所以强制关闭
+      // The top menu layout cannot fix the left sidebar, so disable it automatically
       if (mode === 'topmenu') {
         this.$emit('change', { type: 'fixSiderbar', value: false })
       }
@@ -298,7 +298,7 @@ export default {
 </script>
 
 <style lang="less" scoped>
-  /* 隐藏所有可能的悬浮按钮 */
+  /* Hide any possible floating buttons */
   :deep(.ant-drawer-handle),
   :deep(.setting-drawer-index-handle) {
     display: none !important;

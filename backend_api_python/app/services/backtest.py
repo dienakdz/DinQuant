@@ -3378,7 +3378,7 @@ import pandas as pd
                     else:
                         # SL not strict enough, liquidation triggered
                         logger.warning(f"Long liquidation! entry={entry_price:.2f}, low={low:.2f}, "
-                                     f"爆仓线={liquidation_price:.2f}, 止损价={stop_loss_price:.2f}")
+                                     f"liq_price={liquidation_price:.2f}, stop_loss_price={stop_loss_price:.2f}")
                         is_liquidated = True
                         liquidation_loss = self._liquidation_loss(capital)
                         capital = 0
@@ -3402,7 +3402,7 @@ import pandas as pd
                     stop_loss_price = close_short_price_arr[i] if has_stop_loss else 0
                     
                     logger.warning(f"[candle {i}] Short hit liquidation! entry={entry_price:.2f}, high={high:.2f}, liq_price={liquidation_price:.2f}, "
-                              f"止损信号={close_short_arr[i]}, 止损价={stop_loss_price:.4f}, 时间={timestamp}")
+                              f"stop_loss_signal={close_short_arr[i]}, stop_loss_price={stop_loss_price:.4f}, time={timestamp}")
                     
                     # Determine SL or liquidation first
                     if has_stop_loss and stop_loss_price < liquidation_price:
@@ -3425,7 +3425,7 @@ import pandas as pd
                     else:
                         # SL not strict enough, liquidation triggered
                         logger.warning(f"Short liquidation! entry={entry_price:.2f}, high={high:.2f}, "
-                                     f"爆仓线={liquidation_price:.2f}, 止损价={stop_loss_price:.2f}")
+                                     f"liq_price={liquidation_price:.2f}, stop_loss_price={stop_loss_price:.2f}")
                         is_liquidated = True
                         liquidation_loss = self._liquidation_loss(capital)
                         capital = 0

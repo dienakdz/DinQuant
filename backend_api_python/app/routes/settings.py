@@ -1010,7 +1010,7 @@ def get_openrouter_balance():
         if not api_key:
             return jsonify({
                 'code': 0, 
-                'msg': 'OpenRouter API Key 未配置',
+                'msg': 'OpenRouter API key is not configured',
                 'data': None
             })
         
@@ -1050,27 +1050,27 @@ def get_openrouter_balance():
         elif resp.status_code == 401:
             return jsonify({
                 'code': 0,
-                'msg': 'API Key 无效或已过期',
+                'msg': 'API key is invalid or expired',
                 'data': None
             })
         else:
             return jsonify({
                 'code': 0,
-                'msg': f'查询失败: HTTP {resp.status_code}',
+                'msg': f'Query failed: HTTP {resp.status_code}',
                 'data': None
             })
             
     except requests.exceptions.Timeout:
         return jsonify({
             'code': 0,
-            'msg': '请求超时，请检查网络连接',
+            'msg': 'Request timed out. Please check the network connection.',
             'data': None
         })
     except Exception as e:
         logger.error(f"Get OpenRouter balance failed: {e}")
         return jsonify({
             'code': 0,
-            'msg': f'查询失败: {str(e)}',
+            'msg': f'Query failed: {str(e)}',
             'data': None
         })
 

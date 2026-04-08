@@ -160,7 +160,7 @@ class PolymarketDataSource:
             return None
     
     def get_market_history(self, market_id: str, days: int = 30) -> List[Dict]:
-        """获取市场历史价格数据"""
+        """Get historical market price data."""
         # Here you need to implement historical data acquisition logic
         # Temporarily returns an empty list
         return []
@@ -374,7 +374,7 @@ class PolymarketDataSource:
             return []
     
     def _get_cached_markets(self, category: str = None, limit: int = 50) -> Optional[List[Dict]]:
-        """从数据库缓存读取市场数据"""
+        """Read market data from the database cache."""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()

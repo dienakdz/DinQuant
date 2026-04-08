@@ -88,9 +88,10 @@ class TradingExecutor:
 
     def _normalize_trade_symbol(self, exchange: Any, symbol: str, market_type: str, exchange_id: str) -> str:
         """
-        将数据库/配置里的 symbol 规范化为交易所合约可用的 CCXT symbol。
+        Normalize symbols from the database/config into the CCXT symbol format accepted by the exchange.
 
-        典型场景：OKX 永续统一符号通常是 `BNB/USDT:USDT`，但前端/数据库可能传 `BNB/USDT`。
+        Typical case: the normalized OKX perpetual symbol is usually `BNB/USDT:USDT`,
+        while the frontend or database may pass `BNB/USDT`.
         """
         try:
             # New system: only supports swap (perpetual contract) / spot (spot)
@@ -131,7 +132,7 @@ class TradingExecutor:
             return symbol
 
     def _log_resource_status(self, prefix: str = ""):
-        """调试：记录线程/内存使用，便于定位 can't start new thread 根因"""
+        """Debug helper: record thread and memory usage to diagnose the root cause of 'can't start new thread'."""
         try:
             import psutil  # Use more precise metrics if installed
             p = psutil.Process()
@@ -415,7 +416,7 @@ class TradingExecutor:
                     thread.start()
                 except Exception as e:
                     # Capture exceptions such as can't start new thread and record resource status
-                    self._log_resource_status(prefix="启动异常")
+                    self._log_resource_status(prefix="startup exception")
                     raise e
                 self.running_strategies[strategy_id] = thread
                 
@@ -631,15 +632,15 @@ class TradingExecutor:
             # Even in signal mode, it is necessary to check and clean up the situation when the user manually closes the position on the exchange but the database record is still there.
             # This can prevent the strategy from thinking that there are still positions and being unable to execute a new opening signal.
             try:
-                logger.info(f"策略 {strategy_id} 启动时检查持仓同步...")
+                logger.info(f"Checking position synchronization during startup for strategy {strategy_id}...")
                 # Call position synchronization logic (check even in signal mode)
                 from app import get_pending_order_worker
                 worker = get_pending_order_worker()
                 if worker and hasattr(worker, '_sync_positions_best_effort'):
                     worker._sync_positions_best_effort(target_strategy_id=strategy_id)
-                    logger.info(f"策略 {strategy_id} 启动时持仓同步完成")
+                    logger.info(f"Position synchronization completed during startup for strategy {strategy_id}")
             except Exception as e:
-                logger.warning(f"策略 {strategy_id} 启动时持仓同步失败（不影响启动）: {e}")
+                logger.warning(f"Position synchronization failed during startup for strategy {strategy_id} (startup continues): {e}")
 
             # Get the current highest position price (read from local database)
             current_pos_list = self._get_current_positions(strategy_id, symbol)
@@ -660,7 +661,7 @@ class TradingExecutor:
 
             # Key diagnostic log: Confirm whether the indicator has obtained the position status
             logger.info(
-                f"策略 {strategy_id} 指标注入持仓状态: count={len(current_pos_list)}, "
+                f"Injected position state for strategy {strategy_id}: count={len(current_pos_list)}, "
                 f"position={initial_position}, entry_price={initial_avg_entry_price}, highest={initial_highest}"
             )
 
@@ -1005,7 +1006,7 @@ class TradingExecutor:
                                         market=market_type or 'Crypto',
                                         symbol=symbol,
                                         signal_type=signal_type,
-                                        signal_detail=f"策略: {strategy_name}\n信号: {signal_type}\n价格: {execute_price:.4f}"
+                                        signal_detail=f"Strategy: {strategy_name}\nSignal: {signal_type}\nPrice: {execute_price:.4f}"
                                     )
                                 except Exception as link_e:
                                     logger.warning(f"Strategy signal linkage notification failed: {link_e}")
@@ -1095,8 +1096,8 @@ class TradingExecutor:
     
     def _is_strategy_running(self, strategy_id: int) -> bool:
         """
-        检查策略是否在运行
-        同时检查数据库状态和线程状态，避免重启后状态不一致
+        Check whether the strategy is running.
+        This checks both the database state and the thread state to avoid mismatches after restart.
         """
         try:
             # 1. Check database status
@@ -1145,7 +1146,7 @@ class TradingExecutor:
         leverage: float = None,
         strategy_id: int = None
     ) -> Optional[ccxt.Exchange]:
-        """(Mock) 信号模式不需要真实交易所连接"""
+        """(Mock) Signal mode does not require a real exchange connection."""
         return None
     
     def _fetch_latest_kline(self, symbol: str, timeframe: str, limit: int = 500, market_category: str = 'Crypto') -> List[Dict[str, Any]]:
@@ -1872,7 +1873,7 @@ class TradingExecutor:
                 allowed_modules = ['numpy', 'pandas', 'math', 'json', 'time']
                 if name in allowed_modules or name.split('.')[0] in allowed_modules:
                     return builtins.__import__(name, *args, **kwargs)
-                raise ImportError(f"不允许导入模块: {name}")
+                raise ImportError(f"Importing modules is not allowed: {name}")
             
             safe_builtins = {k: getattr(builtins, k) for k in dir(builtins) 
                            if not k.startswith('_') and k not in [
@@ -1961,7 +1962,7 @@ class TradingExecutor:
             return []
 
     def _execute_trading_logic(self, *args, **kwargs):
-        """已废弃"""
+        """Deprecated."""
         pass
     
     def _execute_signal(
@@ -2014,8 +2015,8 @@ class TradingExecutor:
                     # Best-effort persist a browser notification so UI can show "HOLD due to AI filter".
                     reason = (ai_info or {}).get("reason") or "ai_filter_rejected"
                     ai_decision = (ai_info or {}).get("ai_decision") or ""
-                    title = f"AI过滤拦截开仓 | {symbol}"
-                    msg = f"策略信号={sig}，AI决策={ai_decision or 'UNKNOWN'}，原因={reason}；已HOLD（不下单）"
+                    title = f"AI filter blocked opening a position | {symbol}"
+                    msg = f"Strategy signal={sig}, AI decision={ai_decision or 'UNKNOWN'}, reason={reason}; action forced to HOLD (no order placed)"
                     self._persist_browser_notification(
                         strategy_id=strategy_id,
                         symbol=symbol,
@@ -2369,7 +2370,7 @@ class TradingExecutor:
         payload: Optional[Dict[str, Any]] = None,
         user_id: int = None,
     ) -> None:
-        """Best-effort persist notification row for the frontend '通知' panel (browser channel)."""
+        """Best-effort persistence of a notification row for the frontend notifications panel (browser channel)."""
         try:
             now = int(time.time())
             # Get user_id from strategy if not provided
@@ -2776,7 +2777,7 @@ class TradingExecutor:
         highest_price: float = 0.0,
         lowest_price: float = 0.0,
     ):
-        """更新持仓状态"""
+        """Update position state."""
         try:
             # Get user_id from strategy
             user_id = 1
@@ -2811,7 +2812,7 @@ class TradingExecutor:
             logger.error(f"Failed to update position: {e}")
 
     def _close_position(self, strategy_id: int, symbol: str, side: str):
-        """平仓：删除持仓记录"""
+        """Close a position by deleting the position record."""
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
@@ -2861,7 +2862,7 @@ class TradingExecutor:
             return []
     
     def _should_rebalance(self, strategy_id: int, rebalance_frequency: str) -> bool:
-        """检查是否应该调仓"""
+        """Check whether rebalancing should run."""
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
@@ -2892,7 +2893,7 @@ class TradingExecutor:
             return True
     
     def _update_last_rebalance(self, strategy_id: int):
-        """更新上次调仓时间"""
+        """Update the last rebalance timestamp."""
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
@@ -2920,7 +2921,7 @@ class TradingExecutor:
         timeframe: str
     ) -> Optional[Dict[str, Any]]:
         """
-        执行截面策略指标，返回所有标的的评分和排序
+        Execute cross-sectional strategy indicators and return scores and ranking for all instruments.
         """
         try:
             # Get K-line data of all targets
@@ -2989,7 +2990,7 @@ class TradingExecutor:
         trading_config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """
-        根据排序结果生成截面策略信号
+        Generate cross-sectional strategy signals from the ranking results.
         """
         portfolio_size = trading_config.get('portfolio_size', 10)
         long_ratio = float(trading_config.get('long_ratio', 0.5))
@@ -3080,7 +3081,7 @@ class TradingExecutor:
         indicator_id: Optional[int]
     ):
         """
-        截面策略执行循环
+        Cross-sectional strategy execution loop.
         """
         logger.info(f"Starting cross-sectional strategy loop for strategy {strategy_id}")
         

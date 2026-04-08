@@ -534,7 +534,7 @@ class MarketDataCollector:
 
     def _calc_macd(self, closes: List[float]) -> Dict[str, float]:
         """
-        MACD(12,26,9)：DIF = EMA12(close) − EMA26(close)，DEA = EMA9(DIF)，柱 = DIF − DEA。
+        MACD(12,26,9): DIF = EMA12(close) - EMA26(close), DEA = EMA9(DIF), histogram = DIF - DEA.
         Each EMA uses SMA seeds; DIF is defined from the 26th K onwards, and EMA9 is calculated for the DIF subsequence of the signal line pair.
         """
         n = len(closes)
@@ -866,32 +866,32 @@ class MarketDataCollector:
         crypto_info = {
             'BTC': {
                 'name': 'Bitcoin',
-                'description': '比特币，数字黄金，市值第一的加密货币，作为价值存储和避险资产',
+                'description': 'Bitcoin, the leading cryptocurrency by market cap, often viewed as digital gold and a store-of-value asset.',
                 'category': 'Store of Value',
             },
             'ETH': {
                 'name': 'Ethereum',
-                'description': '以太坊，智能合约平台，DeFi和NFT生态的基础设施',
+                'description': 'Ethereum, a smart-contract platform and core infrastructure for the DeFi and NFT ecosystem.',
                 'category': 'Smart Contract Platform',
             },
             'BNB': {
                 'name': 'Binance Coin',
-                'description': '币安币，全球最大交易所的平台代币',
+                'description': 'Binance Coin, the platform token of one of the world\'s largest exchanges.',
                 'category': 'Exchange Token',
             },
             'SOL': {
                 'name': 'Solana',
-                'description': '高性能公链，主打高TPS和低Gas费',
+                'description': 'A high-performance public chain focused on high throughput and low transaction fees.',
                 'category': 'Smart Contract Platform',
             },
             'XRP': {
                 'name': 'Ripple',
-                'description': '瑞波币，专注跨境支付解决方案',
+                'description': 'Ripple, focused on cross-border payment solutions.',
                 'category': 'Payment',
             },
             'DOGE': {
                 'name': 'Dogecoin',
-                'description': '狗狗币，Meme币代表，社区驱动',
+                'description': 'Dogecoin, a community-driven meme coin.',
                 'category': 'Meme',
             },
         }
@@ -905,7 +905,7 @@ class MarketDataCollector:
         
         return {
             'name': base,
-            'description': f'{base} 是一种加密货币',
+            'description': f'{base} is a cryptocurrency.',
             'category': 'Unknown',
         }
     
@@ -960,7 +960,7 @@ class MarketDataCollector:
                 if cached_sentiment.get('vix'):
                     vix = cached_sentiment['vix']
                     result['VIX'] = {
-                        'name': 'VIX恐慌指数',
+                        'name': 'VIX Fear Index',
                         'description': vix.get('interpretation', ''),
                         'price': vix.get('value', 0),
                         'change': vix.get('change', 0),
@@ -971,7 +971,7 @@ class MarketDataCollector:
                 if cached_sentiment.get('dxy'):
                     dxy = cached_sentiment['dxy']
                     result['DXY'] = {
-                        'name': '美元指数',
+                        'name': 'US Dollar Index',
                         'description': dxy.get('interpretation', ''),
                         'price': dxy.get('value', 0),
                         'change': dxy.get('change', 0),
@@ -982,7 +982,7 @@ class MarketDataCollector:
                 if cached_sentiment.get('yield_curve'):
                     yc = cached_sentiment['yield_curve']
                     result['TNX'] = {
-                        'name': '美债10年收益率',
+                        'name': 'US 10Y Treasury Yield',
                         'description': yc.get('interpretation', ''),
                         'price': yc.get('yield_10y', 0),
                         'change': yc.get('change', 0),
@@ -994,7 +994,7 @@ class MarketDataCollector:
                 if cached_sentiment.get('fear_greed'):
                     fg = cached_sentiment['fear_greed']
                     result['FEAR_GREED'] = {
-                        'name': '恐惧贪婪指数',
+                        'name': 'Fear & Greed Index',
                         'description': fg.get('classification', 'Neutral'),
                         'price': fg.get('value', 50),
                         'change': 0,
@@ -1024,7 +1024,7 @@ class MarketDataCollector:
                                 # Convert to unified format
                                 if key == 'VIX':
                                     result[key] = {
-                                        'name': 'VIX恐慌指数',
+                                        'name': 'VIX Fear Index',
                                         'description': data.get('interpretation', ''),
                                         'price': data.get('value', 0),
                                         'change': data.get('change', 0),
@@ -1033,7 +1033,7 @@ class MarketDataCollector:
                                     }
                                 elif key == 'DXY':
                                     result[key] = {
-                                        'name': '美元指数',
+                                        'name': 'US Dollar Index',
                                         'description': data.get('interpretation', ''),
                                         'price': data.get('value', 0),
                                         'change': data.get('change', 0),
@@ -1042,7 +1042,7 @@ class MarketDataCollector:
                                     }
                                 elif key == 'TNX':
                                     result[key] = {
-                                        'name': '美债10年收益率',
+                                        'name': 'US 10Y Treasury Yield',
                                         'description': data.get('interpretation', ''),
                                         'price': data.get('yield_10y', 0),
                                         'change': data.get('change', 0),
@@ -1052,7 +1052,7 @@ class MarketDataCollector:
                                     }
                                 elif key == 'FEAR_GREED':
                                     result[key] = {
-                                        'name': '恐惧贪婪指数',
+                                        'name': 'Fear & Greed Index',
                                         'description': data.get('classification', 'Neutral'),
                                         'price': data.get('value', 50),
                                         'change': 0,
@@ -1122,7 +1122,7 @@ class MarketDataCollector:
                             "url": item.get('url', ''),
                             "sentiment": item.get('sentiment', 'neutral'),
                         })
-                    logger.info(f"Finnhub 新闻获取成功: {len(news_list)} 条")
+                    logger.info(f"Finnhub news fetched successfully: {len(news_list)} items")
             except Exception as e:
                 logger.debug(f"Finnhub news fetch failed: {e}")
         
@@ -1199,13 +1199,13 @@ class MarketDataCollector:
                         "datetime": result.published_date or datetime.now().strftime('%Y-%m-%d'),
                         "headline": result.title,
                         "summary": result.snippet[:200] if result.snippet else '',
-                        "source": f"搜索:{result.source}",
+                        "source": f"Search:{result.source}",
                         "url": result.url,
                         "sentiment": result.sentiment,
                     })
-                logger.info(f"搜索引擎新闻补充: {len(news_list)} 条 (来源: {response.provider})")
+                logger.info(f"Search-engine news supplement: {len(news_list)} items (provider: {response.provider})")
         except Exception as e:
-            logger.debug(f"搜索引擎新闻获取失败: {e}")
+            logger.debug(f"Search-engine news fetch failed: {e}")
         
         return news_list
     
@@ -1260,7 +1260,7 @@ class MarketDataCollector:
                                     "datetime": result.published_date or datetime.now().strftime('%Y-%m-%d %H:%M'),
                                     "headline": result.title,
                                     "summary": result.snippet[:300] if result.snippet else '',
-                                    "source": f"全球事件:{result.source}",
+                                    "source": f"Global event:{result.source}",
                                     "url": result.url,
                                     "sentiment": "negative" if any(kw in text for kw in ["war", "conflict", "attack", "战争", "冲突", "袭击"]) else "neutral",
                                     "is_global_event": True  # Flag as global event

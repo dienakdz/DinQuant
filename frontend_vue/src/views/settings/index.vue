@@ -1,6 +1,6 @@
 <template>
   <div class="settings-page" :class="{ 'theme-dark': isDarkTheme }">
-    <!-- 重启提示 -->
+    <!-- Restart notice -->
     <a-alert
       v-if="showRestartTip"
       class="restart-alert"
@@ -36,24 +36,24 @@
               </span>
             </template>
 
-            <!-- AI 组特殊：显示 OpenRouter 余额查询卡片 -->
+            <!-- AI group special case: show the OpenRouter balance card -->
             <div v-if="groupKey === 'ai'" class="openrouter-balance-card">
               <a-card size="small" :bordered="false">
                 <div class="balance-header">
                   <span class="balance-title">
                     <a-icon type="wallet" style="margin-right: 6px;" />
-                    {{ $t('settings.openrouterBalance') || 'OpenRouter 账户余额' }}
+                    {{ $t('settings.openrouterBalance') || 'OpenRouter Account Balance' }}
                   </span>
                   <a-button size="small" type="primary" ghost :loading="balanceLoading" @click="queryOpenRouterBalance">
                     <a-icon type="sync" />
-                    {{ $t('settings.queryBalance') || '查询余额' }}
+                    {{ $t('settings.queryBalance') || 'Query Balance' }}
                   </a-button>
                 </div>
                 <div v-if="openrouterBalance" class="balance-info">
                   <a-row :gutter="16">
                     <a-col :span="8">
                       <a-statistic
-                        :title="$t('settings.balanceUsage') || '已使用'"
+                        :title="$t('settings.balanceUsage') || 'Used'"
                         :value="openrouterBalance.usage"
                         prefix="$"
                         :precision="4"
@@ -62,7 +62,7 @@
                     </a-col>
                     <a-col :span="8">
                       <a-statistic
-                        :title="$t('settings.balanceRemaining') || '剩余额度'"
+                        :title="$t('settings.balanceRemaining') || 'Remaining'"
                         :value="openrouterBalance.limit_remaining !== null ? openrouterBalance.limit_remaining : '∞'"
                         :prefix="openrouterBalance.limit_remaining !== null ? '$' : ''"
                         :precision="openrouterBalance.limit_remaining !== null ? 4 : 0"
@@ -71,7 +71,7 @@
                     </a-col>
                     <a-col :span="8">
                       <a-statistic
-                        :title="$t('settings.balanceLimit') || '总限额'"
+                        :title="$t('settings.balanceLimit') || 'Total Limit'"
                         :value="openrouterBalance.limit !== null ? openrouterBalance.limit : '∞'"
                         :prefix="openrouterBalance.limit !== null ? '$' : ''"
                         :precision="openrouterBalance.limit !== null ? 2 : 0"
@@ -84,7 +84,7 @@
                 </div>
                 <div v-else class="balance-empty">
                   <a-icon type="info-circle" style="margin-right: 6px;" />
-                  {{ $t('settings.balanceNotQueried') || '点击"查询余额"获取账户信息' }}
+                  {{ $t('settings.balanceNotQueried') || 'Click "Query Balance" to fetch account information' }}
                 </div>
               </a-card>
             </div>
@@ -121,7 +121,7 @@
                         </a>
                       </span>
                     </template>
-                    <!-- 文本输入 -->
+                    <!-- Text input -->
                     <template v-if="item.type === 'text'">
                       <a-input
                         v-decorator="[item.key, { initialValue: getFieldValue(groupKey, item.key) }]"
@@ -130,7 +130,7 @@
                       />
                     </template>
 
-                    <!-- 密码输入 -->
+                    <!-- Password input -->
                     <template v-else-if="item.type === 'password'">
                       <div class="password-field">
                         <a-input
@@ -149,7 +149,7 @@
                       </div>
                     </template>
 
-                    <!-- 数字输入 -->
+                    <!-- Number input -->
                     <template v-else-if="item.type === 'number'">
                       <a-input-number
                         v-decorator="[item.key, { initialValue: getNumberValue(groupKey, item.key, item.default) }]"
@@ -158,14 +158,14 @@
                       />
                     </template>
 
-                    <!-- 布尔开关 -->
+                    <!-- Boolean switch -->
                     <template v-else-if="item.type === 'boolean'">
                       <a-switch
                         v-decorator="[item.key, { valuePropName: 'checked', initialValue: getBoolValue(groupKey, item.key, item.default) }]"
                       />
                     </template>
 
-                    <!-- 下拉选择 -->
+                    <!-- Dropdown select -->
                     <template v-else-if="item.type === 'select'">
                       <a-select
                         v-decorator="[item.key, { initialValue: getFieldValue(groupKey, item.key) || item.default }]"
@@ -222,7 +222,7 @@ export default {
       activeKeys: ['auth', 'ai', 'trading'],
       passwordVisible: {},
       showRestartTip: false,
-      // OpenRouter 余额
+      // OpenRouter balance
       balanceLoading: false,
       openrouterBalance: null
     }
@@ -231,7 +231,7 @@ export default {
     isDarkTheme () {
       return this.navTheme === 'dark' || this.navTheme === 'realdark'
     },
-    // 按 order 排序的 schema
+    // Schema sorted by order
     sortedSchema () {
       const entries = Object.entries(this.schema)
       entries.sort((a, b) => {
@@ -253,7 +253,7 @@ export default {
     this.loadSettings()
   },
   methods: {
-    // 兼容后端 schema options 两种格式：
+    // Support both backend schema option formats:
     // - string[]: ['openrouter','openai', ...]
     // - {value,label}[]: [{value:'openrouter',label:'OpenRouter'}, ...]
     getSelectOptions (options) {
@@ -290,19 +290,19 @@ export default {
       }
     },
 
-    // 查询 OpenRouter 余额
+    // Query OpenRouter balance
     async queryOpenRouterBalance () {
       this.balanceLoading = true
       try {
         const res = await getOpenRouterBalance()
         if (res.code === 1 && res.data) {
           this.openrouterBalance = res.data
-          this.$message.success(this.$t('settings.balanceQuerySuccess') || '余额查询成功')
+          this.$message.success(this.$t('settings.balanceQuerySuccess') || 'Balance query succeeded')
         } else {
-          this.$message.error(res.msg || this.$t('settings.balanceQueryFailed') || '余额查询失败')
+          this.$message.error(res.msg || this.$t('settings.balanceQueryFailed') || 'Balance query failed')
         }
       } catch (error) {
-        this.$message.error(this.$t('settings.balanceQueryFailed') || '余额查询失败')
+        this.$message.error(this.$t('settings.balanceQueryFailed') || 'Balance query failed')
       } finally {
         this.balanceLoading = false
       }
@@ -339,19 +339,19 @@ export default {
     },
 
     getItemDescription (groupKey, item) {
-      // 先尝试从多语言获取描述
+      // Try the i18n description first
       const key = `settings.desc.${item.key}`
       const translated = this.$t(key)
       if (translated !== key) {
         return translated
       }
-      // 回退到后端返回的描述
+      // Fall back to the description returned by the backend
       return item.description || ''
     },
 
     getLinkText (linkText) {
       if (!linkText) return this.$t('settings.getApi')
-      // 如果是翻译键（以 settings.link. 开头），则翻译
+      // Translate it when it is a translation key starting with settings.link.
       if (linkText.startsWith('settings.link.')) {
         const translated = this.$t(linkText)
         return translated !== linkText ? translated : linkText
@@ -406,7 +406,7 @@ export default {
 
         this.saving = true
         try {
-          // 按组整理数据
+          // Group data by section
           const data = {}
           for (const groupKey of Object.keys(this.schema)) {
             data[groupKey] = {}
@@ -414,7 +414,7 @@ export default {
             for (const item of group.items) {
               if (item.key in formValues) {
                 let value = formValues[item.key]
-                // 布尔值转字符串
+                // Convert booleans to strings
                 if (item.type === 'boolean') {
                   value = value ? 'True' : 'False'
                 }
@@ -426,11 +426,11 @@ export default {
           const res = await saveSettings(data)
           if (res.code === 1) {
             this.$message.success(res.msg || this.$t('settings.saveSuccess'))
-            // 显示重启提示
+            // Show the restart notice
             if (res.data && res.data.requires_restart) {
               this.showRestartTip = true
             }
-            // 重新加载配置
+            // Reload configuration
             this.loadSettings()
           } else {
             this.$message.error(res.msg || this.$t('settings.saveFailed'))
@@ -491,7 +491,7 @@ export default {
     margin-bottom: 80px;
   }
 
-  // OpenRouter 余额查询卡片
+  // OpenRouter balance card
   .openrouter-balance-card {
     margin-bottom: 20px;
 
@@ -699,7 +699,7 @@ export default {
     }
   }
 
-  // 暗黑主题
+  // Dark theme
   &.theme-dark {
     background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
 
@@ -814,7 +814,7 @@ export default {
   }
 }
 
-// 响应式适配
+// Responsive adaptation
 @media (max-width: 768px) {
   .settings-page {
     padding: 16px;

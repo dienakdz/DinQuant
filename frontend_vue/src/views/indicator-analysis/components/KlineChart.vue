@@ -1658,7 +1658,7 @@ registerOverlay({
           } catch (e) {
           }
 
-          // 记录新数据的数量，用于后续计算偏移
+          // Track the number of prepended rows so the visible range can be restored.
           const newDataCount = filteredNewData.length
 
           // Prepended new data to existing data
@@ -1673,7 +1673,7 @@ registerOverlay({
               // Restore scroll position
               // Since new data is prepended, original indices need an offset of newDataCount
               if (savedVisibleRange && typeof savedVisibleRange.from === 'number') {
-                // 计算新的可见范围索引
+                // Shift the saved visible range forward after prepending data.
                 // Originally viewed indices from-to now become from+newDataCount to to+newDataCount
                 const newFrom = savedVisibleRange.from + newDataCount
                 const newTo = savedVisibleRange.to + newDataCount
@@ -1835,11 +1835,11 @@ registerOverlay({
               const newLast = newData[newData.length - 1]
 
               existingData[existingData.length - 1] = {
-                timestamp: existingLast.timestamp, // 保持原有时间戳（毫秒）
-                open: existingLast.open, // 开盘价保持不变
-                high: Math.max(existingLast.high, newLast.high), // 最高价取最大值
-                low: Math.min(existingLast.low, newLast.low), // 最低价取最小值
-                close: newLast.close, // 收盘价更新为最新价格
+                timestamp: existingLast.timestamp, // Keep the original timestamp in milliseconds.
+                open: existingLast.open, // Open stays fixed for the active candle.
+                high: Math.max(existingLast.high, newLast.high), // Use the highest value seen in the window.
+                low: Math.min(existingLast.low, newLast.low), // Use the lowest value seen in the window.
+                close: newLast.close, // Close tracks the latest traded price.
                 volume: newLast.volume // volume from latest API value (already total volume for the period)
               }
               klineData.value = existingData
@@ -1850,7 +1850,7 @@ registerOverlay({
 
               // Update KLineChart - use updateData to maintain scroll position
               if (chartRef.value && typeof chartRef.value.updateData === 'function') {
-                // 更新最后一根K线数据，保持滚动位置
+                // Update only the last candle so the current scroll position stays intact.
                 // updateData needs only one argument: data object to update (v9.8.0+ no longer accepts callback)
                 const lastIndex = klineData.value.length - 1
                 chartRef.value.updateData(existingData[lastIndex])
@@ -1875,29 +1875,29 @@ registerOverlay({
 
               if (uniqueNewData.length > 0) {
                 klineData.value = [...existingData, ...uniqueNewData]
-                // 如果数据超过限制，保留最新的数据
+                // Keep only the newest candles once the local cache grows too large.
                 if (klineData.value.length > 500) {
                   klineData.value = klineData.value.slice(-500)
                 }
 
-                // 更新价格面板（使用内部格式）
+                // Refresh the price panel using the normalized internal shape.
                 const internalData = convertToInternalFormat(klineData.value)
                 updatePricePanel(internalData)
 
                 // Update KLineChart - use applyMoreData to maintain scroll position
                 if (chartRef.value && typeof chartRef.value.applyMoreData === 'function') {
-                  // 追加新K线，使用 applyMoreData 保持滚动位置
+                  // Append the new candles while preserving the current viewport.
                   chartRef.value.applyMoreData(uniqueNewData)
                   // Force single indicator refresh when new Kline appears
                   maybeUpdateIndicators(true)
                 } else if (chartRef.value) {
-                  // 降级方案：使用 applyNewData（会重置滚动位置）
+                  // Fallback path: applyNewData resets scroll, but still keeps the chart in sync.
                   chartRef.value.applyNewData(klineData.value)
                   maybeUpdateIndicators(true)
                 }
               }
             }
-            // 如果新数据的时间更早，说明没有更新，保持原数据不变
+            // Ignore stale data that predates the latest candle already on screen.
           }
         }
       } catch (err) {
@@ -1914,11 +1914,11 @@ registerOverlay({
 
       // Intelligently adjust update frequency based on timeframe
       const intervalMap = {
-        '1m': 5000,  // 1m K-line, 5s interval
+        '1m': 5000, // 1m K-line, 5s interval
         '5m': 10000, // 5m K-line, 10s interval
         '15m': 15000, // 15m K-line, 15s interval
         '30m': 30000, // 30m K-line, 30s interval
-        '1H': 60000,  // 1H K-line, 60s interval
+        '1H': 60000, // 1H K-line, 60s interval
         '4H': 300000, // 4H K-line, 5m interval
         '1D': 600000, // Daily, 10m interval
         '1W': 1800000 // Weekly, 30m interval
@@ -1933,7 +1933,7 @@ registerOverlay({
         realtimeTimer.value = setInterval(() => {
           // Incrementally update Kline only when not loading and data exists
           if (!loading.value && props.symbol && klineData.value && klineData.value.length > 0) {
-            updateKlineRealtime() // 增量更新K线
+            updateKlineRealtime() // Incrementally refresh the latest candles.
           }
         }, realtimeInterval.value)
       }
@@ -1982,12 +1982,12 @@ registerOverlay({
         // Initialize KLineChart
         const container = document.getElementById('kline-chart-container')
         if (!container) {
-          throw new Error('容器元素不存在')
+          throw new Error('Chart container element is missing')
         }
 
         // Try initializing with options to check for built-in drawing toolbar support
         try {
-          // 尝试使用第二个参数传入配置选项
+          // Try passing options during init first; some KLineChart builds support it.
           chartRef.value = init(container, {
             drawingBarVisible: true, // Try enabling built-in drawing toolbar
             overlay: {
@@ -2009,7 +2009,7 @@ registerOverlay({
         }
 
         if (!chartRef.value) {
-          throw new Error('图表初始化失败：无法创建图表实例')
+          throw new Error('Chart initialization failed: could not create the chart instance')
         }
 
         // Debug: output all chart instance methods, check for drawing toolbar related ones
@@ -2026,19 +2026,19 @@ registerOverlay({
           }
         }
 
-        // 设置主题样式
+        // Apply the current theme after the chart instance is ready.
         updateChartTheme()
 
         // Listen for overlay creation completion, automatically exit drawing mode
         if (chartRef.value && typeof chartRef.value.subscribeAction === 'function') {
-          // 监听覆盖物创建完成事件
+          // Track created overlays so custom drawing tools can clean up after themselves.
           chartRef.value.subscribeAction('onOverlayCreated', (overlay) => {
             // If overlay created via drawing tool, record ID and exit drawing mode
             if (activeDrawingTool.value && overlay && overlay.id) {
               addedDrawingOverlayIds.value.push(overlay.id)
-              // 重置激活状态
+              // Reset the active tool once drawing is complete.
               activeDrawingTool.value = null
-              // 退出绘制模式
+              // Exit drawing mode after one overlay is placed.
               try {
                 if (typeof chartRef.value.overrideOverlay === 'function') {
                   chartRef.value.overrideOverlay(null)
@@ -2059,13 +2059,13 @@ registerOverlay({
                 }
               })
             } catch (e) {
-              // 如果 onOverlayComplete 不存在，忽略错误
+              // Ignore older library versions that do not expose onOverlayComplete.
             }
           }
 
           // Listen for overlay removal event
           chartRef.value.subscribeAction('onOverlayRemoved', (overlayId) => {
-            // 从列表中移除
+            // Keep the overlay registry in sync when an item is deleted.
             const index = addedDrawingOverlayIds.value.indexOf(overlayId)
             if (index > -1) {
               addedDrawingOverlayIds.value.splice(index, 1)
@@ -2107,7 +2107,7 @@ registerOverlay({
                   if (chartRef.value && typeof chartRef.value.setVisibleRange === 'function') {
                     const dataLength = klineData.value.length
                     if (dataLength > 0) {
-                      // 获取当前可见范围
+                      // Capture the current visible range before loading more history.
                       const currentRange = chartRef.value.getVisibleRange()
                       if (currentRange) {
                         // Calculate number of visible data points
@@ -2129,7 +2129,7 @@ registerOverlay({
               // Only trigger on active left scroll (lastVisibleFrom > data.from)
               // [Critical] Check both loadingHistory and loadingHistoryPromise to ensure no ongoing requests
               if (data.from <= 5 && !loadingHistory.value && !loadingHistoryPromise && hasMoreHistory.value && chartInitialized.value) {
-                // 检查是否是用户主动向左滚动（避免初始化时触发）
+                // Only trigger load-more when the user actually scrolls left.
                 if (lastVisibleFrom !== null && lastVisibleFrom > data.from) {
                   if (klineData.value.length > 0) {
                     const earliestTimestamp = klineData.value[0].timestamp
@@ -2138,7 +2138,7 @@ registerOverlay({
                 }
               }
 
-              // 更新上一次的可见范围
+              // Save the latest visible range for the next scroll event.
               lastVisibleFrom = data.from
             }
           })
@@ -2160,7 +2160,7 @@ registerOverlay({
             try {
               chartRef.value.applyNewData(validData)
             } catch (e) {
-              // 尝试降级处理
+              // Fall back to a simpler load-more path for older KLineChart versions.
               try {
                 chartRef.value.applyNewData(validData)
               } catch (e2) {
@@ -2182,7 +2182,7 @@ registerOverlay({
 
         window.addEventListener('resize', handleResize)
       } catch (error) {
-        error.value = proxy.$t('dashboard.indicator.error.chartInitFailed') + ': ' + (error.message || '未知错误')
+        error.value = proxy.$t('dashboard.indicator.error.chartInitFailed') + ': ' + (error.message || 'Unknown error')
       }
     }
 
@@ -2323,7 +2323,7 @@ registerOverlay({
         }
 
         registerIndicator(indicatorConfig)
-        // console.log(`成功注册指标: ${name}, series: ${indicatorConfig.series}`)
+        // console.log(`Registered indicator successfully: ${name}, series: ${indicatorConfig.series}`)
         return true
       } catch (err) {
         // If already registered, ignore error
@@ -2359,7 +2359,7 @@ registerOverlay({
             } catch (err) {
             }
           })
-          // 清空列表
+          // Clear the registry before rebuilding overlays and indicators.
           addedSignalOverlayIds.value = []
         }
       } catch (e) {
@@ -2373,7 +2373,7 @@ registerOverlay({
             const name = typeof info === 'string' ? info : info.name
             const paneId = typeof info === 'string' ? undefined : info.paneId
 
-            // 尝试移除指标
+            // Best-effort cleanup for indicator panes created by previous runs.
             // KLineChart v9: removeIndicator(paneId, name)
             if (paneId) {
               chartRef.value.removeIndicator(paneId, name)
@@ -2384,7 +2384,7 @@ registerOverlay({
               chartRef.value.removeIndicator(name)
             }
           })
-          // 清空列表
+          // Clear the registry before rebuilding overlays and indicators.
           addedIndicatorIds.value = []
         }
       } catch (e) {
@@ -2413,11 +2413,11 @@ registerOverlay({
                   allPlots = [...result.plots]
                 }
 
-                // 处理 signals - 使用 KLineChart 的 createOverlay 显示（不添加到指标中）
+                // Render signals as overlays instead of registering them as indicator series.
                 if (result && result.signals && Array.isArray(result.signals)) {
                   for (const signal of result.signals) {
                     if (signal.data && Array.isArray(signal.data) && signal.data.length > 0) {
-                      // 统计非空值的数量
+                      // Sample a few non-null values to validate the returned signal payload.
                       const sampleValues = []
                       for (let i = 0; i < Math.min(signal.data.length, 20); i++) {
                         const val = signal.data[i]
@@ -2428,7 +2428,7 @@ registerOverlay({
                         }
                       }
 
-                      // 找到所有非空的信号点
+                      // Build overlay points for every valid signal value.
                       const signalPoints = []
                       for (let i = 0; i < signal.data.length && i < internalData.length; i++) {
                         const signalValue = signal.data[i]
@@ -2436,8 +2436,7 @@ registerOverlay({
                           const klineItem = internalData[i]
                           const timestamp = klineItem.timestamp || klineItem.time
 
-                          // 【核心修改】获取当前 K 线的 High 和 Low
-                          // 注意：internalData 已经是你转换过的格式，直接取即可
+                          // Use candle high/low so labels can anchor above or below the bar cleanly.
                           const highPrice = klineItem.high
                           const lowPrice = klineItem.low
 
@@ -2472,26 +2471,26 @@ registerOverlay({
                         }
                       }
 
-                      // 使用 KLineChart 的 createOverlay 添加标记
+                      // Add signal markers through KLineChart overlays on the candle pane.
                       if (signalPoints.length > 0 && chartRef.value) {
                         for (const point of signalPoints) {
                           try {
-                            // 确保时间戳是毫秒级
+                            // KLineChart expects millisecond timestamps.
                             let timestamp = point.timestamp
                             if (timestamp < 1e10) {
                               timestamp = timestamp * 1000
                             }
 
-                            // 只显示 buy 或 sell，不显示金额
+                            // Keep signal labels minimal: buy/sell only, without numeric amounts.
                             const displaySimpleText = point.text
 
-                            // === 使用自定义 signalTag ===
+                            // Use the custom signalTag overlay.
                             if (typeof chartRef.value.createOverlay === 'function') {
                               const overlayId = chartRef.value.createOverlay({
                                 name: 'signalTag',
-                                // 【核心修改】传入两个点：
-                                // Point 0: 信号触发价格 (用于画圆点)
-                                // Point 1: K线极值价格 (用于定位标签)
+                                // Pass two points:
+                                // Point 0 anchors the signal price dot.
+                                // Point 1 anchors the label near the candle extreme.
                                 points: [
                                   { timestamp: timestamp, value: point.price },
                                   { timestamp: timestamp, value: point.anchorPrice }
@@ -2503,14 +2502,14 @@ registerOverlay({
                                   action: point.action,
                                   price: point.price
                                 },
-                                lock: true // 锁定防止拖动
-                              }, 'candle_pane') // 绘制在主图
+                                lock: true // Lock the overlay to prevent dragging.
+                              }, 'candle_pane') // Draw on the main candle pane.
 
                               if (overlayId) {
                                 addedSignalOverlayIds.value.push(overlayId)
                               }
                             }
-                            // === 修改结束 ===
+                            // End signalTag overlay creation.
                           } catch (overlayErr) {
                           }
                         }
@@ -2520,13 +2519,13 @@ registerOverlay({
                   }
                 }
 
-                // 只处理 plots（不包括 signals）
+                // Only register plot output here; signals are handled separately as overlays.
                 if (allPlots.length > 0) {
-                  // 过滤出有效的 plots
+                  // Filter out empty plot payloads before registering the indicator.
                   const validPlots = allPlots.filter(plot => plot.data && Array.isArray(plot.data) && plot.data.length > 0)
 
                   if (validPlots.length > 0) {
-                    // 构建 figures 数组，包含所有 plots
+                    // Build the figure list expected by registerCustomIndicator.
                     const figures = []
                     const plotDataMap = {}
 
@@ -2536,7 +2535,7 @@ registerOverlay({
                       const figureKey = plotName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '_')
                       const plotColor = plot.color || getIndicatorColor(plotIdx)
 
-                      // 对于普通 plot，使用原类型或 'line'
+                      // Default to line plots when the backend does not specify a type.
                       const figureType = plot.type || 'line'
 
                       figures.push({
@@ -2549,7 +2548,7 @@ registerOverlay({
                       plotDataMap[figureKey] = plot.data
                     }
 
-                    // 确定是否叠加在主图上（如果所有 plots 都是 overlay，则叠加）
+                    // Overlay on the main pane only when every returned plot supports it.
                     const allOverlay = validPlots.every(plot => plot.overlay !== false)
                     // const customIndicatorName = `${indicator.id}_combined`
                     let customIndicatorName = `${indicator.id}_combined`
@@ -2557,7 +2556,7 @@ registerOverlay({
                       customIndicatorName = result.name
                     }
                     try {
-                      // 注册合并的自定义指标
+                      // Register a merged custom indicator for the returned plot set.
                       const registered = registerCustomIndicator(
                         customIndicatorName,
                         (kLineDataList) => {
@@ -2580,7 +2579,7 @@ registerOverlay({
 
                       if (registered) {
                         if (allOverlay) {
-                          // 主图指标
+                          // Main-pane indicator.
                           const paneId = chartRef.value.createIndicator(
                             customIndicatorName,
                             false,
@@ -2592,7 +2591,7 @@ registerOverlay({
                             addedIndicatorIds.value.push({ paneId: 'candle_pane', name: customIndicatorName })
                           }
                         } else {
-                          // 副图指标
+                          // Sub-pane indicator.
                           const indicatorId = chartRef.value.createIndicator(
                             customIndicatorName,
                             false,
@@ -2629,11 +2628,11 @@ registerOverlay({
                   allPlots = [...pythonResult.plots]
                 }
 
-                // 处理 signals - 使用 KLineChart 的 createOverlay 显示（不添加到指标中）
+                // Render signals as overlays instead of registering them as indicator series.
                 if (pythonResult && pythonResult.signals && Array.isArray(pythonResult.signals)) {
                   for (const signal of pythonResult.signals) {
                     if (signal.data && Array.isArray(signal.data) && signal.data.length > 0) {
-                      // 统计非空值的数量
+                      // Sample a few non-null values to validate the returned signal payload.
                       const sampleValues = []
                       for (let i = 0; i < Math.min(signal.data.length, 20); i++) {
                         const val = signal.data[i]
@@ -2644,7 +2643,7 @@ registerOverlay({
                         }
                       }
 
-                      // 找到所有非空的信号点
+                      // Build overlay points for every valid signal value.
                       const signalPoints = []
                       for (let i = 0; i < signal.data.length && i < internalData.length; i++) {
                         const signalValue = signal.data[i]
@@ -2652,8 +2651,7 @@ registerOverlay({
                           const klineItem = internalData[i]
                           const timestamp = klineItem.timestamp || klineItem.time
 
-                          // 【核心修改】获取当前 K 线的 High 和 Low
-                          // 注意：internalData 已经是你转换过的格式，直接取即可
+                          // Use candle high/low so labels can anchor above or below the bar cleanly.
                           const highPrice = klineItem.high
                           const lowPrice = klineItem.low
 
@@ -2676,7 +2674,7 @@ registerOverlay({
                           signalPoints.push({
                             timestamp,
                             price: signalValue,
-                            // 确定锚点价格：买入看 Low，卖出看 High
+                            // Anchor buy labels to the low and sell labels to the high.
                             anchorPrice: isBuySignal ? lowPrice : highPrice,
                             side: isBuySignal ? 'buy' : 'sell',
                             action: signalType,
@@ -2686,26 +2684,26 @@ registerOverlay({
                         }
                       }
 
-                      // 使用 KLineChart 的 createOverlay 添加标记
+                      // Add signal markers through KLineChart overlays on the candle pane.
                       if (signalPoints.length > 0 && chartRef.value) {
                         for (const point of signalPoints) {
                           try {
-                            // 确保时间戳是毫秒级
+                            // KLineChart expects millisecond timestamps.
                             let timestamp = point.timestamp
                             if (timestamp < 1e10) {
                               timestamp = timestamp * 1000
                             }
 
-                            // 只显示 buy 或 sell，不显示金额
+                            // Keep signal labels minimal: buy/sell only, without numeric amounts.
                             const displaySimpleText = point.text
 
-                            // === 使用自定义 signalTag ===
+                            // Use the custom signalTag overlay.
                             if (typeof chartRef.value.createOverlay === 'function') {
                               const overlayId = chartRef.value.createOverlay({
                                 name: 'signalTag',
-                                // 【核心修改】传入两个点：
-                                // Point 0: 信号触发价格 (用于画圆点)
-                                // Point 1: K线极值价格 (用于定位标签)
+                                // Pass two points:
+                                // Point 0 anchors the signal price dot.
+                                // Point 1 anchors the label near the candle extreme.
                                 points: [
                                   { timestamp: timestamp, value: point.price },
                                   { timestamp: timestamp, value: point.anchorPrice }
@@ -2717,14 +2715,14 @@ registerOverlay({
                                   action: point.action,
                                   price: point.price
                                 },
-                                lock: true // 锁定防止拖动
-                              }, 'candle_pane') // 绘制在主图
+                                lock: true // Lock the overlay to prevent dragging.
+                              }, 'candle_pane') // Draw on the main candle pane.
 
                               if (overlayId) {
                                 addedSignalOverlayIds.value.push(overlayId)
                               }
                             }
-                            // === 修改结束 ===
+                            // End signalTag overlay creation.
                           } catch (overlayErr) {
                           }
                         }
@@ -2734,13 +2732,13 @@ registerOverlay({
                   }
                 }
 
-                // 只处理 plots（不包括 signals）
+                // Only register plot output here; signals are handled separately as overlays.
                 if (allPlots.length > 0) {
-                  // 过滤出有效的 plots
+                  // Filter out empty plot payloads before registering the indicator.
                   const validPlots = allPlots.filter(plot => plot.data && Array.isArray(plot.data) && plot.data.length > 0)
 
                   if (validPlots.length > 0) {
-                    // 构建 figures 数组，包含所有 plots
+                    // Build the figure list expected by registerCustomIndicator.
                     const figures = []
                     const plotDataMap = {}
 
@@ -2750,7 +2748,7 @@ registerOverlay({
                       const figureKey = plotName.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '_')
                       const plotColor = plot.color || getIndicatorColor(plotIdx)
 
-                      // 对于普通 plot，使用原类型或 'line'
+                      // Default to line plots when the backend does not specify a type.
                       const figureType = plot.type || 'line'
 
                       figures.push({
@@ -2763,7 +2761,7 @@ registerOverlay({
                       plotDataMap[figureKey] = plot.data
                     }
 
-                    // 确定是否叠加在主图上（如果所有 plots 都是 overlay，则叠加）
+                    // Overlay on the main pane only when every returned plot supports it.
                     const allOverlay = validPlots.every(plot => plot.overlay !== false)
                     // const customIndicatorName = `${indicator.id}_combined`
                     let customIndicatorName = `${indicator.id}_combined`
@@ -2772,7 +2770,7 @@ registerOverlay({
                     }
 
                     try {
-                      // 注册合并的自定义指标
+                      // Register a merged custom indicator for the returned plot set.
                       const registered = registerCustomIndicator(
                         customIndicatorName,
                         (kLineDataList) => {
@@ -2795,7 +2793,7 @@ registerOverlay({
 
                       if (registered) {
                         if (allOverlay) {
-                          // 主图指标
+                          // Main-pane indicator.
                           const paneId = chartRef.value.createIndicator(
                             customIndicatorName,
                             false,
@@ -2807,7 +2805,7 @@ registerOverlay({
                             addedIndicatorIds.value.push({ paneId: 'candle_pane', name: customIndicatorName })
                           }
                         } else {
-                          // 副图指标
+                          // Sub-pane indicator.
                           const indicatorId = chartRef.value.createIndicator(
                             customIndicatorName,
                             false,
@@ -2825,7 +2823,7 @@ registerOverlay({
               }
             } catch (err) {
               // If Python engine not ready error, set load failure state
-              if (err.message && err.message.includes('Python 引擎未就绪')) {
+              if (err.message && (err.message.includes('Python \u5f15\u64ce\u672a\u5c31\u7eea') || err.message.includes('Python engine not ready') || err.message.includes('Python engine is not ready'))) {
                 if (!loadingPython.value) {
                   pyodideLoadFailed.value = true
                 }
@@ -2861,11 +2859,11 @@ registerOverlay({
                 [{ key: figureKey, title: `${maType}(${period})`, type: 'line' }],
                 [period],
                 2,
-                true // shouldOverlay: true 表示主图指标
+                true // shouldOverlay: true renders the indicator on the main pane.
               )
 
               if (registered) {
-                // 创建指标
+                // Create the indicator instance after registration succeeds.
                 const paneId = chartRef.value.createIndicator(
                   customIndicatorName,
                   false, // isStack
@@ -2924,7 +2922,7 @@ registerOverlay({
                 ],
                 [length, mult], // calcParams
                 2, // precision
-                true // shouldOverlay: true 表示主图指标
+                true // shouldOverlay: true renders the indicator on the main pane.
               )
 
               if (registered) {
@@ -2958,7 +2956,7 @@ registerOverlay({
                     close: d.close
                   }))
                   const atrValues = calculateATR(data, period)
-                  // 转换为 KLineChart 需要的格式：返回对象数组
+                  // Convert to KLineChart's expected object-array format.
                   return atrValues.map(value => ({ atr: value }))
                 },
                 [{
@@ -2994,7 +2992,7 @@ registerOverlay({
                     close: d.close
                   }))
                   const wrValues = calculateWilliamsR(data, length)
-                  // 转换为 KLineChart 需要的格式：返回对象数组
+                  // Convert to KLineChart's expected object-array format.
                   return wrValues.map(value => ({ wr: value }))
                 },
                 [{
@@ -3031,7 +3029,7 @@ registerOverlay({
                     volume: d.volume
                   }))
                   const mfiValues = calculateMFI(data, length)
-                  // 转换为 KLineChart 需要的格式：返回对象数组
+                  // Convert to KLineChart's expected object-array format.
                   return mfiValues.map(value => ({ mfi: value }))
                 },
                 [{
@@ -3067,7 +3065,7 @@ registerOverlay({
                     close: d.close
                   }))
                   const cciValues = calculateCCI(data, length)
-                  // 转换为 KLineChart 需要的格式：返回对象数组
+                  // Convert to KLineChart's expected object-array format.
                   return cciValues.map(value => ({ cci: value }))
                 },
                 [{
@@ -3103,7 +3101,7 @@ registerOverlay({
                     close: d.close
                   }))
                   const result = calculateADX(data, length)
-                  // 转换为 KLineChart 需要的格式：返回对象数组
+                  // Convert to KLineChart's expected object-array format.
                   return result.adx.map(value => ({ adx: value }))
                 },
                 [{
@@ -3612,7 +3610,7 @@ registerOverlay({
 .kline-chart-container {
   flex: 1;
   width: 100%;
-  min-width: 0; /* 防止 flex 子元素溢出 */
+  min-width: 0; /* Prevent flex children from overflowing. */
   background: #fff;
   transition: background-color 0.3s;
   touch-action: pan-x pan-y;

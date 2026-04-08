@@ -43,7 +43,7 @@ function setI18nLanguage (lang) {
 
 export function loadLanguageAsync (lang = defaultLang) {
   return new Promise(resolve => {
-    // 缓存语言设置
+    // Cache the language setting
     storage.set('lang', lang)
     if (i18n.locale !== lang) {
       if (!loadedLanguages.includes(lang)) {

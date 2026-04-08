@@ -50,7 +50,7 @@ def timeout_context(seconds: int):
         return
     
     def timeout_handler(signum, frame):
-        raise TimeoutError(f"代码执行超时（超过{seconds}秒）")
+        raise TimeoutError(f"Code execution timed out after {seconds} seconds")
     
     try:
         # Set up signal handler
@@ -129,7 +129,7 @@ def safe_exec_code(
         }
         
     except MemoryError as e:
-        error_msg = f"代码执行内存不足（超过{max_memory_mb}MB限制）"
+        error_msg = f"Code execution exceeded the memory limit of {max_memory_mb}MB"
         logger.error(f"Code execution out of memory (limit={max_memory_mb}MB)")
         return {
             'success': False,
@@ -145,7 +145,7 @@ def safe_exec_code(
             'result': None
         }
     except Exception as e:
-        error_msg = f"代码执行错误: {str(e)}\n{traceback.format_exc()}"
+        error_msg = f"Code execution error: {str(e)}\n{traceback.format_exc()}"
         logger.error(f"Code execution error: {str(e)}")
         logger.error(traceback.format_exc())
         return {
@@ -237,7 +237,7 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
     # Check your code for dangerous patterns
     for pattern in dangerous_patterns:
         if re.search(pattern, code):
-            return False, f"检测到危险代码模式: {pattern}"
+            return False, f"Dangerous code pattern detected: {pattern}"
     
     # Try parsing the AST, checking for dangerous nodes
     try:
@@ -267,13 +267,13 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
                 if isinstance(node.func, ast.Name):
                     func_name = node.func.id
                     if func_name in dangerous_functions:
-                        return False, f"检测到危险函数调用: {func_name}()"
+                        return False, f"Dangerous function call detected: {func_name}()"
                 
                 # Check if there are calls to os.system etc.
                 if isinstance(node.func, ast.Attribute):
                     if isinstance(node.func.value, ast.Name):
                         if node.func.value.id in dangerous_modules:
-                            return False, f"检测到危险模块调用: {node.func.value.id}.{node.func.attr}"
+                            return False, f"Dangerous module call detected: {node.func.value.id}.{node.func.attr}"
                     
                     # Check if there are bypass methods such as getattr(builtins, '__import__')
                     if isinstance(node.func, ast.Name) and node.func.id == 'getattr':
@@ -281,15 +281,15 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
                         if len(node.args) >= 2:
                             if isinstance(node.args[0], ast.Name) and node.args[0].id in ['builtins', '__builtins__']:
                                 if isinstance(node.args[1], ast.Constant) and node.args[1].value in dangerous_functions:
-                                    return False, f"检测到通过 getattr 绕过限制: getattr({node.args[0].id}, '{node.args[1].value}')"
+                                    return False, f"Detected an attempt to bypass restrictions via getattr: getattr({node.args[0].id}, '{node.args[1].value}')"
         
         # Check the import statement: the use of import is prohibited in user scripts (security dependencies are uniformly injected by the platform)
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                return False, "不允许在脚本中使用 import 语句，请直接使用平台提供的 pd/np 等对象"
+                return False, "Import statements are not allowed in scripts. Use the platform-provided objects such as pd and np directly."
             
             if isinstance(node, ast.ImportFrom):
-                return False, "不允许在脚本中使用 import 语句，请直接使用平台提供的 pd/np 等对象"
+                return False, "Import statements are not allowed in scripts. Use the platform-provided objects such as pd and np directly."
         
         # Check if there is an attempt to access __builtins__
         for node in ast.walk(tree):
@@ -298,10 +298,10 @@ def validate_code_safety(code: str) -> Tuple[bool, Optional[str]]:
                     if node.attr in ['__builtins__', '__import__', '__class__', '__bases__', '__subclasses__', '__mro__']:
                         # Check if used in dangerous context
                         if isinstance(node.value, ast.Name) and node.value.id in ['builtins', '__builtins__']:
-                            return False, f"检测到访问危险属性: {node.value.id}.{node.attr}"
+                            return False, f"Dangerous attribute access detected: {node.value.id}.{node.attr}"
         
     except SyntaxError as e:
-        return False, f"代码语法错误: {str(e)}"
+        return False, f"Code syntax error: {str(e)}"
     except Exception as e:
         # If AST parsing fails, log a warning but allow to continue (possibly incomplete code)
         logger.warning(f"AST parse failed; skipping safety checks: {str(e)}")

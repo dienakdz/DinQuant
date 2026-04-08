@@ -1,19 +1,19 @@
 """
-回填历史 qd_strategy_trades 中 price/amount/value 为 0 的记录。
+Backfill historical qd_strategy_trades rows whose price/amount/value are 0.
 
-背景：
-- 某些交易所/订单类型下，执行器回报里 filled_price/filled_amount 可能为 0，
-  但交易所实际已成交，导致交易纪律/交易记录显示为 0。
-- 我们现在在 OrderProcessor 中增加了“fetch_order/fetch_my_trades 回补”逻辑，避免新数据再出现该问题。
-- 对历史脏数据，可用 qd_pending_orders 中的 executed_at/filled_price/filled_amount/fee 做近似匹配回填。
+Background:
+- For some exchanges and order types, the executor may report filled_price/filled_amount as 0
+  even though the exchange has actually filled the order, causing trade records to show 0.
+- We have now added fetch_order/fetch_my_trades backfill logic in OrderProcessor to avoid this for new data.
+- For historical dirty data, use executed_at/filled_price/filled_amount/fee in qd_pending_orders for approximate backfilling.
 
-使用：
+Usage:
   python backend_api_python/scripts/backfill_zero_trades.py --strategy-id 43 --since 2025-12-24 --until 2025-12-25
   python backend_api_python/scripts/backfill_zero_trades.py --strategy-id 43 --since 2025-12-24 --until 2025-12-25 --apply
 
-注意：
-- 该脚本按 (strategy_id, symbol, type) + 时间窗口(默认 ±600s) 匹配 qd_pending_orders。
-- 若同一条 trade 匹配到多个候选订单，将选择 executed_at 最接近的那条；若仍不唯一会跳过。
+Notes:
+- The script matches qd_pending_orders by (strategy_id, symbol, type) plus a time window of ±600s by default.
+- If one trade matches multiple candidate orders, it chooses the one with the closest executed_at; if still ambiguous, it skips the row.
 """
 
 from __future__ import annotations
@@ -28,15 +28,15 @@ from app.utils.db import get_db_connection
 
 def _parse_date_to_ts(s: str) -> int:
     s = (s or "").strip()
-    # 支持 YYYY-MM-DD 或 YYYY/MM/DD
+    # Support YYYY-MM-DD or YYYY/MM/DD
     for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M:%S"):
         try:
             dt = datetime.strptime(s, fmt)
-            # 服务器通常用本地时间写入 int(time.time())；这里按本地时间解析
+            # The server usually writes int(time.time()) in local time; parse it as local time here
             return int(dt.replace(tzinfo=None).timestamp())
         except Exception:
             pass
-    raise ValueError(f"无法解析日期: {s}")
+    raise ValueError(f"Unable to parse date: {s}")
 
 
 def _fetch_bad_trades(strategy_id: int, since_ts: int, until_ts: int, limit: int) -> List[Dict[str, Any]]:
@@ -95,7 +95,7 @@ def _find_best_order_match(
         cursor.close()
         if not cand:
             return None
-        # 若最接近的有并列（比如 executed_at 相同），认为不唯一，跳过以免误回填
+        # If the closest candidates are tied, such as identical executed_at, treat it as ambiguous and skip it
         if len(cand) >= 2 and abs(int(cand[0]["executed_at"]) - trade_ts) == abs(int(cand[1]["executed_at"]) - trade_ts):
             return None
         return cand[0]
@@ -128,11 +128,11 @@ def _update_trade(
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--strategy-id", type=int, required=True)
-    ap.add_argument("--since", type=str, required=True, help="YYYY-MM-DD 或 YYYY/MM/DD")
-    ap.add_argument("--until", type=str, required=True, help="YYYY-MM-DD 或 YYYY/MM/DD")
-    ap.add_argument("--window-sec", type=int, default=600, help="匹配窗口，默认±600秒")
-    ap.add_argument("--limit", type=int, default=500, help="最多处理多少条 trade")
-    ap.add_argument("--apply", action="store_true", help="真正写库；默认 dry-run 仅打印")
+    ap.add_argument("--since", type=str, required=True, help="YYYY-MM-DD or YYYY/MM/DD")
+    ap.add_argument("--until", type=str, required=True, help="YYYY-MM-DD or YYYY/MM/DD")
+    ap.add_argument("--window-sec", type=int, default=600, help="Match window, default ±600 seconds")
+    ap.add_argument("--limit", type=int, default=500, help="Maximum number of trades to process")
+    ap.add_argument("--apply", action="store_true", help="Actually write to the database; default is dry-run output only")
     args = ap.parse_args()
 
     since_ts = _parse_date_to_ts(args.since)

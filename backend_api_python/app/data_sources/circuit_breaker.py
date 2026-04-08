@@ -84,11 +84,11 @@ class CircuitBreaker:
                 # Cooling is completed and enters the half-open state
                 state['state'] = CircuitState.HALF_OPEN
                 state['half_open_calls'] = 0
-                logger.info(f"[熔断器] {source} 冷却完成，进入半开状态")
+                logger.info(f"[circuit breaker] {source} cooldown finished, entering half-open state")
                 return True
             else:
                 remaining = self.cooldown_seconds - time_since_failure
-                logger.debug(f"[熔断器] {source} 处于熔断状态，剩余冷却时间: {remaining:.0f}s")
+                logger.debug(f"[circuit breaker] {source} is open, remaining cooldown: {remaining:.0f}s")
                 return False
         
         if state['state'] == CircuitState.HALF_OPEN:
@@ -105,7 +105,7 @@ class CircuitBreaker:
         
         if state['state'] == CircuitState.HALF_OPEN:
             # Successful in half-open state, full recovery
-            logger.info(f"[熔断器] {source} 半开状态请求成功，恢复正常")
+            logger.info(f"[circuit breaker] {source} request succeeded in half-open state, fully recovered")
         
         # reset state
         state['state'] = CircuitState.CLOSED
@@ -126,14 +126,14 @@ class CircuitBreaker:
             # Fails in half-open state and continues to fuse
             state['state'] = CircuitState.OPEN
             state['half_open_calls'] = 0
-            logger.warning(f"[熔断器] {source} 半开状态请求失败，继续熔断 {self.cooldown_seconds}s")
+            logger.warning(f"[circuit breaker] {source} request failed in half-open state, staying open for {self.cooldown_seconds}s")
         elif state['failures'] >= self.failure_threshold:
             # reaches the threshold and enters the circuit breaker
             state['state'] = CircuitState.OPEN
-            logger.warning(f"[熔断器] {source} 连续失败 {state['failures']} 次，进入熔断状态 "
-                          f"(冷却 {self.cooldown_seconds}s)")
+            logger.warning(f"[circuit breaker] {source} failed {state['failures']} times consecutively and is now open "
+                          f"(cooldown {self.cooldown_seconds}s)")
             if error:
-                logger.warning(f"[熔断器] 最后错误: {error}")
+                logger.warning(f"[circuit breaker] last error: {error}")
     
     def get_status(self) -> Dict[str, Dict[str, Any]]:
         """Get all data source status"""
@@ -151,10 +151,10 @@ class CircuitBreaker:
         if source:
             if source in self._states:
                 del self._states[source]
-                logger.info(f"[熔断器] 已重置 {source} 的熔断状态")
+                logger.info(f"[circuit breaker] reset breaker state for {source}")
         else:
             self._states.clear()
-            logger.info("[熔断器] 已重置所有数据源的熔断状态")
+            logger.info("[circuit breaker] reset breaker state for all data sources")
 
 
 # ============================================

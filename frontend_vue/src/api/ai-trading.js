@@ -13,7 +13,7 @@ const api = {
 }
 
 /**
- * 获取AI交易策略列表
+ * Get AI trading strategy list
  */
 export function getStrategies () {
   return request({
@@ -23,7 +23,7 @@ export function getStrategies () {
 }
 
 /**
- * 创建AI交易策略
+ * Create AI trading strategy
  */
 export function createAIStrategy (data) {
   return request({
@@ -34,7 +34,7 @@ export function createAIStrategy (data) {
 }
 
 /**
- * 更新AI交易策略
+ * Update AI trading strategy
  */
 export function updateAIStrategy (data) {
   return request({
@@ -45,7 +45,7 @@ export function updateAIStrategy (data) {
 }
 
 /**
- * 删除策略
+ * Delete strategy
  */
 export function deleteStrategy (strategyId) {
   return request({
@@ -56,7 +56,7 @@ export function deleteStrategy (strategyId) {
 }
 
 /**
- * 启动策略
+ * Start strategy
  */
 export function startStrategy (strategyId) {
   return request({
@@ -67,7 +67,7 @@ export function startStrategy (strategyId) {
 }
 
 /**
- * 停止策略
+ * Stop strategy
  */
 export function stopStrategy (strategyId) {
   return request({
@@ -78,7 +78,7 @@ export function stopStrategy (strategyId) {
 }
 
 /**
- * 测试交易所连接
+ * Test exchange connection
  */
 export function testConnection (data) {
   return request({
@@ -89,7 +89,7 @@ export function testConnection (data) {
 }
 
 /**
- * 获取AI决策记录
+ * Get AI decision records
  */
 export function getAIDecisions (strategyId, params) {
   return request({
@@ -103,7 +103,7 @@ export function getAIDecisions (strategyId, params) {
 }
 
 /**
- * 获取系统支持的交易对列表
+ * Get supported trading pairs
  */
 export function getCryptoSymbols () {
   return request({

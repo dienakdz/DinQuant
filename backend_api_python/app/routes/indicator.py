@@ -709,7 +709,7 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
             reference_id=f"ai_code_gen_{user_id}_{int(time.time())}"
         )
         if not ok:
-            yield "data: " + json.dumps({"error": f"积分不足: {msg}"}, ensure_ascii=False) + "\n\n"
+            yield "data: " + json.dumps({"error": f"Insufficient credits: {msg}"}, ensure_ascii=False) + "\n\n"
             yield "data: [DONE]\n\n"
             return
 

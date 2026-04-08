@@ -51,7 +51,7 @@
       </span>
     </a-popover>
 
-    <!-- 通知详情弹窗 -->
+    <!-- Notification details modal -->
     <a-modal
       v-model="detailVisible"
       :title="detailNotice ? detailNotice.title : ''"
@@ -74,18 +74,18 @@
 
         <a-divider />
 
-        <!-- 消息内容 - 支持 HTML 报告或 Markdown 格式 -->
+        <!-- Message content - supports HTML reports or Markdown -->
         <div class="notice-detail-content" :class="{ 'html-report': isHtmlReport }">
           <div v-html="formatMessageHtml(detailNotice.message)" class="message-body"></div>
         </div>
 
-        <!-- 如果有额外的 payload 信息（非 HTML 报告时显示） -->
+        <!-- Show extra payload information when available for non-HTML reports -->
         <template v-if="!isHtmlReport && detailNotice.payload && Object.keys(detailNotice.payload).length > 0">
           <a-divider />
           <div class="notice-detail-extra">
             <div class="extra-title">{{ $t('notice.detailInfo') }}</div>
 
-            <!-- AI分析结果 -->
+            <!-- AI analysis result -->
             <template v-if="detailNotice.signal_type === 'ai_monitor'">
               <div v-if="detailNotice.payload.final_decision" class="extra-item decision">
                 <span class="label">{{ $t('notice.aiDecision') }}:</span>
@@ -102,7 +102,7 @@
               </div>
             </template>
 
-            <!-- 价格提醒 -->
+            <!-- Price alert -->
             <template v-if="detailNotice.signal_type === 'price_alert'">
               <div v-if="detailNotice.payload.symbol" class="extra-item">
                 <span class="label">{{ $t('notice.symbol') }}:</span>
@@ -118,7 +118,7 @@
               </div>
             </template>
 
-            <!-- 交易信号 -->
+            <!-- Trading signal -->
             <template v-if="detailNotice.signal_type === 'signal' || detailNotice.signal_type === 'trade'">
               <div v-if="detailNotice.payload.symbol" class="extra-item">
                 <span class="label">{{ $t('notice.symbol') }}:</span>
@@ -138,7 +138,7 @@
           </div>
         </template>
 
-        <!-- 操作按钮 -->
+        <!-- Action buttons -->
         <div class="notice-detail-actions">
           <a-button v-if="detailNotice.payload && detailNotice.payload.monitor_id" type="primary" @click="goToPortfolio">
             <a-icon type="fund" />
@@ -190,7 +190,7 @@ export default {
   methods: {
     startPolling () {
       this.stopPolling()
-      // 每30秒轮询一次
+      // Poll every 30 seconds
       this.pollingTimer = setInterval(() => {
         this.fetchNotifications(true)
       }, 30000)
@@ -208,7 +208,7 @@ export default {
       try {
         const res = await getStrategyNotifications({ limit: 50 })
         if (res.code === 1 && res.data?.items) {
-          // 解析 payload_json 如果是字符串
+          // Parse payload_json if it is a string
           this.notifications = res.data.items.map(item => {
             let payload = item.payload_json
             if (typeof payload === 'string') {
@@ -290,26 +290,26 @@ export default {
     },
     formatTime (timestamp) {
       if (!timestamp) return ''
-      // 支持多种时间格式：ISO字符串、秒级时间戳、毫秒级时间戳
+      // Support multiple time formats: ISO strings, second timestamps, and millisecond timestamps
       let date
       if (typeof timestamp === 'number') {
-        // 数字类型：判断是秒级还是毫秒级时间戳
+        // For numeric values, determine whether the timestamp is in seconds or milliseconds
         date = new Date(timestamp < 1e12 ? timestamp * 1000 : timestamp)
       } else if (typeof timestamp === 'string') {
-        // 字符串类型
+        // String values
         if (/^\d+$/.test(timestamp)) {
-          // 纯数字字符串（时间戳）
+          // Pure numeric string (timestamp)
           const ts = parseInt(timestamp, 10)
           date = new Date(ts < 1e12 ? ts * 1000 : ts)
         } else {
-          // ISO 日期字符串或其他格式
+          // ISO date string or other format
           date = new Date(timestamp)
         }
       } else {
         return ''
       }
 
-      // 检查日期是否有效
+      // Check whether the date is valid
       if (isNaN(date.getTime())) {
         return ''
       }
@@ -334,7 +334,7 @@ export default {
     },
     formatFullTime (timestamp) {
       if (!timestamp) return ''
-      // 支持多种时间格式：ISO字符串、秒级时间戳、毫秒级时间戳
+      // Support multiple time formats: ISO strings, second timestamps, and millisecond timestamps
       let date
       if (typeof timestamp === 'number') {
         date = new Date(timestamp < 1e12 ? timestamp * 1000 : timestamp)
@@ -357,36 +357,36 @@ export default {
     formatMessageHtml (message) {
       if (!message) return ''
 
-      // 检查是否已经是 HTML 格式（AI Monitor 的报告）
+      // Check whether the content is already HTML (AI Monitor report)
       if (message.includes('<div class="qd-report">') || message.includes('<style>')) {
-        // 已经是 HTML，直接返回
+        // Already HTML, return it directly
         return message
       }
 
-      // 简单的 Markdown 转换
+      // Simple Markdown conversion
       const html = message
-        // 转义 HTML
+        // Escape HTML
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        // 标题
+        // Headings
         .replace(/^### (.+)$/gm, '<h4>$1</h4>')
         .replace(/^## (.+)$/gm, '<h3>$1</h3>')
         .replace(/^# (.+)$/gm, '<h2>$1</h2>')
-        // 粗体
+        // Bold
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        // 斜体
+        // Italic
         .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // 列表项
+        // List items
         .replace(/^- (.+)$/gm, '<li>$1</li>')
-        // 换行
+        // Line breaks
         .replace(/\n/g, '<br>')
       return html
     },
     handleNoticeClick (item) {
-      // 标记为已读
+      // Mark as read
       this.markAsRead(item.id)
-      // 打开详情弹窗
+      // Open the details modal
       this.detailNotice = item
       this.detailVisible = true
       this.visible = false
@@ -400,7 +400,7 @@ export default {
       if (item) {
         item.is_read = true
       }
-      // 调用后端API标记已读
+      // Call the backend API to mark it as read
       try {
         await request({
           url: '/api/strategies/notifications/read',
@@ -408,7 +408,7 @@ export default {
           data: { id }
         })
       } catch (e) {
-        // 忽略错误，前端已标记
+        // Ignore errors because the frontend is already updated
       }
     },
     async markAllRead () {
@@ -419,7 +419,7 @@ export default {
           method: 'post'
         })
       } catch (e) {
-        // 忽略错误
+        // Ignore errors
       }
     },
     async clearNotifications () {
@@ -430,7 +430,7 @@ export default {
           method: 'delete'
         })
       } catch (e) {
-        // 忽略错误
+        // Ignore errors
       }
       this.visible = false
     }
@@ -466,7 +466,7 @@ export default {
   }
 }
 
-/* 手机端适配 */
+/* Mobile adaptation */
 @media (max-width: 768px) {
   .header-notice {
     padding: 0 8px;
@@ -579,7 +579,7 @@ export default {
   }
 }
 
-/* 详情弹窗内容 */
+/* Details modal content */
 .notice-detail {
   .notice-detail-meta {
     display: flex;
@@ -634,7 +634,7 @@ export default {
       }
     }
 
-    // HTML 报告样式
+    // HTML report styles
     &.html-report {
       .message-body {
         max-height: 70vh;
@@ -700,7 +700,7 @@ export default {
   }
 }
 
-/* 详情弹窗样式 */
+/* Details modal styles */
 .notice-detail-modal {
   .ant-modal-header {
     border-bottom: 1px solid #f0f0f0;
@@ -710,7 +710,7 @@ export default {
     padding: 16px 24px;
   }
 
-  // HTML 报告模式
+  // HTML report mode
   &.html-report-modal {
     .ant-modal-body {
       padding: 0;
@@ -718,7 +718,7 @@ export default {
   }
 }
 
-/* 暗黑主题支持 */
+/* Dark theme support */
 body.dark,
 body.realdark,
 .ant-layout.dark,
@@ -781,7 +781,7 @@ body.realdark,
     }
   }
 
-  /* 详情弹窗暗黑主题 */
+  /* Dark theme for the details modal */
   .notice-detail-modal {
     .ant-modal-content {
       background: #1f1f1f;

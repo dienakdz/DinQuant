@@ -155,7 +155,7 @@ class CommunityService:
             return {'items': [], 'total': 0, 'page': 1, 'page_size': page_size, 'total_pages': 0}
     
     def get_indicator_detail(self, indicator_id: int, user_id: int = None) -> Optional[Dict[str, Any]]:
-        """获取指标详情"""
+        """Get indicator details."""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -235,8 +235,8 @@ class CommunityService:
     
     def purchase_indicator(self, buyer_id: int, indicator_id: int) -> Tuple[bool, str, Dict[str, Any]]:
         """
-        购买指标
-        
+        Purchase an indicator.
+
         Returns:
             (success, message, data)
         """
@@ -367,7 +367,7 @@ class CommunityService:
             return False, f'error: {str(e)}', {}
     
     def get_my_purchases(self, user_id: int, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
-        """获取用户购买的指标列表"""
+        """Get the list of indicators purchased by the user."""
         offset = (page - 1) * page_size
         
         try:
@@ -433,7 +433,7 @@ class CommunityService:
     # ==========================================
     
     def get_comments(self, indicator_id: int, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
-        """获取指标评论列表"""
+        """Get the list of indicator comments."""
         offset = (page - 1) * page_size
         
         try:
@@ -495,7 +495,9 @@ class CommunityService:
         content: str
     ) -> Tuple[bool, str, Dict[str, Any]]:
         """
-        添加评论（只有购买过的用户可以评论，且只能评论一次）
+        Add a comment.
+
+        Only users who purchased the indicator can comment, and only once.
         """
         try:
             # Verify score range
@@ -577,7 +579,9 @@ class CommunityService:
         content: str
     ) -> Tuple[bool, str, Dict[str, Any]]:
         """
-        更新评论（只能修改自己的评论）
+        Update a comment.
+
+        Users can only edit their own comments.
         """
         try:
             rating = max(1, min(5, int(rating)))
@@ -628,7 +632,7 @@ class CommunityService:
             return False, f'error: {str(e)}', {}
     
     def get_user_comment(self, user_id: int, indicator_id: int) -> Optional[Dict[str, Any]]:
-        """获取用户对某个指标的评论"""
+        """Get the user's comment for a specific indicator."""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -665,7 +669,7 @@ class CommunityService:
         page_size: int = 20,
         review_status: str = 'pending'  # 'pending' / 'approved' / 'rejected' / 'all'
     ) -> Dict[str, Any]:
-        """获取待审核的指标列表（管理员用）"""
+        """Get the list of indicators pending review for admins."""
         offset = (page - 1) * page_size
         
         try:
@@ -753,7 +757,7 @@ class CommunityService:
         action: str,  # 'approve' / 'reject'
         note: str = ''
     ) -> Tuple[bool, str]:
-        """审核指标"""
+        """Review an indicator."""
         try:
             new_status = 'approved' if action == 'approve' else 'rejected'
             note = (note or '').strip()[:500]
@@ -790,7 +794,7 @@ class CommunityService:
             return False, f'error: {str(e)}'
     
     def unpublish_indicator(self, admin_id: int, indicator_id: int, note: str = '') -> Tuple[bool, str]:
-        """下架指标（取消发布）"""
+        """Unpublish an indicator."""
         try:
             note = (note or '').strip()[:500]
             
@@ -826,7 +830,7 @@ class CommunityService:
             return False, f'error: {str(e)}'
     
     def admin_delete_indicator(self, admin_id: int, indicator_id: int) -> Tuple[bool, str]:
-        """管理员删除指标"""
+        """Delete an indicator as an admin."""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -889,11 +893,11 @@ class CommunityService:
 
     def get_indicator_performance(self, indicator_id: int) -> Dict[str, Any]:
         """
-        获取指标的实盘表现统计
+        Get live performance statistics for an indicator.
 
-        数据来源：
-        1. qd_backtest_runs - 回测记录（result_json 内含 totalReturn / winRate 等）
-        2. qd_strategy_trades + qd_strategies_trading - 真实实盘交易记录
+        Data sources:
+        1. qd_backtest_runs - Backtest records (result_json contains totalReturn, winRate, etc.)
+        2. qd_strategy_trades + qd_strategies_trading - Real live trading records
         """
         default_result = {
             'strategy_count': 0,
@@ -1032,7 +1036,7 @@ _community_service = None
 
 
 def get_community_service() -> CommunityService:
-    """获取社区服务单例"""
+    """Get the community service singleton."""
     global _community_service
     if _community_service is None:
         _community_service = CommunityService()

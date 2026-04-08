@@ -17,8 +17,8 @@
           <h1>{{ title }}</h1>
         </div>
       </template>
-      <!-- 1.0.0+ 版本 pro-layout 提供 API,
-          增加 Header 左侧内容区自定义
+      <!-- pro-layout 1.0.0+ provides an API
+          for customizing the left side of the header content area
     -->
       <template #headerContentRender>
         <div>
@@ -28,7 +28,7 @@
         </div>
       </template>
 
-      <!-- 用户协议弹窗 -->
+      <!-- User agreement modal -->
       <a-modal :visible="showLegalModal" :footer="null" :title="$t('menu.footer.userAgreement')" @cancel="showLegalModal = false" :width="800">
         <div style="max-height: 60vh; overflow: auto; white-space: pre-wrap; line-height: 1.8; padding: 16px;">
           {{ menuFooterConfig.legal.user_agreement || $t('user.login.legal.content') }}
@@ -38,7 +38,7 @@
         </div>
       </a-modal>
 
-      <!-- 隐私条例弹窗 -->
+      <!-- Privacy policy modal -->
       <a-modal :visible="showPrivacyModal" :footer="null" :title="$t('menu.footer.privacyPolicy')" @cancel="showPrivacyModal = false" :width="800">
         <div style="max-height: 60vh; overflow: auto; white-space: pre-wrap; line-height: 1.8; padding: 16px;">
           {{ menuFooterConfig.legal.privacy_policy || $t('user.login.privacy.content') }}
@@ -63,10 +63,10 @@
       <router-view :key="refreshKey" />
     </pro-layout>
 
-    <!-- 菜单底部 footer - 直接写，不依赖插槽 -->
+    <!-- Menu footer at the bottom, rendered directly without slots -->
     <div class="custom-menu-footer" :class="{ 'collapsed': collapsed, 'drawer-open': isMobile && isDrawerOpen, 'drawer-animating': isMobile && isDrawerAnimating }">
       <div v-if="!collapsed" class="menu-footer-content">
-        <!-- 联系我们 -->
+        <!-- Contact us -->
         <div class="footer-section">
           <div class="section-title">{{ $t('menu.footer.contactUs') }}</div>
           <div class="section-links">
@@ -76,7 +76,7 @@
           </div>
         </div>
 
-        <!-- 获取支持 -->
+        <!-- Get support -->
         <div class="footer-section">
           <div class="section-title">{{ $t('menu.footer.getSupport') }}</div>
           <div class="section-links">
@@ -86,7 +86,7 @@
           </div>
         </div>
 
-        <!-- 社交账户 -->
+        <!-- Social accounts -->
         <div class="footer-section" v-if="menuFooterConfig.social_accounts && menuFooterConfig.social_accounts.length > 0">
           <div class="section-title">{{ $t('menu.footer.socialAccounts') }}</div>
           <div class="social-icons">
@@ -104,7 +104,7 @@
           </div>
         </div>
 
-        <!-- 用户协议和隐私条例 -->
+        <!-- User agreement and privacy policy -->
         <div class="footer-section">
           <div class="section-links">
             <a @click="showLegalModal = true">{{ $t('menu.footer.userAgreement') }}</a>
@@ -113,11 +113,11 @@
           </div>
         </div>
 
-        <!-- 版权信息 -->
+        <!-- Copyright information -->
         <div class="footer-section copyright">
           {{ menuFooterConfig.copyright }}
         </div>
-        <!-- 版本号 -->
+        <!-- Version number -->
         <div class="footer-section version">
           V2.2.1
         </div>
@@ -167,17 +167,17 @@ export default {
       isDev: process.env.NODE_ENV === 'development' || process.env.VUE_APP_PREVIEW === 'true',
 
       // base - menus moved to computed property
-      // 侧栏收起状态
+      // Sidebar collapsed state
       collapsed: false,
       title: defaultSettings.title,
       settings: {
-        // 布局类型
+        // Layout type
         layout: defaultSettings.layout, // 'sidemenu', 'topmenu'
         // CONTENT_WIDTH_TYPE
         contentWidth: defaultSettings.layout === 'sidemenu' ? CONTENT_WIDTH_TYPE.Fluid : defaultSettings.contentWidth,
-        // 主题 'dark' | 'light'
+        // Theme: 'dark' | 'light'
         theme: defaultSettings.navTheme,
-        // 主色调
+        // Primary color
         primaryColor: defaultSettings.primaryColor,
         fixedHeader: defaultSettings.fixedHeader,
         fixSiderbar: defaultSettings.fixSiderbar,
@@ -186,19 +186,19 @@ export default {
         hideHintAlert: false,
         hideCopyButton: false
       },
-      // 媒体查询
+      // Media query
       query: {},
 
-      // 是否手机模式
+      // Whether mobile mode is active
       isMobile: false,
-      // 法律免责声明弹窗显示状态
+      // Legal disclaimer modal visibility state
       showLegalModal: false,
       showPrivacyModal: false,
-      // 用于刷新内容区域的 key
+      // Key used to refresh the content area
       refreshKey: 0,
-      // drawer 是否打开（手机端）
+      // Whether the drawer is open on mobile
       isDrawerOpen: false,
-      // drawer 是否正在动画中（手机端）
+      // Whether the drawer is animating on mobile
       isDrawerAnimating: false,
       // Static footer config (local OSS build)
       menuFooterConfig: {
@@ -221,16 +221,16 @@ export default {
         },
         copyright: '© 2025-2026 QuantDinger. All rights reserved.'
       },
-      // 是否是首次初始化主题色（用于决定是否显示"正在切换主题"提示）
+      // Whether this is the first theme-color initialization, used to decide whether to show the "switching theme" notice
       isInitialThemeColorLoad: true
     }
   },
   computed: {
     ...mapState({
-      // 动态主路由
+      // Dynamic main routes
       mainMenu: state => state.permission.addRouters
     }),
-    // 响应式菜单 - 根据 addRouters 动态更新
+    // Responsive menu - update dynamically based on addRouters
     menus () {
       const routes = this.mainMenu.find(item => item.path === '/')
       return (routes && routes.children) || []
@@ -238,17 +238,17 @@ export default {
   },
   created () {
     // menus is now a computed property - no need to set here
-    // 从 store 同步主题设置（从 localStorage 恢复）
+    // Sync theme settings from the store, restoring them from localStorage
     this.settings.theme = this.$store.state.app.theme
     this.settings.primaryColor = this.$store.state.app.color || defaultSettings.primaryColor
-    // 处理侧栏收起状态
+    // Handle sidebar collapse state
     this.$watch('collapsed', () => {
       this.$store.commit(SIDEBAR_TYPE, this.collapsed)
     })
     this.$watch('isMobile', () => {
       this.$store.commit(TOGGLE_MOBILE_TYPE, this.isMobile)
     })
-    // 监听 store 中的主题变化，同步到 settings 和 body 类名
+    // Watch theme changes in the store and sync them to settings and body classes
     this.$watch('$store.state.app.theme', (val) => {
       this.settings.theme = val
       if (val === 'dark' || val === 'realdark') {
@@ -259,22 +259,22 @@ export default {
         document.body.classList.add('light')
       }
     }, { immediate: true })
-    // 监听 store 中的主题色变化，同步到 settings
+    // Watch theme-color changes in the store and sync them to settings
     this.$watch('$store.state.app.color', (val) => {
       if (val) {
         this.settings.primaryColor = val
-        // 应用主题色
+        // Apply the theme color
         if (process.env.NODE_ENV !== 'production' || process.env.VUE_APP_PREVIEW === 'true') {
-          // 首次加载时静默更新，不显示"正在切换主题"提示
+          // Update silently on first load without showing the "switching theme" notice
           updateTheme(val, this.isInitialThemeColorLoad)
-          // 首次调用后，将标志设为 false
+          // Clear the first-call flag after the first update
           if (this.isInitialThemeColorLoad) {
             this.isInitialThemeColorLoad = false
           }
         }
       }
     }, { immediate: true })
-    // 监听 settings.theme 变化，同步 body 类名（作为额外保障）
+    // Watch settings.theme and sync body classes as an extra safeguard
     this.$watch('settings.theme', (val) => {
       if (val === 'dark' || val === 'realdark') {
         document.body.classList.add('dark')
@@ -298,10 +298,10 @@ export default {
 
     // first update color
     // TIPS: THEME COLOR HANDLER!! PLEASE CHECK THAT!!
-    // 注意：主题色更新已在 created() 的 watch 中处理，这里不再重复调用
-    // 避免显示两次"正在切换主题"提示
+    // Theme-color updates are already handled by the watch in created(); do not call them again here
+    // to avoid showing the "switching theme" notice twice
 
-    // 监听显示设置抽屉事件
+    // Listen for the event that opens the settings drawer
     this.$root.$on('show-setting-drawer', () => {
       if (this.$refs.settingDrawer) {
         this.$refs.settingDrawer.showDrawer()
@@ -310,46 +310,46 @@ export default {
 
     // Footer config is static for local OSS build
 
-    // 更新菜单底部位置（延迟执行，确保 DOM 已渲染）
+    // Update the footer position after a delay so the DOM has finished rendering
     this.$nextTick(() => {
       setTimeout(() => {
         this.updateMenuFooterPosition()
       }, 200)
     })
 
-    // 监听窗口大小变化
+    // Listen for window size changes
     window.addEventListener('resize', this.updateMenuFooterPosition)
 
-    // 桌面端：定期检查并更新 footer 位置（确保能显示）
+    // Desktop: periodically check and update the footer position to keep it visible
     if (!this.isMobile) {
       this._desktopFooterInterval = setInterval(() => {
         this.updateMenuFooterPosition()
       }, 1000)
     }
 
-    // 监听手机端菜单 drawer 的打开/关闭
-    // 使用 MutationObserver 监听 drawer 的显示/隐藏
+    // Listen for opening and closing of the mobile menu drawer
+    // Use MutationObserver to watch drawer visibility changes
     const observer = new MutationObserver(() => {
       if (this.isMobile) {
-        // 检查 drawer 是否打开
+        // Check whether the drawer is open
         const drawer = document.querySelector('.ant-drawer.ant-drawer-open')
         const wasOpen = this.isDrawerOpen
         const isOpen = !!drawer
 
         this.isDrawerOpen = isOpen
 
-        // 如果状态改变，更新 footer 位置
+        // Update the footer position when the state changes
         if (wasOpen !== this.isDrawerOpen) {
           if (this.isDrawerOpen) {
-            // drawer 刚打开，标记为动画中，延迟显示 footer
+            // The drawer just opened; mark it as animating and delay footer visibility
             this.isDrawerAnimating = true
-            // 等待 drawer 动画完成（Ant Design Drawer 动画时间是 0.3s）
+            // Wait for the drawer animation to complete; Ant Design Drawer uses 0.3s
             setTimeout(() => {
               this.isDrawerAnimating = false
               this.updateMenuFooterPosition()
             }, 300)
           } else {
-            // drawer 关闭，立即隐藏 footer
+            // The drawer closed; hide the footer immediately
             this.isDrawerAnimating = false
             this.updateMenuFooterPosition()
           }
@@ -357,7 +357,7 @@ export default {
       }
     })
 
-    // 观察 body 的变化，检测 drawer 的添加/移除和 class 变化
+    // Observe body changes to detect drawer insertion, removal, and class changes
     observer.observe(document.body, {
       childList: true,
       subtree: true,
@@ -365,17 +365,17 @@ export default {
       attributeFilter: ['class']
     })
 
-    // 保存 observer 以便清理
+    // Store the observer for cleanup
     this._menuFooterObserver = observer
 
-    // 定期检查（作为备用方案，确保 footer 位置正确）
+    // Periodic check as a fallback to keep the footer position correct
     this._menuFooterInterval = setInterval(() => {
       if (this.isMobile) {
         const drawer = document.querySelector('.ant-drawer.ant-drawer-open')
         const currentState = !!drawer
         if (this.isDrawerOpen !== currentState) {
           this.isDrawerOpen = currentState
-          // 如果 drawer 刚打开，标记为动画中
+          // Mark the drawer as animating if it just opened
           if (currentState) {
             this.isDrawerAnimating = true
             setTimeout(() => {
@@ -387,28 +387,28 @@ export default {
             this.updateMenuFooterPosition()
           }
         } else if (currentState && !this.isDrawerAnimating) {
-          // drawer 已打开且不在动画中，更新位置（防止 drawer 位置变化）
+          // If the drawer is open and no longer animating, update the position to avoid drift
           this.updateMenuFooterPosition()
         }
       }
     }, 200)
   },
   beforeDestroy () {
-    // 移除事件监听
+    // Remove event listeners
     this.$root.$off('show-setting-drawer')
     window.removeEventListener('resize', this.updateMenuFooterPosition)
 
-    // 清理 MutationObserver
+    // Clean up the MutationObserver
     if (this._menuFooterObserver) {
       this._menuFooterObserver.disconnect()
     }
 
-    // 清理定时器
+    // Clean up timers
     if (this._menuFooterInterval) {
       clearInterval(this._menuFooterInterval)
     }
 
-    // 清理桌面端定时器
+    // Clean up desktop timers
     if (this._desktopFooterInterval) {
       clearInterval(this._desktopFooterInterval)
     }
@@ -417,12 +417,12 @@ export default {
     i18nRender,
     updateMenuFooterPosition () {
       this.$nextTick(() => {
-        // 使用 requestAnimationFrame 确保在浏览器下一次重绘前更新，避免打断 CSS 过渡
+        // Use requestAnimationFrame to update before the next repaint and avoid interrupting CSS transitions
         requestAnimationFrame(() => {
           const menuFooter = this.$el?.querySelector('.custom-menu-footer')
           if (!menuFooter) return
 
-          // 手机端：查找抽屉菜单容器
+          // Mobile: find the drawer menu container
           if (this.isMobile) {
             const drawer = document.querySelector('.ant-drawer.ant-drawer-open')
             this.isDrawerOpen = !!drawer
@@ -431,21 +431,21 @@ export default {
               // const drawerRect = drawer.getBoundingClientRect()
               menuFooter.style.position = 'fixed'
               // menuFooter.style.left = `${drawerRect.left}px`
-              // 宽度由 CSS 的 .collapsed 类控制，不在这里设置
+              // Width is controlled by the CSS .collapsed class, so do not set it here
               menuFooter.style.bottom = '0px'
               menuFooter.style.zIndex = '1001'
               menuFooter.style.display = 'block'
               menuFooter.style.opacity = '1'
 
-              // 动态计算footer高度，并设置drawer body的padding
+              // Compute the footer height dynamically and apply drawer body padding
               const footerHeight = menuFooter.offsetHeight || 280
               const drawerBody = drawer.querySelector('.ant-drawer-body')
               if (drawerBody) {
-                // 设置CSS变量，供CSS使用
+                // Set a CSS variable for styles to consume
                 drawer.style.setProperty('--footer-height', `${footerHeight}px`)
-                // 直接设置padding-bottom，确保菜单内容不被遮挡
+                // Set padding-bottom directly so menu content is not obscured
                 drawerBody.style.paddingBottom = `${footerHeight + 10}px`
-                // 确保drawer body可以滚动
+                // Ensure the drawer body can scroll
                 drawerBody.style.overflowY = 'auto'
                 drawerBody.style.overflowX = 'hidden'
                 drawerBody.style.webkitOverflowScrolling = 'touch'
@@ -453,14 +453,14 @@ export default {
 
               return
             } else if (drawer && this.isDrawerAnimating) {
-              // drawer 正在动画中，footer 应该隐藏或透明
+              // While the drawer is animating, the footer should be hidden or transparent
               menuFooter.style.opacity = '0'
               menuFooter.style.display = 'block'
               return
             } else {
               menuFooter.style.display = 'none'
               menuFooter.style.opacity = '0'
-              // 清除drawer body的padding
+              // Clear the drawer body padding
               const drawer = document.querySelector('.ant-drawer')
               if (drawer) {
                 const drawerBody = drawer.querySelector('.ant-drawer-body')
@@ -474,20 +474,20 @@ export default {
             }
           }
 
-          // 桌面端：查找普通菜单容器
+          // Desktop: find the regular menu container
           const sider = this.$el?.querySelector('.ant-pro-sider') || document.querySelector('.ant-pro-sider')
           if (sider) {
             const siderRect = sider.getBoundingClientRect()
           const footerHeight = menuFooter.offsetHeight || 220
             menuFooter.style.position = 'fixed'
             menuFooter.style.left = `${siderRect.left}px`
-            // 宽度由 CSS 的 .collapsed 类控制，不在这里设置
+            // Width is controlled by the CSS .collapsed class, so do not set it here
             menuFooter.style.bottom = '0px'
             menuFooter.style.zIndex = '100'
             menuFooter.style.display = 'block'
-          // 将 footer 高度写入 CSS 变量，方便样式中使用
+          // Write the footer height to a CSS variable for use in styles
           sider.style.setProperty('--menu-footer-height', `${footerHeight}px`)
-          // 给侧栏主体预留出 footer 的高度，并允许滚动
+          // Reserve footer height in the sidebar body and allow scrolling
           const siderChildren = sider.querySelector('.ant-layout-sider-children')
           if (siderChildren) {
             siderChildren.style.paddingBottom = `${footerHeight + 12}px`
@@ -495,7 +495,7 @@ export default {
             siderChildren.style.overflowX = 'hidden'
             siderChildren.style.webkitOverflowScrolling = 'touch'
           }
-          // 进一步限制菜单区域高度，避免 footer 遮挡
+          // Further restrict menu area height so the footer does not cover it
           const menuScroll = sider.querySelector('.ant-pro-sider-menu') ||
             sider.querySelector('.ant-menu-root') ||
             sider.querySelector('.ant-menu')
@@ -507,10 +507,10 @@ export default {
             menuScroll.style.webkitOverflowScrolling = 'touch'
           }
           } else {
-            // 如果找不到菜单，使用默认位置
+            // Fall back to the default position if the menu cannot be found
             menuFooter.style.position = 'fixed'
             menuFooter.style.left = '0px'
-            // 宽度由 CSS 的 .collapsed 类控制
+            // Width is controlled by the CSS .collapsed class
             menuFooter.style.bottom = '0px'
             menuFooter.style.zIndex = '100'
             menuFooter.style.display = 'block'
@@ -519,7 +519,7 @@ export default {
       })
     },
     handleRefresh () {
-      // 只刷新内容区域，通过改变 key 强制重新渲染 router-view
+      // Refresh only the content area by changing the key and forcing router-view to re-render
       this.refreshKey += 1
     },
     handleMediaQuery (val) {
@@ -543,18 +543,18 @@ export default {
     },
     handleCollapse (val) {
       this.collapsed = val
-      // 菜单折叠状态改变时，更新底部位置
-      // CSS transition 会自动处理宽度和位置的平滑过渡
+      // Update the footer position when the menu collapse state changes
+      // CSS transitions handle smooth width and position changes automatically
       this.$nextTick(() => {
         this.updateMenuFooterPosition()
       })
     },
     handleMobileMenuToggle () {
-      // 监听手机端菜单打开/关闭
+      // Listen for mobile menu open and close changes
       this.$nextTick(() => {
         setTimeout(() => {
           this.updateMenuFooterPosition()
-        }, 300) // 等待 drawer 动画完成
+        }, 300) // Wait for the drawer animation to complete
       })
     },
     handleSettingChange ({ type, value }) {
@@ -605,7 +605,7 @@ export default {
 .ant-pro-sider-menu-sider.light .ant-menu-light {
   height: 60vh!important;
 }
-/* 完全隐藏所有 footer */
+/* Fully hide all footers */
 .basic-layout-wrapper {
   .ant-layout-footer {
     display: none !important;
@@ -616,61 +616,61 @@ export default {
   }
 }
 
-/* 菜单底部 footer 样式 - 直接定位到菜单底部 */
+/* Menu footer styles - positioned directly at the bottom of the menu */
 .basic-layout-wrapper {
   position: relative;
 
-  /* 自定义菜单底部 - 通过 CSS 选择器定位到菜单区域 */
+  /* Custom menu footer - positioned in the menu area via CSS selectors */
   .custom-menu-footer {
     position: fixed;
     bottom: 0;
     left: 0;
     z-index: 100;
-    width: 256px; /* 统一固定宽度 256px */
-    background: #001529; /* 默认暗色背景 */
+    width: 256px; /* Unified fixed width: 256px */
+    background: #001529; /* Default dark background */
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    /* 与菜单栏抽屉动画同步：使用相同的过渡时间和缓动函数 */
-    /* Ant Design Vue Drawer 使用 0.3s 和 cubic-bezier(0.78, 0.14, 0.15, 0.86) */
+    /* Sync with the menu drawer animation by using the same timing and easing */
+    /* Ant Design Vue Drawer uses 0.3s and cubic-bezier(0.78, 0.14, 0.15, 0.86) */
     transition: left 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86),
                 width 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86),
                 max-width 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86),
                 opacity 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86);
     max-width: 256px;
-    display: block; /* 默认显示 */
+    display: block; /* Visible by default */
     opacity: 1;
 
     &.collapsed {
-      width: 80px; /* 折叠时菜单宽度 */
+      width: 80px; /* Menu width when collapsed */
       max-width: 80px;
     }
 
-    /* 手机端：当菜单在 drawer 中时，需要更高的 z-index */
+    /* Mobile: use a higher z-index when the menu is inside the drawer */
     @media (max-width: 768px) {
-      z-index: 1001; /* drawer 的 z-index 通常是 1000 */
+      z-index: 1001; /* The drawer z-index is usually 1000 */
 
-      /* 当 drawer 未打开时，隐藏 footer */
+      /* Hide the footer while the drawer is closed */
       &:not(.drawer-open) {
         display: none !important;
         opacity: 0;
       }
 
-      /* 当 drawer 正在动画中时，footer 应该透明，等待动画完成 */
+      /* While the drawer is animating, keep the footer transparent until the animation completes */
       &.drawer-animating {
         opacity: 0;
         transition: opacity 0.1s ease-out;
       }
 
-      /* 当 drawer 完全打开且不在动画中时，footer 才显示 */
+      /* Show the footer only after the drawer is fully open and no longer animating */
       &.drawer-open:not(.drawer-animating) {
         opacity: 1;
         transition: left 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86),
                     width 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86),
                     max-width 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86),
-                    opacity 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86) 0.1s; /* 延迟 0.1s 显示，确保 drawer 先出现 */
+                    opacity 0.3s cubic-bezier(0.78, 0.14, 0.15, 0.86) 0.1s; /* Delay visibility by 0.1s so the drawer appears first */
       }
     }
 
-    /* 浅色主题 */
+    /* Light theme */
     body.light &,
     .ant-pro-layout.light & {
       background: #fff;
@@ -697,7 +697,7 @@ export default {
       }
     }
 
-    /* 暗黑主题 */
+    /* Dark theme */
     body.dark &,
     body.realdark &,
     .ant-pro-layout.dark &,
@@ -734,7 +734,7 @@ export default {
       overflow-y: auto;
       overflow-x: hidden;
 
-      /* 隐藏滚动条但保持滚动功能 */
+      /* Hide scrollbars while preserving scrolling */
       scrollbar-width: thin;
       scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
       &::-webkit-scrollbar {
@@ -878,7 +878,7 @@ export default {
     }
   }
 
-  /* 监听菜单折叠状态，动态调整宽度 */
+  /* Watch menu collapse state and adjust width dynamically */
   ::v-deep .ant-pro-layout {
     &.ant-pro-sider-collapsed ~ .custom-menu-footer,
     .ant-pro-sider-collapsed ~ .custom-menu-footer {
@@ -887,7 +887,7 @@ export default {
   }
 }
 
-/* 侧栏菜单滚动 & 为自定义 footer 预留空间 */
+/* Sidebar menu scrolling and reserved space for the custom footer */
 .basic-layout-wrapper {
   .ant-layout-sider-children {
     padding-bottom: calc(var(--menu-footer-height, 220px) + 12px);
@@ -922,7 +922,7 @@ export default {
     }
   }
 
-  /* 强制侧栏和菜单区域可滚动，避免被 footer 遮挡 */
+  /* Force the sidebar and menu area to scroll so the footer does not cover them */
   .ant-pro-sider {
     height: 100vh;
     display: flex;
@@ -948,10 +948,10 @@ export default {
   }
 }
 
-/* 暗黑主题样式 */
+/* Dark theme styles */
 .basic-layout-wrapper.dark,
 .basic-layout-wrapper.realdark {
-  /* Header 适配 */
+  /* Header adaptation */
   .ant-pro-global-header {
     background: #001529 !important;
     color: rgba(255, 255, 255, 0.85) !important;
@@ -971,22 +971,22 @@ export default {
     }
   }
 
-  /* Content 适配 */
+  /* Content adaptation */
   .ant-pro-basicLayout-content {
     background-color: #141414 !important;
   }
 
-  /* 确保 Layout 本身也是深色 */
+  /* Ensure the layout itself is also dark */
   .ant-layout {
     background-color: #141414 !important;
   }
 }
 
-/* 手机端：修复footer遮挡菜单的问题 */
+/* Mobile: fix the footer covering the menu */
 @media (max-width: 768px) {
-  /* 让drawer body可以滚动，并添加底部padding避免被footer遮挡 */
+  /* Let the drawer body scroll and add bottom padding so the footer does not cover it */
   .ant-drawer.ant-drawer-open {
-    /* 确保drawer容器可以正常显示 */
+    /* Ensure the drawer container can render correctly */
     .ant-drawer-content-wrapper {
       overflow: visible;
     }
@@ -1006,15 +1006,15 @@ export default {
     }
 
     .ant-drawer-body {
-      /* 让菜单内容可以滚动 */
+      /* Let the menu content scroll */
       overflow-y: auto !important;
       overflow-x: hidden !important;
-      /* 添加底部padding，高度等于footer的高度（由JS动态设置） */
-      /* 默认值280px作为fallback */
+      /* Add bottom padding equal to the footer height, set dynamically by JS */
+      /* Use 280px as the fallback default */
       padding-bottom: var(--footer-height, 280px) !important;
-      /* 确保滚动流畅 */
+      /* Keep scrolling smooth */
       -webkit-overflow-scrolling: touch;
-      /* 隐藏滚动条但保持滚动功能 */
+      /* Hide scrollbars while preserving scrolling */
       scrollbar-width: thin;
       scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
       &::-webkit-scrollbar {
@@ -1030,7 +1030,7 @@ export default {
           background: rgba(255, 255, 255, 0.3);
         }
       }
-      /* 确保菜单内容区域有足够的高度 */
+      /* Ensure the menu content area has enough height */
       min-height: 0;
       flex: 1;
     }

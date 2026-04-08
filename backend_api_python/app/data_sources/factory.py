@@ -62,7 +62,7 @@ class DataSourceFactory:
             from app.data_sources.futures import FuturesDataSource
             return FuturesDataSource()
         else:
-            raise ValueError(f"不支持的市场类型: {market}")
+            raise ValueError(f"Unsupported market type: {market}")
     
     @classmethod
     def get_kline(

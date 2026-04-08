@@ -49,76 +49,76 @@
       <!-- Right Column: Credits and Referral Cards -->
       <a-col :xs="24" :md="16" class="right-cards-col">
         <a-row :gutter="16" class="right-cards-row">
-          <!-- Credits Card (积分卡片) -->
+          <!-- Credits Card -->
           <a-col :xs="24" :md="12">
             <a-card :bordered="false" class="credits-card">
               <div class="credits-header">
                 <h3 class="credits-title">
                   <a-icon type="wallet" />
-                  {{ $t('profile.credits.title') || '我的积分' }}
+                  {{ $t('profile.credits.title') || 'My Credits' }}
                 </h3>
               </div>
               <div class="credits-body">
                 <div class="credits-amount">
                   <span class="amount-value">{{ formatCredits(billing.credits) }}</span>
-                  <span class="amount-label">{{ $t('profile.credits.unit') || '积分' }}</span>
+                  <span class="amount-label">{{ $t('profile.credits.unit') || 'Credits' }}</span>
                 </div>
                 <div class="vip-status" v-if="billing.vip_expires_at">
                   <a-icon type="crown" :style="{ color: isVip ? '#faad14' : '#999' }" />
                   <span v-if="isVip" class="vip-active">
-                    {{ $t('profile.credits.vipExpires') || 'VIP有效期至' }}: {{ formatDate(billing.vip_expires_at) }}
+                    {{ $t('profile.credits.vipExpires') || 'VIP valid until' }}: {{ formatDate(billing.vip_expires_at) }}
                   </span>
                   <span v-else class="vip-expired">
-                    {{ $t('profile.credits.vipExpired') || 'VIP已过期' }}
+                    {{ $t('profile.credits.vipExpired') || 'VIP expired' }}
                   </span>
                 </div>
                 <div class="vip-status" v-else-if="!billing.is_vip">
-                  <span class="no-vip">{{ $t('profile.credits.noVip') || '非VIP用户' }}</span>
+                  <span class="no-vip">{{ $t('profile.credits.noVip') || 'Non-VIP user' }}</span>
                 </div>
               </div>
               <a-divider />
               <div class="credits-actions">
                 <a-button type="primary" icon="shopping" @click="handleRecharge">
-                  {{ $t('profile.credits.recharge') || '开通/充值' }}
+                  {{ $t('profile.credits.recharge') || 'Activate / Recharge' }}
                 </a-button>
               </div>
               <div class="credits-hint" v-if="billing.billing_enabled">
                 <a-icon type="info-circle" />
-                <span>{{ $t('profile.credits.hint') || '使用AI分析/回测/监控等功能会消耗积分；VIP仅可免费使用VIP免费指标。' }}</span>
+                <span>{{ $t('profile.credits.hint') || 'Using AI analysis, backtesting, monitoring, and similar features consumes credits; VIP users can only use VIP-free indicators for free.' }}</span>
               </div>
             </a-card>
           </a-col>
 
-          <!-- Referral Card (邀请卡片) -->
+          <!-- Referral Card -->
           <a-col :xs="24" :md="12">
             <a-card :bordered="false" class="referral-card">
               <div class="referral-header">
                 <h3 class="referral-title">
                   <a-icon type="team" />
-                  {{ $t('profile.referral.title') || '邀请好友' }}
+                  {{ $t('profile.referral.title') || 'Invite Friends' }}
                 </h3>
               </div>
               <div class="referral-body">
                 <div class="referral-stats">
                   <div class="stat-item">
                     <span class="stat-value">{{ referralData.total || 0 }}</span>
-                    <span class="stat-label">{{ $t('profile.referral.totalInvited') || '已邀请' }}</span>
+                    <span class="stat-label">{{ $t('profile.referral.totalInvited') || 'Invited' }}</span>
                   </div>
                   <div class="stat-item" v-if="referralData.referral_bonus > 0">
                     <span class="stat-value">+{{ referralData.referral_bonus }}</span>
-                    <span class="stat-label">{{ $t('profile.referral.bonusPerInvite') || '每邀请获得' }}</span>
+                    <span class="stat-label">{{ $t('profile.referral.bonusPerInvite') || 'Per Invite' }}</span>
                   </div>
                 </div>
                 <a-divider style="margin: 12px 0" />
                 <div class="referral-link-section">
-                  <div class="link-label">{{ $t('profile.referral.yourLink') || '您的邀请链接' }}</div>
+                  <div class="link-label">{{ $t('profile.referral.yourLink') || 'Your Referral Link' }}</div>
                   <div class="link-box">
                     <a-input
                       :value="referralLink"
                       readonly
                       size="small"
                     >
-                      <a-tooltip slot="suffix" :title="$t('profile.referral.copyLink') || '复制链接'">
+                      <a-tooltip slot="suffix" :title="$t('profile.referral.copyLink') || 'Copy Link'">
                         <a-icon type="copy" style="cursor: pointer" @click="copyReferralLink" />
                       </a-tooltip>
                     </a-input>
@@ -126,7 +126,7 @@
                 </div>
                 <div class="referral-hint" v-if="referralData.register_bonus > 0">
                   <a-icon type="gift" />
-                  <span>{{ $t('profile.referral.newUserBonus') || '新用户注册获得' }} {{ referralData.register_bonus }} {{ $t('profile.credits.unit') || '积分' }}</span>
+                  <span>{{ $t('profile.referral.newUserBonus') || 'New users receive' }} {{ referralData.register_bonus }} {{ $t('profile.credits.unit') || 'Credits' }}</span>
                 </div>
               </div>
             </a-card>
@@ -252,8 +252,8 @@
               </a-form>
             </a-tab-pane>
 
-            <!-- Credits Log Tab (消费记录) -->
-            <a-tab-pane key="credits" :tab="$t('profile.creditsLog') || '消费记录'">
+            <!-- Credits Log Tab -->
+            <a-tab-pane key="credits" :tab="$t('profile.creditsLog') || 'Usage History'">
               <a-table
                 :columns="creditsLogColumns"
                 :dataSource="creditsLog"
@@ -284,11 +284,11 @@
               </a-table>
             </a-tab-pane>
 
-            <!-- Notification Settings Tab (通知设置) -->
-            <a-tab-pane key="notifications" :tab="$t('profile.notifications.title') || '通知设置'">
+            <!-- Notification Settings Tab -->
+            <a-tab-pane key="notifications" :tab="$t('profile.notifications.title') || 'Notification Settings'">
               <div class="notification-settings-form">
                 <a-alert
-                  :message="$t('profile.notifications.hint') || '配置您的默认通知方式，在创建资产监控和预警时将自动使用这些设置'"
+                  :message="$t('profile.notifications.hint') || 'Configure your default notification methods. These settings will be used automatically for asset monitors and alerts.'"
                   type="info"
                   showIcon
                   style="margin-bottom: 24px"
@@ -296,14 +296,14 @@
 
                 <a-form :form="notificationForm" layout="vertical" style="max-width: 600px;">
                   <!-- Default Channels -->
-                  <a-form-item :label="$t('profile.notifications.defaultChannels') || '默认通知渠道'">
+                  <a-form-item :label="$t('profile.notifications.defaultChannels') || 'Default Notification Channels'">
                     <a-checkbox-group
                       v-decorator="['default_channels', { initialValue: notificationSettings.default_channels || ['browser'] }]"
                     >
                       <a-row :gutter="16">
                         <a-col :span="8">
                           <a-checkbox value="browser">
-                            <a-icon type="bell" /> {{ $t('profile.notifications.browser') || '站内通知' }}
+                            <a-icon type="bell" /> {{ $t('profile.notifications.browser') || 'In-App Notifications' }}
                           </a-checkbox>
                         </a-col>
                         <a-col :span="8">
@@ -313,14 +313,14 @@
                         </a-col>
                         <a-col :span="8">
                           <a-checkbox value="email">
-                            <a-icon type="mail" /> {{ $t('profile.notifications.email') || '邮件' }}
+                            <a-icon type="mail" /> {{ $t('profile.notifications.email') || 'Email' }}
                           </a-checkbox>
                         </a-col>
                       </a-row>
                       <a-row :gutter="16" style="margin-top: 8px">
                         <a-col :span="8">
                           <a-checkbox value="phone">
-                            <a-icon type="phone" /> {{ $t('profile.notifications.phone') || '短信' }}
+                            <a-icon type="phone" /> {{ $t('profile.notifications.phone') || 'SMS' }}
                           </a-checkbox>
                         </a-col>
                         <a-col :span="8">
@@ -341,14 +341,14 @@
                   <a-form-item :label="$t('profile.notifications.telegramBotToken') || 'Telegram Bot Token'">
                     <a-input-password
                       v-decorator="['telegram_bot_token', { initialValue: notificationSettings.telegram_bot_token }]"
-                      :placeholder="$t('profile.notifications.telegramBotTokenPlaceholder') || '请输入您的 Telegram Bot Token'"
+                      :placeholder="$t('profile.notifications.telegramBotTokenPlaceholder') || 'Enter your Telegram Bot Token'"
                     >
                       <a-icon slot="prefix" type="robot" />
                     </a-input-password>
                     <div class="field-hint">
                       <a-icon type="info-circle" />
                       <span>
-                        {{ $t('profile.notifications.telegramBotTokenHint') || '通过 @BotFather 创建机器人获取 Token' }}
+                        {{ $t('profile.notifications.telegramBotTokenHint') || 'Create a bot with @BotFather to get a token' }}
                         <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer">@BotFather</a>
                       </span>
                     </div>
@@ -358,41 +358,41 @@
                   <a-form-item :label="$t('profile.notifications.telegramChatId') || 'Telegram Chat ID'">
                     <a-input
                       v-decorator="['telegram_chat_id', { initialValue: notificationSettings.telegram_chat_id }]"
-                      :placeholder="$t('profile.notifications.telegramPlaceholder') || '请输入您的 Telegram Chat ID（如 123456789）'"
+                      :placeholder="$t('profile.notifications.telegramPlaceholder') || 'Enter your Telegram Chat ID (for example, 123456789)'"
                     >
                       <a-icon slot="prefix" type="message" />
                     </a-input>
                     <div class="field-hint">
                       <a-icon type="info-circle" />
-                      <span>{{ $t('profile.notifications.telegramHint') || '发送 /start 给 @userinfobot 可获取您的 Chat ID' }}</span>
+                      <span>{{ $t('profile.notifications.telegramHint') || 'Send /start to @userinfobot to get your Chat ID' }}</span>
                     </div>
                   </a-form-item>
 
                   <!-- Notification Email -->
-                  <a-form-item :label="$t('profile.notifications.notifyEmail') || '通知邮箱'">
+                  <a-form-item :label="$t('profile.notifications.notifyEmail') || 'Notification Email'">
                     <a-input
                       v-decorator="['email', { initialValue: notificationSettings.email || profile.email }]"
-                      :placeholder="$t('profile.notifications.emailPlaceholder') || '接收通知的邮箱地址'"
+                      :placeholder="$t('profile.notifications.emailPlaceholder') || 'Email address used to receive notifications'"
                     >
                       <a-icon slot="prefix" type="mail" />
                     </a-input>
                     <div class="field-hint">
                       <a-icon type="info-circle" />
-                      <span>{{ $t('profile.notifications.emailHint') || '默认使用账户邮箱，可设置其他邮箱接收通知' }}</span>
+                      <span>{{ $t('profile.notifications.emailHint') || 'Your account email is used by default, but you can choose a different address for notifications' }}</span>
                     </div>
                   </a-form-item>
 
                   <!-- Phone Number (SMS) -->
-                  <a-form-item :label="$t('profile.notifications.phone') || '手机号（短信通知）'">
+                  <a-form-item :label="$t('profile.notifications.phone') || 'Phone Number (SMS Notifications)'">
                     <a-input
                       v-decorator="['phone', { initialValue: notificationSettings.phone }]"
-                      :placeholder="$t('profile.notifications.phonePlaceholder') || '请输入手机号（如 +8613800138000）'"
+                      :placeholder="$t('profile.notifications.phonePlaceholder') || 'Enter a phone number (for example, +8613800138000)'"
                     >
                       <a-icon slot="prefix" type="phone" />
                     </a-input>
                     <div class="field-hint">
                       <a-icon type="info-circle" />
-                      <span>{{ $t('profile.notifications.phoneHint') || '需要管理员配置 Twilio 服务后才能使用短信通知' }}</span>
+                      <span>{{ $t('profile.notifications.phoneHint') || 'SMS notifications require an administrator to configure the Twilio service first' }}</span>
                     </div>
                   </a-form-item>
 
@@ -406,7 +406,7 @@
                     </a-input>
                     <div class="field-hint">
                       <a-icon type="info-circle" />
-                      <span>{{ $t('profile.notifications.discordHint') || '在 Discord 服务器设置中创建 Webhook' }}</span>
+                      <span>{{ $t('profile.notifications.discordHint') || 'Create a webhook in your Discord server settings' }}</span>
                     </div>
                   </a-form-item>
 
@@ -420,40 +420,40 @@
                     </a-input>
                     <div class="field-hint">
                       <a-icon type="info-circle" />
-                      <span>{{ $t('profile.notifications.webhookHint') || '自定义 Webhook 地址，将以 POST JSON 方式推送通知' }}</span>
+                      <span>{{ $t('profile.notifications.webhookHint') || 'Custom webhook URL. Notifications will be sent as POST JSON requests' }}</span>
                     </div>
                   </a-form-item>
 
                   <!-- Webhook Token -->
-                  <a-form-item :label="$t('profile.notifications.webhookToken') || 'Webhook Token（可选）'">
+                  <a-form-item :label="$t('profile.notifications.webhookToken') || 'Webhook Token (optional)'">
                     <a-input-password
                       v-decorator="['webhook_token', { initialValue: notificationSettings.webhook_token }]"
-                      :placeholder="$t('profile.notifications.webhookTokenPlaceholder') || '用于验证请求的 Bearer Token'"
+                      :placeholder="$t('profile.notifications.webhookTokenPlaceholder') || 'Bearer token used to validate requests'"
                     >
                       <a-icon slot="prefix" type="key" />
                     </a-input-password>
                     <div class="field-hint">
                       <a-icon type="info-circle" />
-                      <span>{{ $t('profile.notifications.webhookTokenHint') || '将作为 Authorization: Bearer Token 发送到 Webhook' }}</span>
+                      <span>{{ $t('profile.notifications.webhookTokenHint') || 'It will be sent to the webhook as Authorization: Bearer Token' }}</span>
                     </div>
                   </a-form-item>
 
                   <a-form-item>
                     <a-button type="primary" :loading="savingNotifications" @click="handleSaveNotifications">
                       <a-icon type="save" />
-                      {{ $t('common.save') || '保存' }}
+                      {{ $t('common.save') || 'Save' }}
                     </a-button>
                     <a-button style="margin-left: 12px" @click="handleTestNotification" :loading="testingNotification">
                       <a-icon type="experiment" />
-                      {{ $t('profile.notifications.testBtn') || '发送测试通知' }}
+                      {{ $t('profile.notifications.testBtn') || 'Send Test Notification' }}
                     </a-button>
                   </a-form-item>
                 </a-form>
               </div>
             </a-tab-pane>
 
-            <!-- Referral List Tab (邀请列表) -->
-            <a-tab-pane key="referrals" :tab="$t('profile.referral.listTab') || '邀请列表'">
+            <!-- Referral List Tab -->
+            <a-tab-pane key="referrals" :tab="$t('profile.referral.listTab') || 'Referral List'">
               <a-table
                 :columns="referralColumns"
                 :dataSource="referralData.list || []"
@@ -481,9 +481,9 @@
               </a-table>
 
               <a-empty v-if="!referralLoading && (!referralData.list || referralData.list.length === 0)">
-                <span slot="description">{{ $t('profile.referral.noReferrals') || '暂无邀请记录' }}</span>
+                <span slot="description">{{ $t('profile.referral.noReferrals') || 'No referral records yet' }}</span>
                 <a-button type="primary" @click="copyReferralLink">
-                  {{ $t('profile.referral.shareNow') || '立即分享邀请' }}
+                  {{ $t('profile.referral.shareNow') || 'Share Invitation Now' }}
                 </a-button>
               </a-empty>
             </a-tab-pane>
@@ -579,30 +579,30 @@ export default {
     creditsLogColumns () {
       return [
         {
-          title: this.$t('profile.creditsLog.time') || '时间',
+          title: this.$t('profile.creditsLog.time') || 'Time',
           dataIndex: 'created_at',
           width: 160,
           scopedSlots: { customRender: 'created_at' }
         },
         {
-          title: this.$t('profile.creditsLog.action') || '类型',
+          title: this.$t('profile.creditsLog.action') || 'Type',
           dataIndex: 'action',
           width: 100,
           scopedSlots: { customRender: 'action' }
         },
         {
-          title: this.$t('profile.creditsLog.amount') || '变动',
+          title: this.$t('profile.creditsLog.amount') || 'Change',
           dataIndex: 'amount',
           width: 100,
           scopedSlots: { customRender: 'amount' }
         },
         {
-          title: this.$t('profile.creditsLog.balance') || '余额',
+          title: this.$t('profile.creditsLog.balance') || 'Balance',
           dataIndex: 'balance_after',
           width: 100
         },
         {
-          title: this.$t('profile.creditsLog.remark') || '备注',
+          title: this.$t('profile.creditsLog.remark') || 'Note',
           dataIndex: 'remark',
           ellipsis: true
         }
@@ -611,12 +611,12 @@ export default {
     referralColumns () {
       return [
         {
-          title: this.$t('profile.referral.user') || '用户',
+          title: this.$t('profile.referral.user') || 'User',
           dataIndex: 'username',
           scopedSlots: { customRender: 'user' }
         },
         {
-          title: this.$t('profile.referral.registerTime') || '注册时间',
+          title: this.$t('profile.referral.registerTime') || 'Registration Time',
           dataIndex: 'created_at',
           width: 180,
           scopedSlots: { customRender: 'created_at' }
@@ -663,7 +663,7 @@ export default {
         const res = await getProfile()
         if (res.code === 1) {
           this.profile = res.data
-          // 提取计费信息
+          // Extract billing information
           if (res.data.billing) {
             this.billing = res.data.billing
             // Prefer server-provided public recharge link
@@ -671,7 +671,7 @@ export default {
               this.rechargeTelegramUrl = this.billing.recharge_telegram_url
             }
           }
-          // 提取通知设置
+          // Extract notification settings
           if (res.data.notification_settings) {
             this.notificationSettings = {
               default_channels: res.data.notification_settings.default_channels || ['browser'],
@@ -701,7 +701,7 @@ export default {
     },
 
     async loadRechargeUrl () {
-      // 只有管理员才能获取设置，普通用户使用默认值
+      // Only admins can fetch settings. Regular users use the defaults
       if (this.profile.role === 'admin') {
         try {
           const res = await getSettingsValues()
@@ -709,13 +709,13 @@ export default {
             this.rechargeTelegramUrl = res.data.billing.RECHARGE_TELEGRAM_URL || this.rechargeTelegramUrl
           }
         } catch (e) {
-          // 忽略错误，使用默认值
+          // Ignore errors and keep the default values
         }
       }
     },
 
     handleRecharge () {
-      // 跳转到站内会员/充值页
+      // Jump to the membership / recharge page
       this.$router.push('/billing')
     },
 
@@ -930,7 +930,7 @@ export default {
       const link = this.referralLink
       if (navigator.clipboard) {
         navigator.clipboard.writeText(link).then(() => {
-          this.$message.success(this.$t('profile.referral.linkCopied') || '邀请链接已复制')
+          this.$message.success(this.$t('profile.referral.linkCopied') || 'Referral link copied')
         }).catch(() => {
           this.fallbackCopy(link)
         })
@@ -946,7 +946,7 @@ export default {
       textarea.select()
       try {
         document.execCommand('copy')
-        this.$message.success(this.$t('profile.referral.linkCopied') || '邀请链接已复制')
+        this.$message.success(this.$t('profile.referral.linkCopied') || 'Referral link copied')
       } catch (err) {
         this.$message.error('Copy failed')
       }
@@ -963,7 +963,7 @@ export default {
         vip_revoke: 'default',
         register_bonus: 'cyan',
         referral_bonus: 'purple',
-        // 指标社区相关
+        // Indicator community related
         indicator_purchase: 'volcano',
         indicator_sale: 'lime'
       }
@@ -972,17 +972,17 @@ export default {
 
     getActionLabel (action) {
       const labels = {
-        consume: this.$t('profile.creditsLog.actionConsume') || '消费',
-        recharge: this.$t('profile.creditsLog.actionRecharge') || '充值',
-        admin_adjust: this.$t('profile.creditsLog.actionAdjust') || '调整',
-        refund: this.$t('profile.creditsLog.actionRefund') || '退款',
-        vip_grant: this.$t('profile.creditsLog.actionVipGrant') || 'VIP授予',
-        vip_revoke: this.$t('profile.creditsLog.actionVipRevoke') || 'VIP取消',
-        register_bonus: this.$t('profile.creditsLog.actionRegisterBonus') || '注册奖励',
-        referral_bonus: this.$t('profile.creditsLog.actionReferralBonus') || '邀请奖励',
-        // 指标社区相关
-        indicator_purchase: this.$t('profile.creditsLog.actionIndicatorPurchase') || '购买指标',
-        indicator_sale: this.$t('profile.creditsLog.actionIndicatorSale') || '出售指标'
+        consume: this.$t('profile.creditsLog.actionConsume') || 'Consume',
+        recharge: this.$t('profile.creditsLog.actionRecharge') || 'Recharge',
+        admin_adjust: this.$t('profile.creditsLog.actionAdjust') || 'Adjust',
+        refund: this.$t('profile.creditsLog.actionRefund') || 'Refund',
+        vip_grant: this.$t('profile.creditsLog.actionVipGrant') || 'VIP Grant',
+        vip_revoke: this.$t('profile.creditsLog.actionVipRevoke') || 'VIP Revoke',
+        register_bonus: this.$t('profile.creditsLog.actionRegisterBonus') || 'Registration Bonus',
+        referral_bonus: this.$t('profile.creditsLog.actionReferralBonus') || 'Referral Bonus',
+        // Indicator community related
+        indicator_purchase: this.$t('profile.creditsLog.actionIndicatorPurchase') || 'Purchase Indicator',
+        indicator_sale: this.$t('profile.creditsLog.actionIndicatorSale') || 'Sell Indicator'
       }
       return labels[action] || action
     },
@@ -1038,13 +1038,13 @@ export default {
             webhook_token: values.webhook_token || ''
           })
           if (res.code === 1) {
-            this.$message.success(this.$t('profile.notifications.saveSuccess') || '通知设置保存成功')
+            this.$message.success(this.$t('profile.notifications.saveSuccess') || 'Notification settings saved successfully')
             this.notificationSettings = res.data || this.notificationSettings
           } else {
-            this.$message.error(res.msg || '保存失败')
+            this.$message.error(res.msg || 'Save failed')
           }
         } catch (e) {
-          this.$message.error('保存失败')
+          this.$message.error('Save failed')
         } finally {
           this.savingNotifications = false
         }
@@ -1056,23 +1056,23 @@ export default {
       const channels = values.default_channels || []
 
       if (channels.length === 0) {
-        this.$message.warning(this.$t('profile.notifications.selectChannel') || '请至少选择一个通知渠道')
+        this.$message.warning(this.$t('profile.notifications.selectChannel') || 'Please select at least one notification channel')
         return
       }
 
       // Check if required fields are filled
       if (channels.includes('telegram')) {
         if (!values.telegram_bot_token) {
-          this.$message.warning(this.$t('profile.notifications.fillTelegramToken') || '请填写 Telegram Bot Token')
+          this.$message.warning(this.$t('profile.notifications.fillTelegramToken') || 'Please enter a Telegram Bot Token')
           return
         }
         if (!values.telegram_chat_id) {
-          this.$message.warning(this.$t('profile.notifications.fillTelegram') || '请填写 Telegram Chat ID')
+          this.$message.warning(this.$t('profile.notifications.fillTelegram') || 'Please enter a Telegram Chat ID')
           return
         }
       }
       if (channels.includes('email') && !values.email) {
-        this.$message.warning(this.$t('profile.notifications.fillEmail') || '请填写通知邮箱')
+        this.$message.warning(this.$t('profile.notifications.fillEmail') || 'Please enter a notification email')
         return
       }
 
@@ -1091,15 +1091,15 @@ export default {
         })
 
         if (saveRes.code !== 1) {
-          this.$message.error(saveRes.msg || '保存设置失败')
+          this.$message.error(saveRes.msg || 'Failed to save settings')
           return
         }
 
-        this.$message.info(this.$t('profile.notifications.testSent') || '测试通知已发送，请检查您的通知渠道')
+        this.$message.info(this.$t('profile.notifications.testSent') || 'Test notification sent. Please check your notification channels')
         // Note: Actual test notification would require a backend endpoint
         // For now, we just show a success message after saving
       } catch (e) {
-        this.$message.error('发送测试通知失败')
+        this.$message.error('Failed to send the test notification')
       } finally {
         this.testingNotification = false
       }
@@ -1307,7 +1307,7 @@ export default {
     }
   }
 
-  // Credits Card 积分卡片
+  // Credits Card
   .credits-card {
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -1417,7 +1417,7 @@ export default {
     }
   }
 
-  // Referral Card 邀请卡片
+  // Referral Card
   .referral-card {
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);

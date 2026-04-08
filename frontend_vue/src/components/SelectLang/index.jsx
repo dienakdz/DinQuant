@@ -6,10 +6,10 @@ import i18nMixin from '@/store/i18n-mixin'
 
 const locales = ['en-US', 'ja-JP', 'ko-KR', 'vi-VN', 'th-TH', 'ar-SA', 'fr-FR', 'de-DE', 'zh-TW', 'zh-CN']
 const languageLabels = {
-  'zh-CN': '简体中文',
-  'zh-TW': '繁體中文',
+  'zh-CN': 'Simplified Chinese',
+  'zh-TW': 'Traditional Chinese',
   'en-US': 'English',
-  'ja-JP': '日本語',
+  'ja-JP': 'Japanese',
   'ko-KR': '한국어',
   'vi-VN': 'Tiếng Việt',
   'th-TH': 'ไทย',

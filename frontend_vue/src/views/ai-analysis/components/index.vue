@@ -1,16 +1,16 @@
 <template>
   <div class="metaverse-container" :style="cssVars">
-    <!-- 背景特效 -->
+    <!-- Background effects -->
     <div class="bg-grid"></div>
     <div class="bg-glow"></div>
     <div class="bg-particles">
       <div v-for="n in 20" :key="n" class="particle" :style="getParticleStyle(n)"></div>
     </div>
 
-    <!-- 主控台区域 -->
+    <!-- Control panel area -->
     <div class="main-console" :class="{ 'has-result': hasResult || hasAnalysisResults }">
 
-      <!-- 左侧：Agent 团队状态 -->
+      <!-- Left: agent team status -->
       <div class="left-panel">
         <div class="agents-panel custom-scroll">
           <div class="panel-title">{{ $t('ai-analysis.panel.roster') }}</div>
@@ -53,15 +53,15 @@
         </div>
       </div>
 
-      <!-- 中间：结果展示区（任务完成后显示或查看历史记录时） -->
+      <!-- Center: result display area shown after task completion or when viewing history -->
       <div class="middle-panel" v-if="(hasResult || hasAnalysisResults) && analysisResults">
         <div class="result-content custom-scroll">
-          <!-- 根据选中的 agent 显示对应的结果 -->
+          <!-- Show the result for the selected agent -->
           <div v-if="selectedAgentIndex !== null && getAgentResult(selectedAgentIndex)" class="agent-result-panel">
             <!-- Overview -->
             <div v-if="agents[selectedAgentIndex].resultKey === 'overview' && analysisResults.overview" class="analysis-panel">
               <div class="overview-content">
-                <!-- 综合评分卡片 -->
+                <!-- Overall score card -->
                 <div class="score-cards">
                   <a-card class="score-card" :class="getScoreClass(analysisResults.overview?.overallScore)">
                     <div class="score-content">
@@ -82,7 +82,7 @@
                     </div>
                   </a-card>
                 </div>
-                <!-- 维度评分 -->
+                <!-- Dimension scores -->
                 <a-card :title="$t('dashboard.analysis.card.dimensionScores')" style="margin-top: 16px;">
                   <div class="dimension-scores">
                     <div v-for="(score, dimension) in analysisResults.overview?.dimensionScores" :key="dimension" class="dimension-score-item">
@@ -91,7 +91,7 @@
                     </div>
                   </div>
                 </a-card>
-                <!-- 综合分析报告 -->
+                <!-- Comprehensive analysis report -->
                 <a-card :title="$t('dashboard.analysis.card.overviewReport')" style="margin-top: 16px;" v-if="analysisResults.overview?.report">
                   <div class="analysis-report" v-html="formatReport(analysisResults.overview.report)"></div>
                 </a-card>
@@ -191,7 +191,7 @@
               </div>
             </div>
 
-            <!-- Debate Bull (看涨研究员) -->
+            <!-- Debate Bull (bullish researcher) -->
             <div v-else-if="agents[selectedAgentIndex].resultKey === 'debate_bull' && analysisResults.debate?.bull" class="analysis-panel">
               <div class="debate-content">
                 <a-card :title="$t('dashboard.analysis.card.bullView')" class="bull-card" :headStyle="{ color: '#52c41a' }">
@@ -211,7 +211,7 @@
               </div>
             </div>
 
-            <!-- Debate Bear (看跌研究员) -->
+            <!-- Debate Bear (bearish researcher) -->
             <div v-else-if="agents[selectedAgentIndex].resultKey === 'debate_bear' && analysisResults.debate?.bear" class="analysis-panel">
               <div class="debate-content">
                 <a-card :title="$t('dashboard.analysis.card.bearView')" class="bear-card" :headStyle="{ color: '#ff4d4f' }">
@@ -231,7 +231,7 @@
               </div>
             </div>
 
-            <!-- Debate Research (研究经理) -->
+            <!-- Debate Research (research manager) -->
             <div v-else-if="agents[selectedAgentIndex].resultKey === 'debate_research' && analysisResults.debate?.research_decision" class="analysis-panel">
               <div class="debate-content">
                 <a-card :title="$t('dashboard.analysis.card.researchConclusion')" :style="{ borderLeft: '4px solid var(--primary-color)' }">
@@ -316,24 +316,24 @@
               </div>
             </div>
 
-            <!-- 无结果提示 -->
+            <!-- No-result prompt -->
             <div v-else class="no-result-hint">
               <a-empty :description="$t('dashboard.analysis.empty.noResult')" />
             </div>
           </div>
-          <!-- 默认提示：点击人物查看结果 -->
+          <!-- Default prompt: click an agent to view results -->
           <div v-else class="select-hint">
             <a-empty :description="$t('dashboard.analysis.empty.selectAgent')" />
           </div>
         </div>
       </div>
 
-      <!-- 右侧：核心展示区 + 终端（仅在非结果展示时显示） -->
+      <!-- Right: core display area + terminal, shown only when results are hidden -->
       <div class="right-panel" v-if="!hasResult && !hasAnalysisResults">
         <div class="center-stage">
           <!-- Moved Header Info -->
           <!-- Header info removed -->
-          <!-- 待机状态：输入框 (Removed, Replaced with Empty State) -->
+          <!-- Idle state: input box removed and replaced with the empty state -->
           <div v-if="currentStep === 0 && !hasResult && !hasAnalysisResults" class="idle-interface">
             <div class="empty-state">
               <div class="empty-content">
@@ -366,7 +366,7 @@
                         <a-icon type="warning" />
                         <span>{{ $t('dashboard.analysis.feature.risk') }}</span>
                       </div>
-                      <!-- 复制一份以实现无缝循环 -->
+                      <!-- Duplicate once to create a seamless loop -->
                       <div class="feature-item">
                         <a-icon type="read" />
                         <span>{{ $t('dashboard.analysis.feature.fundamental') }}</span>
@@ -394,13 +394,13 @@
             </div>
           </div>
 
-          <!-- 运行状态：可视化动态 -->
+          <!-- Running state: dynamic visualization -->
           <div v-if="currentStep > 0 && !hasResult && !hasAnalysisResults" class="running-interface">
-            <!-- AI金融科技特效 -->
+            <!-- AI fintech effects -->
             <div class="vis-container">
-              <!-- 深色科技背景 -->
+              <!-- Dark tech background -->
               <div class="tech-background">
-                <!-- 像素风格猫 -->
+                <!-- Pixel-style cat -->
                 <!-- <div class="pixel-cat">
                   <div class="cat-body"></div>
                   <div class="cat-head"></div>
@@ -413,7 +413,7 @@
                   <div class="cat-tail"></div>
                 </div> -->
 
-                <!-- 神经网络连接线 -->
+                <!-- Neural network links -->
                 <svg class="neural-network" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet">
                   <defs>
                     <linearGradient id="neuralGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -422,7 +422,7 @@
                       <stop offset="100%" style="stop-color:rgba(24, 144, 255, 0.6);stop-opacity:1" />
                     </linearGradient>
                   </defs>
-                  <!-- 连接线 -->
+                  <!-- Connection line -->
                   <path
                     v-for="(path, i) in 8"
                     :key="i"
@@ -433,7 +433,7 @@
                     fill="none"
                     opacity="0.4"
                   />
-                  <!-- 节点 -->
+                  <!-- Node -->
                   <circle
                     v-for="(node, i) in 12"
                     :key="i"
@@ -445,13 +445,13 @@
                   />
                 </svg>
 
-                <!-- 数据矩阵雨效果 -->
+                <!-- Data matrix rain effect -->
                 <div class="matrix-rain">
                   <div v-for="i in 20" :key="i" class="matrix-column" :style="getMatrixColumnStyle(i)" :data-char="getMatrixChar(i)"></div>
                 </div>
               </div>
 
-              <!-- 核心内容 -->
+              <!-- Core content -->
               <div class="holo-core">
                 <div class="core-icon">
                   <div class="ai-hologram">
@@ -472,9 +472,9 @@
                 </div>
               </div>
 
-              <!-- 金融数据可视化 -->
+              <!-- Financial data visualization -->
               <div class="financial-visualization">
-                <!-- 实时K线图 -->
+                <!-- Live candlestick chart -->
                 <svg class="candlestick-chart" viewBox="0 0 400 150" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -489,7 +489,7 @@
                       </feMerge>
                     </filter>
                   </defs>
-                  <!-- 网格线 -->
+                  <!-- Grid lines -->
                   <g class="chart-grid">
                     <line
                       v-for="i in 5"
@@ -501,7 +501,7 @@
                       stroke="rgba(24, 144, 255, 0.1)"
                       stroke-width="1"/>
                   </g>
-                  <!-- K线 -->
+                  <!-- Candlesticks -->
                   <g v-for="(candle, i) in 12" :key="i" class="candlestick">
                     <line
                       :x1="i * 30 + 15"
@@ -519,7 +519,7 @@
                       stroke="rgba(24, 144, 255, 0.8)"
                       stroke-width="1"/>
                   </g>
-                  <!-- 价格线 -->
+                  <!-- Price line -->
                   <path
                     class="price-line"
                     :d="getPriceLinePath()"
@@ -530,7 +530,7 @@
                 </svg>
               </div>
 
-              <!-- AI分析指标 -->
+              <!-- AI analysis indicators -->
               <!-- <div class="ai-metrics">
                 <div v-for="(metric, i) in 4" :key="i" class="metric-card">
                   <div class="metric-label">{{ getMetricLabel(i) }}</div>
@@ -541,7 +541,7 @@
                 </div>
               </div> -->
 
-              <!-- 全息投影边框 -->
+              <!-- Holographic frame -->
               <div class="hologram-border">
                 <div class="border-corner corner-tl">
                   <div class="corner-line corner-line-h"></div>
@@ -563,7 +563,7 @@
             </div>
           </div>
 
-          <!-- 结果状态：报告概览（仅在没有中间面板时显示） -->
+          <!-- Result state: report overview shown only when the middle panel is hidden -->
           <div v-if="hasResult && !hasAnalysisResults" class="result-interface">
             <div class="result-card">
               <div class="result-header">
@@ -579,7 +579,7 @@
           </div>
         </div>
 
-        <!-- 右侧/底部：系统日志终端（仅在非结果展示时显示） -->
+        <!-- Right/bottom: system log terminal shown only when results are hidden -->
         <div class="terminal-panel" v-if="!hasResult && !hasAnalysisResults">
           <div class="terminal-header">
             <a-icon type="code" :style="{ color: 'var(--primary-color)' }" /> {{ $t('ai-analysis.logs.title') }}
@@ -648,12 +648,12 @@ export default {
       hasResult: false,
       logs: [],
       currentLog: '',
-      taskStatusTimer: null, // 任务状态轮询定时器
-      agentStatusMap: {}, // 记录每个 agent 的执行状态
-      taskStartTime: null, // 任务开始时间
-      selectedAgentIndex: null, // 当前选中的 agent 索引
-      simulationTimer: null, // 模拟执行定时器
-      currentSimulationAgentIndex: null, // 当前模拟执行的 agent 索引
+      taskStatusTimer: null, // Task status polling timer
+      agentStatusMap: {}, // Track each agent execution state
+      taskStartTime: null, // Task start time
+      selectedAgentIndex: null, // Currently selected agent index
+      simulationTimer: null, // Simulation timer
+      currentSimulationAgentIndex: null, // Current simulated agent index
 
       agents: [
         {
@@ -662,7 +662,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.fundamental',
           color: '#faad14',
           scripts: ['ai-analysis.script.fundamental'],
-          resultKey: 'fundamental' // 对应 fundamental 标签
+          resultKey: 'fundamental' // Maps to the fundamental tag
         },
         {
           name: 'Technical Analyst',
@@ -670,7 +670,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.technical',
           color: '#1890ff',
           scripts: ['ai-analysis.script.technical'],
-          resultKey: 'technical' // 对应 technical 标签
+          resultKey: 'technical' // Maps to the technical tag
         },
         {
           name: 'News Analyst',
@@ -678,7 +678,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.news',
           color: '#13c2c2',
           scripts: ['ai-analysis.script.news'],
-          resultKey: 'news' // 对应 news 标签
+          resultKey: 'news' // Maps to the news tag
         },
         {
           name: 'Sentiment Analyst',
@@ -686,7 +686,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.sentiment',
           color: '#eb2f96',
           scripts: ['ai-analysis.script.sentiment'],
-          resultKey: 'sentiment' // 对应 sentiment 标签
+          resultKey: 'sentiment' // Maps to the sentiment tag
         },
         {
           name: 'Risk Analyst',
@@ -694,7 +694,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.risk',
           color: '#f5222d',
           scripts: ['ai-analysis.script.risk'],
-          resultKey: 'risk' // 对应 risk 标签
+          resultKey: 'risk' // Maps to the risk tag
         },
         {
           name: 'Bull Researcher',
@@ -702,7 +702,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.bull',
           color: '#52c41a',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'debate_bull' // 对应 debate.bull（看涨部分）
+          resultKey: 'debate_bull' // Maps to debate.bull (bullish section)
         },
         {
           name: 'Bear Researcher',
@@ -710,7 +710,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.bear',
           color: '#f5222d',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'debate_bear' // 对应 debate.bear（看跌部分）
+          resultKey: 'debate_bear' // Maps to debate.bear (bearish section)
         },
         {
           name: 'Research Manager',
@@ -718,7 +718,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.manager',
           color: '#722ed1',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'debate_research' // 对应 debate.research_decision（研究结论）
+          resultKey: 'debate_research' // Maps to debate.research_decision (research conclusion)
         },
         {
           name: 'Trader Agent',
@@ -726,7 +726,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.trader',
           color: '#1890ff',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'trader_decision' // 对应 trader_decision
+          resultKey: 'trader_decision' // Maps to trader_decision
         },
         {
           name: 'Risky Analyst',
@@ -734,7 +734,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.risky',
           color: '#ffec3d',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'risk_debate' // 对应 risk_debate（risky）
+          resultKey: 'risk_debate' // Maps to risk_debate (risky)
         },
         {
           name: 'Neutral Analyst',
@@ -742,7 +742,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.neutral',
           color: '#8c8c8c',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'risk_debate' // 对应 risk_debate（neutral）
+          resultKey: 'risk_debate' // Maps to risk_debate (neutral)
         },
         {
           name: 'Safe Analyst',
@@ -750,7 +750,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.safe',
           color: '#52c41a',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'risk_debate' // 对应 risk_debate（safe）
+          resultKey: 'risk_debate' // Maps to risk_debate (safe)
         },
         {
           name: 'Risk Manager (CRO)',
@@ -758,7 +758,7 @@ export default {
           roleKey: 'ai-analysis.agent.role.cro',
           color: '#fa541c',
           scripts: ['ai-analysis.panel.thinking'],
-          resultKey: 'final_decision' // 对应 final_decision
+          resultKey: 'final_decision' // Maps to final_decision
         },
         {
           name: 'Investment Director',
@@ -766,17 +766,17 @@ export default {
           roleKey: 'ai-analysis.agent.role.investment_director',
           color: 'var(--neon-main)',
           scripts: ['ai-analysis.script.market'],
-          resultKey: 'overview' // 对应 overview 标签（最终结论），放在最后以便反转后显示在最上面
+          resultKey: 'overview' // Maps to the overview tag (final conclusion), kept last so it appears on top after reversing
         }
       ]
     }
   },
   computed: {
-    // 反转 agents 数组，实现从下往上的显示
+    // Reverse the agents array so it displays from bottom to top
     reversedAgents () {
       return [...this.agents].reverse()
     },
-    // 检查是否有分析结果数据
+    // Check whether analysis result data exists
     hasAnalysisResults () {
       if (!this.analysisResults) return false
       return !!(
@@ -812,7 +812,7 @@ export default {
       const isDark = this.theme === 'dark' || this.theme === 'realdark'
       const primary = this.primaryColor
 
-      // 将主题色转换为 rgba 格式用于 hover 效果
+      // Convert the theme color to rgba for hover effects
       const hexToRgb = (hex) => {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
         return result ? {
@@ -824,7 +824,7 @@ export default {
       const rgb = hexToRgb(primary)
 
       if (isDark) {
-        // 暗色模式下，使用主题色但稍微亮一点
+        // In dark mode, use the theme color with slightly higher brightness
         return {
           '--bg-color': '#0a0b10',
           '--panel-bg': '#131722',
@@ -882,12 +882,12 @@ export default {
         if (val) {
           this.startAnalysis()
         } else {
-          // 停止模拟执行
+          // Stop the simulation
           if (this.simulationTimer) {
             clearTimeout(this.simulationTimer)
             this.simulationTimer = null
           }
-          // 只有在没有分析结果数据时才重置（避免影响历史记录查看）
+          // Reset only when there is no analysis result data so history viewing is not affected
           if (!this.hasAnalysisResults) {
             this.reset()
           }
@@ -918,25 +918,25 @@ export default {
     },
     analysisResults: {
       handler (val) {
-        // 当有结果时（任务完成或查看历史记录），自动选择第一个有结果的 agent
+        // When results exist, automatically select the first agent with results after task completion or while viewing history
         if (val && this.hasAnalysisResults) {
-          // 如果是历史记录查看模式（有结果但不在分析中），标记所有 agent 为完成状态
+          // In history view mode, mark all agents as complete when results exist but analysis is not running
           if (!this.analyzing && !this.hasResult) {
             for (let i = 0; i < this.agents.length; i++) {
               this.agentStatusMap[i] = 'completed'
             }
             this.currentStep = this.agents.length + 1
-            // 不设置 hasResult，因为这是历史记录查看，不是新任务完成
-            // 但我们需要显示结果，所以使用 hasAnalysisResults 来控制显示
+            // Do not set hasResult because this is history viewing, not a newly completed task
+            // Results still need to be shown, so use hasAnalysisResults to control visibility
           }
-          // 自动选择第一个有结果的 agent
+          // Automatically select the first agent with results
           if (this.selectedAgentIndex === null) {
             this.$nextTick(() => {
               this.selectFirstAvailableAgent()
             })
           }
         } else if (!val || !this.hasAnalysisResults) {
-          // 如果没有结果数据，重置状态
+          // Reset the state if there is no result data
           if (!this.analyzing) {
             this.selectedAgentIndex = null
           }
@@ -964,7 +964,7 @@ export default {
     },
 
     startAnalysis () {
-      // 重置所有状态
+      // Reset all state
       this.currentStep = 0
       this.hasResult = false
       this.logs = []
@@ -972,20 +972,20 @@ export default {
       this.taskStartTime = Date.now()
       this.currentSimulationAgentIndex = null
 
-      // 停止之前的模拟
+      // Stop the previous simulation
       if (this.simulationTimer) {
         clearTimeout(this.simulationTimer)
         this.simulationTimer = null
       }
 
-      // 初始化所有 agent 为 waiting 状态
+      // Initialize all agents to the waiting state
       for (let i = 0; i < this.agents.length; i++) {
         this.agentStatusMap[i] = 'waiting'
       }
 
       this.addLog('SYSTEM', `Initiating Quantum Analysis for ${this.symbol || 'DEMO'}...`, 'var(--neon-main)')
 
-      // 初始时滚动到底部，显示第一个要执行的 agent（Fundamental Analyst，显示在最下面）
+      // Initially scroll to the bottom and show the first agent to run, Fundamental Analyst, at the bottom
       this.$nextTick(() => {
         const listContainer = this.$refs.agentsList
         if (listContainer) {
@@ -1005,39 +1005,39 @@ export default {
       }, 500)
     },
 
-    // 开始模拟执行
+    // Start simulated execution
     startSimulation () {
-      // 初始化所有 agent 状态为 waiting
+      // Initialize all agent states to waiting
       for (let i = 0; i < this.agents.length; i++) {
         this.agentStatusMap[i] = 'waiting'
       }
-      // 从第一个 agent 开始（数组第一个，反转后显示在最下面）
-      // 执行顺序：从下向上，从索引0（Fundamental Analyst）到索引最后（Investment Director）
+      // Start with the first agent, array index 0, displayed at the bottom after reversing
+      // Execution runs from bottom to top, from Fundamental Analyst to Investment Director
       const startIndex = 0
       this.runSimulationStep(startIndex)
     },
 
-    // 模拟执行步骤
+    // Simulated execution step
     runSimulationStep (agentIndex) {
       if (!this.analyzing) {
         return
       }
 
-      // 如果已经执行完所有 agent（索引超出范围）
-      // 这种情况不应该发生，因为最后一个 agent 会在自己的定时器中处理
+      // If all agents have already finished and the index is out of range,
+      // this should not happen because the last agent handles it with its own timer
       if (agentIndex >= this.agents.length) {
         this.addLog('SYSTEM', 'All agents completed. Waiting for final results...', '#faad14')
-        // 开始轮询真实结果
+        // Start polling for real results
         if (this.taskId) {
           this.startTaskStatusPolling()
         }
         return
       }
 
-      // 确保前面的 agent 都已完成（除了第一个）
-      // 对于投资总监（最后一个agent），必须确保所有前面的agent都已完成
+      // Ensure all preceding agents have completed except the first one
+      // For the investment director, which is the last agent, every earlier agent must be complete first
       if (agentIndex > 0) {
-        // 检查前面的 agent 是否都已完成
+        // Check whether the earlier agents are complete
         let allPreviousCompleted = true
         for (let i = 0; i < agentIndex; i++) {
           if (this.agentStatusMap[i] !== 'completed') {
@@ -1045,7 +1045,7 @@ export default {
             break
           }
         }
-        // 如果前面的 agent 还没完成，等待一下再试
+        // If earlier agents are not complete yet, wait and retry
         if (!allPreviousCompleted) {
           this.simulationTimer = setTimeout(() => {
             if (this.analyzing) {
@@ -1056,7 +1056,7 @@ export default {
         }
       }
 
-      // 激活当前 agent
+      // Activate the current agent
       this.agentStatusMap[agentIndex] = 'active'
       this.currentStep = agentIndex + 1
       this.currentSimulationAgentIndex = agentIndex
@@ -1065,15 +1065,15 @@ export default {
       this.addLog('SYSTEM', `Activating Node: ${agent.name}`, agent.color)
       this.currentLog = this.$t(agent.scripts[0]) || agent.scripts[0] || this.$t('ai-analysis.panel.thinking')
 
-      // 滚动到当前 agent（只滚动列表容器）
+      // Scroll to the current agent inside the list container only
       this.$nextTick(() => {
         this.scrollToAgent(agentIndex)
       })
 
-      // 随机执行时长（3-7秒）
+      // Random execution duration between 3 and 7 seconds
       const randomDuration = 3000 + Math.random() * 4000 // 3000-7000ms
 
-      // 如果是最后一个 agent（Investment Director），需要等待真实数据
+      // If this is the last agent, Investment Director, wait for real data
       const isLastAgent = agentIndex === this.agents.length - 1
 
       this.simulationTimer = setTimeout(() => {
@@ -1081,14 +1081,14 @@ export default {
           return
         }
 
-        // 如果是最后一个 agent，需要等待真实数据
+        // The last agent needs to wait for real data
         if (isLastAgent) {
           this.addLog('SYSTEM', 'Final agent processing. Waiting for backend results...', '#faad14')
-          // 开始轮询真实结果
+          // Start polling for real results
           if (this.taskId) {
-            // 开始轮询，等待真实数据
+            // Start polling and wait for real data
             this.startTaskStatusPolling()
-            // 保持 active 状态，不标记为完成，继续等待真实结果
+            // Keep the active state, do not mark it complete yet, and continue waiting
             return
           } else {
             // If there is no taskId (sync backend call), DO NOT auto-complete after a fixed delay.
@@ -1121,27 +1121,27 @@ export default {
           }
         }
 
-        // 标记当前 agent 为完成
+        // Mark the current agent as complete
         this.agentStatusMap[agentIndex] = 'completed'
         this.addLog(agent.name, 'Task completed', agent.color)
 
-        // 继续下一个 agent（向上，索引加1，因为从下向上执行）
+        // Continue to the next agent, moving upward with index +1 because execution goes bottom to top
         this.runSimulationStep(agentIndex + 1)
-      }, randomDuration) // 随机执行时长
+      }, randomDuration) // Random execution duration
     },
 
-    // 滚动到指定的 agent（只滚动列表容器，不影响整个页面）
+    // Scroll to the specified agent without affecting the full page
     scrollToAgent (agentIndex) {
       const el = document.getElementById('agent-' + agentIndex)
       const listContainer = this.$refs.agentsList
       if (el && listContainer) {
-        // 检测是否为移动端（横向滚动）
+        // Detect whether the device is mobile, which uses horizontal scrolling
         const isMobile = window.innerWidth <= 768
         const containerRect = listContainer.getBoundingClientRect()
         const elementRect = el.getBoundingClientRect()
 
         if (isMobile) {
-          // 移动端：横向滚动，居中显示
+          // Mobile: horizontal scrolling with centered display
           const scrollLeft = listContainer.scrollLeft
           const elementOffsetLeft = elementRect.left - containerRect.left + scrollLeft
           const containerWidth = listContainer.clientWidth
@@ -1153,7 +1153,7 @@ export default {
             behavior: 'smooth'
           })
         } else {
-          // 桌面端：纵向滚动，居中显示
+          // Desktop: vertical scrolling with centered display
           const scrollTop = listContainer.scrollTop
           const elementOffsetTop = elementRect.top - containerRect.top + scrollTop
           const containerHeight = listContainer.clientHeight
@@ -1168,7 +1168,7 @@ export default {
       }
     },
 
-    // 开始轮询任务状态（仅在模拟完成后调用）
+    // Start polling task status, called only after the simulation finishes
     startTaskStatusPolling () {
       if (this.taskStatusTimer) {
         clearInterval(this.taskStatusTimer)
@@ -1179,16 +1179,16 @@ export default {
         return
       }
 
-      // 立即执行一次
+      // Run immediately once
       this.pollTaskStatus()
 
-      // 每2秒轮询一次
+      // Poll every 2 seconds
       this.taskStatusTimer = setInterval(() => {
         this.pollTaskStatus()
       }, 2000)
     },
 
-    // 停止轮询任务状态
+    // Stop polling task status
     stopTaskStatusPolling () {
       if (this.taskStatusTimer) {
         clearInterval(this.taskStatusTimer)
@@ -1196,7 +1196,7 @@ export default {
       }
     },
 
-    // 轮询任务状态
+    // Poll task status
     async pollTaskStatus () {
       if (!this.taskId || !this.analyzing) {
         return
@@ -1215,38 +1215,38 @@ export default {
           const task = res.data
 
           if (task.status === 'completed') {
-            // 任务完成，所有 agent 标记为完成（包括最后一个正在等待的）
+            // The task is complete, so mark all agents as complete, including the last waiting agent
             for (let i = 0; i < this.agents.length; i++) {
               this.agentStatusMap[i] = 'completed'
             }
             this.currentStep = this.agents.length + 1
             this.hasResult = true
             this.addLog('SYSTEM', 'Analysis complete. All agents finished.', '#52c41a')
-            // 默认选中第一个有结果的 agent（投资总监，显示在最上面）
+            // Select the first agent with results by default, placing the investment director at the top
             this.selectFirstAvailableAgent()
             this.stopTaskStatusPolling()
 
-            // 停止模拟定时器（如果还在运行）
+            // Stop the simulation timer if it is still running
             if (this.simulationTimer) {
               clearTimeout(this.simulationTimer)
               this.simulationTimer = null
             }
 
-            // 更新分析结果（从任务结果中获取）
+            // Update analysis results from the task payload
             if (task.result) {
-              // 这里可以更新 analysisResults，但通常由父组件传递
+              // analysisResults can be updated here, but it is usually passed in by the parent component
             }
           } else if (task.status === 'failed') {
-            // 任务失败
+            // The task failed
             this.addLog('SYSTEM', `Analysis failed: ${task.error_message || 'Unknown error'}`, '#f5222d')
             this.stopTaskStatusPolling()
           } else if (task.status === 'processing') {
-            // 任务还在处理中
-            // 检查是否所有前面的 agent 都已完成，只有都完成后才激活投资总监
+            // The task is still being processed
+            // Check whether every earlier agent is complete, because the investment director must wait for all of them
             const lastAgentIndex = this.agents.length - 1
             let allPreviousCompleted = true
 
-            // 检查投资总监之前的所有 agent 是否都已完成
+            // Check whether all agents before the investment director are complete
             for (let i = 0; i < lastAgentIndex; i++) {
               if (this.agentStatusMap[i] !== 'completed') {
                 allPreviousCompleted = false
@@ -1254,9 +1254,9 @@ export default {
               }
             }
 
-            // 只有所有前面的 agent 都完成后，才激活投资总监
+            // Activate the investment director only after all earlier agents are complete
             if (allPreviousCompleted && this.agentStatusMap[lastAgentIndex] !== 'completed') {
-              // 如果投资总监还没有被激活，现在激活它
+              // Activate the investment director now if it has not been activated yet
               if (this.agentStatusMap[lastAgentIndex] !== 'active') {
                 this.agentStatusMap[lastAgentIndex] = 'active'
                 this.currentStep = lastAgentIndex + 1
@@ -1266,18 +1266,18 @@ export default {
                 this.currentLog = this.$t(agent.scripts[0]) || agent.scripts[0] || this.$t('ai-analysis.panel.thinking')
               }
             }
-            // 如果前面的 agent 还没完成，不激活投资总监，继续等待
+            // If earlier agents are not complete yet, keep waiting and do not activate the investment director
           }
         }
       } catch (error) {
-        // 继续轮询，不中断
+        // Keep polling without interruption
       }
     },
 
-    // 根据任务状态更新 agent 进度（仅在模拟完成后，等待真实结果时调用）
+    // Update agent progress from task status after the simulation while waiting for real results
     updateAgentProgressFromTask (task) {
-      // 这个方法现在只用于检查任务是否完成，不再更新进度
-      // 进度由模拟执行控制
+      // This method now only checks task completion and no longer updates progress
+      // Progress is controlled by the simulation
     },
 
     reset () {
@@ -1289,7 +1289,7 @@ export default {
       this.selectedAgentIndex = null
       this.currentSimulationAgentIndex = null
 
-      // 停止模拟和轮询
+      // Stop the simulation and polling
       if (this.simulationTimer) {
         clearTimeout(this.simulationTimer)
         this.simulationTimer = null
@@ -1297,9 +1297,9 @@ export default {
       this.stopTaskStatusPolling()
     },
 
-    // 获取粒子样式（支持idle和running两种状态）
+    // Get particle styles for both idle and running states
     getParticleStyle (index) {
-      // 如果index <= 20，说明是idle状态的粒子（20个）
+      // If index <= 20, the particle is in the idle state, which uses 20 particles
       if (index <= 20) {
         return {
           left: Math.random() * 100 + '%',
@@ -1308,7 +1308,7 @@ export default {
           animationDelay: (Math.random() * 2) + 's'
         }
       }
-      // 否则是running状态的粒子（50个），使用圆形分布
+      // Otherwise the particle is in the running state, which uses 50 particles in a circular layout
       const angle = ((index - 1) / 50) * Math.PI * 2
       const radius = 150 + Math.random() * 100
       const x = 50 + Math.cos(angle) * radius
@@ -1330,7 +1330,7 @@ export default {
       return 'IV'
     },
 
-    // 获取数据流样式
+    // Get data stream styles
     getDataStreamStyle (index) {
       const angles = [0, 60, 120, 180, 240, 300]
       const angle = angles[index - 1] || (index - 1) * 60
@@ -1341,7 +1341,7 @@ export default {
       }
     },
 
-    // 获取神经网络路径
+    // Get the neural network path
     getNeuralPath (index) {
       const paths = [
         'M50,100 Q100,50 150,100 T250,100',
@@ -1356,19 +1356,19 @@ export default {
       return paths[index] || paths[0]
     },
 
-    // 获取节点X坐标
+    // Get the node X coordinate
     getNodeX (index) {
       const positions = [50, 100, 150, 200, 250, 300, 150, 200, 100, 250, 150, 300]
       return positions[index] || 200
     },
 
-    // 获取节点Y坐标
+    // Get the node Y coordinate
     getNodeY (index) {
       const positions = [100, 150, 200, 100, 200, 150, 50, 50, 250, 250, 100, 200]
       return positions[index] || 150
     },
 
-    // 获取矩阵列样式
+    // Get matrix column styles
     getMatrixColumnStyle (index) {
       const delay = index * 0.15
       const duration = 2 + Math.random() * 3
@@ -1379,48 +1379,48 @@ export default {
       }
     },
 
-    // 获取矩阵字符
+    // Get the matrix character
     getMatrixChar (index) {
       const chars = ['0', '1', '0', '1', '1', '0', '1', '0', '0', '1']
       return chars[index % chars.length]
     },
 
-    // 获取K线高点
+    // Get candlestick high
     getCandleHigh (index) {
       const base = 75
       const variation = Math.sin(index * 0.5) * 20
       return base - variation - 10
     },
 
-    // 获取K线低点
+    // Get candlestick low
     getCandleLow (index) {
       const base = 75
       const variation = Math.sin(index * 0.5) * 20
       return base - variation + 10
     },
 
-    // 获取K线开盘价
+    // Get candlestick open
     getCandleOpen (index) {
       const base = 75
       const variation = Math.sin(index * 0.5) * 20
       return base - variation - 3
     },
 
-    // 获取K线收盘价
+    // Get candlestick close
     getCandleClose (index) {
       const base = 75
       const variation = Math.sin((index + 0.5) * 0.5) * 20
       return base - variation + 3
     },
 
-    // 获取K线颜色
+    // Get candlestick color
     getCandleColor (index) {
       const open = this.getCandleOpen(index)
       const close = this.getCandleClose(index)
       return close > open ? 'rgba(82, 196, 26, 0.8)' : 'rgba(245, 34, 45, 0.8)'
     },
 
-    // 获取价格线路径
+    // Get the price line path
     getPriceLinePath () {
       let path = 'M0,75'
       for (let i = 1; i <= 12; i++) {
@@ -1430,20 +1430,20 @@ export default {
       return path
     },
 
-    // 获取指标标签
+    // Get indicator labels
     getMetricLabel (index) {
-      const labels = ['AI置信度', '市场情绪', '技术指标', '风险评估']
-      return labels[index] || '指标'
+      const labels = ['AI Confidence', 'Market Sentiment', 'Technical Indicators', 'Risk Assessment']
+      return labels[index] || 'Indicator'
     },
 
-    // 获取指标值
+    // Get indicator values
     getMetricValue (index) {
       const base = [85, 72, 68, 45]
       const variation = Math.sin(Date.now() / 1000 + index) * 5
       return Math.round(base[index] + variation) + '%'
     },
 
-    // 获取指标条样式
+    // Get indicator bar styles
     getMetricBarStyle (index) {
       const base = [85, 72, 68, 45]
       const variation = Math.sin(Date.now() / 1000 + index) * 5
@@ -1454,9 +1454,9 @@ export default {
       }
     },
 
-    // 获取 agent 状态
+    // Get agent status
     getAgentStatus (agentIndex) {
-      // 如果有分析结果且不在分析中（历史记录查看模式），所有 agent 都显示为完成
+      // If analysis results exist and analysis is not running in history mode, show all agents as complete
       if (this.hasAnalysisResults && !this.analyzing) {
         return 'completed'
       }
@@ -1470,13 +1470,13 @@ export default {
       return 'waiting'
     },
 
-    // 处理 agent 点击
+    // Handle agent clicks
     handleAgentClick (agentIndex) {
       if (!this.hasResult && !this.hasAnalysisResults) return
       this.selectedAgentIndex = agentIndex
     },
 
-    // 获取 agent 对应的结果
+    // Get the result for the agent
     getAgentResult (agentIndex) {
       if (agentIndex === null || agentIndex < 0 || agentIndex >= this.agents.length) {
         return null
@@ -1486,7 +1486,7 @@ export default {
         return null
       }
 
-      // 处理特殊的 resultKey（debate_bull, debate_bear, debate_research）
+      // Handle special resultKey values: debate_bull, debate_bear, and debate_research
       if (resultKey === 'debate_bull') {
         return this.analysisResults.debate?.bull || null
       } else if (resultKey === 'debate_bear') {
@@ -1498,83 +1498,85 @@ export default {
       return this.analysisResults[resultKey]
     },
 
-    // 格式化报告
+    // Format the report
     formatReport (report) {
       if (!report) return ''
-      // 简单的 Markdown 格式化
+      // Simple Markdown formatting
       return report
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/\n/g, '<br>')
     },
 
-    // 获取维度名称
+    // Get the dimension name
     getDimensionName (dimension) {
       return this.$t(`dashboard.analysis.dimension.${dimension}`) || dimension
     },
 
-    // 获取交易计划参数标签
+    // Get trade plan parameter labels
     getTradingPlanLabel (key) {
       const translationKey = `dashboard.analysis.tradingPlan.${key}`
       const translated = this.$t(translationKey)
-      // 如果翻译键不存在，VueI18n 会返回翻译键本身，此时返回原始key
-      // 如果翻译成功，返回翻译后的文本
+      // If the translation key does not exist, VueI18n returns the key itself, so return the original key
+      // If translation succeeds, return the translated text
       if (translated && translated !== translationKey) {
         return translated
       }
-      // 如果翻译失败，返回格式化的key（将下划线替换为空格并首字母大写）
+      // If translation fails, return a formatted key by replacing underscores with spaces and capitalizing the first letter
       return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
     },
 
-    // 获取分数样式类
+    // Get the score style class
     getScoreClass (score) {
       if (score >= 80) return 'score-high'
       if (score >= 60) return 'score-medium'
       return 'score-low'
     },
 
-    // 获取分数状态
+    // Get the score state
     getScoreStatus (score) {
       if (score >= 80) return 'success'
       if (score >= 60) return 'active'
       return 'exception'
     },
 
-    // 获取指标样式类
+    // Get the indicator style class
     getIndicatorClass (value) {
       if (typeof value === 'string') {
-        if (value.includes('买入') || value.includes('向上')) return 'indicator-positive'
-        if (value.includes('卖出') || value.includes('向下')) return 'indicator-negative'
+        const normalized = value.toLowerCase()
+        if (value.includes('\u4e70\u5165') || value.includes('\u5411\u4e0a') || normalized.includes('buy') || normalized.includes('up')) return 'indicator-positive'
+        if (value.includes('\u5356\u51fa') || value.includes('\u5411\u4e0b') || normalized.includes('sell') || normalized.includes('down')) return 'indicator-negative'
       }
       return 'indicator-neutral'
     },
 
-    // 获取情绪状态
+    // Get sentiment state
     getSentimentStatus (score) {
       if (score >= 70) return 'success'
       if (score >= 50) return 'active'
       return 'exception'
     },
 
-    // 获取风险样式类
+    // Get the risk style class
     getRiskClass (value) {
       if (typeof value === 'string') {
-        if (value.includes('低')) return 'risk-low'
-        if (value.includes('中')) return 'risk-medium'
+        const normalized = value.toLowerCase()
+        if (value.includes('\u4f4e') || normalized.includes('low')) return 'risk-low'
+        if (value.includes('\u4e2d') || normalized.includes('medium')) return 'risk-medium'
       }
       return 'risk-high'
     },
 
-    // 选择第一个有结果的 agent（优先选择投资总监，显示在最上面）
+    // Select the first agent with results, preferring the investment director at the top
     selectFirstAvailableAgent () {
-      // 优先选择投资总监（数组最后一个，反转后显示在最上面）
+      // Prefer the investment director, which is the last array item and appears on top after reversing
       const investmentDirectorIndex = this.agents.length - 1
       if (this.getAgentResult(investmentDirectorIndex)) {
         this.selectedAgentIndex = investmentDirectorIndex
         return
       }
 
-      // 如果没有，选择其他有结果的 agent
+      // Otherwise select another agent with results
       for (let i = 0; i < this.agents.length; i++) {
         if (this.getAgentResult(i)) {
           this.selectedAgentIndex = i
@@ -1608,7 +1610,7 @@ export default {
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
   display: flex;
   flex-direction: column;
-  /* 尝试修复可能的父容器 padding 问题 */
+  /* Try to fix possible parent container padding issues */
   margin: -24px;
   width: calc(100% + 48px);
 }
@@ -1807,7 +1809,7 @@ export default {
   background: var(--header-bg);
   backdrop-filter: blur(10px);
   box-shadow: 0 5px 20px var(--shadow-color);
-  position: sticky; /* 防止滚动时消失 */
+  position: sticky; /* Prevent it from disappearing during scrolling */
   top: 0;
   width: 100%;
 
@@ -1849,17 +1851,17 @@ export default {
   min-height: 0;
   max-height: 100%;
 
-  // 当有结果时，调整布局
+  // Adjust the layout when results are available
   &.has-result {
     .left-panel {
-      width: 300px; // 稍微缩小左侧面板
+      width: 300px; // Slightly shrink the left panel
     }
     .middle-panel {
-      flex: 1; // 中间面板占据剩余所有空间
-      margin-right: 0; // 移除右边距，因为右侧面板已隐藏
+      flex: 1; // Let the middle panel take the remaining space
+      margin-right: 0; // Remove the right margin because the right panel is hidden
     }
     .right-panel {
-      display: none; // 隐藏右侧面板
+      display: none; // Hide the right panel
     }
   }
 }
@@ -1887,13 +1889,13 @@ export default {
   border: 1px solid @border-color;
   border-radius: 4px;
   padding: 20px;
-  transition: all 0.3s ease; // 添加过渡效果
+  transition: all 0.3s ease; // Add transition effects
 
   .result-content {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    /* 隐藏滚动条但保持滚动功能 */
+    /* Hide scrollbars while preserving scrolling */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
     &::-webkit-scrollbar {
@@ -1919,7 +1921,7 @@ export default {
     min-height: 300px;
   }
 
-  // 复用父组件的样式
+  // Reuse styles from the parent component
   .overview-content,
   .fundamental-content,
   .technical-content,
@@ -1930,7 +1932,7 @@ export default {
   .decision-content {
     width: 100%;
 
-    // 适配 ant-card 主题色
+    // Adapt to the ant-card theme color
     ::v-deep .ant-card {
       background: var(--panel-bg);
       border-color: var(--border-color);
@@ -1950,7 +1952,7 @@ export default {
       }
     }
 
-    // 适配 ant-collapse 主题色
+    // Adapt to the ant-collapse theme color
     ::v-deep .ant-collapse {
       background: var(--panel-bg);
       border-color: var(--border-color);
@@ -2029,7 +2031,7 @@ export default {
     flex-direction: column;
     gap: 12px;
 
-    // 进度条：强制显示百分比，隐藏图标
+    // Progress bar: force the percentage to show and hide the icon
     ::v-deep .ant-progress {
       width: 80% !important;
       .ant-progress-text {
@@ -2133,18 +2135,18 @@ export default {
   position: relative;
   min-height: 0;
 
-  /* 隐藏滚动条但保持滚动功能 */
+  /* Hide scrollbars while preserving scrolling */
   &.custom-scroll {
     overflow-y: auto;
     overflow-x: hidden;
-    /* 隐藏滚动条 */
+    /* Hide the scrollbar */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
     &::-webkit-scrollbar {
       display: none; /* Chrome, Safari, Opera */
     }
   }
-  overscroll-behavior: contain; /* 防止滚动链 */
+  overscroll-behavior: contain; /* Prevent scroll chaining */
 
   .panel-title {
     width: 98%;
@@ -2168,9 +2170,9 @@ export default {
     flex-direction: column;
     gap: 12px;
     overflow-y: auto;
-    overflow-x: visible; // 允许横向溢出，以便选中时能看到边框
-    padding-right: 15px; // 增加右边距，为选中时的偏移留出空间
-    /* 隐藏滚动条但保持滚动功能 */
+    overflow-x: visible; // Allow horizontal overflow so the border remains visible when selected
+    padding-right: 15px; // Add right padding to leave room for the selected offset
+    /* Hide scrollbars while preserving scrolling */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE and Edge */
     &::-webkit-scrollbar {
@@ -2182,8 +2184,8 @@ export default {
     background: @bg-panel;
     border: 1px solid @border-color;
     padding: 10px 15px;
-    border-radius: 4px; /* 恢复为圆角边框 */
-    /* 移除 clip-path */
+    border-radius: 4px; /* Restore rounded borders */
+    /* Remove clip-path */
     /* clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); */
     display: flex;
     align-items: center;
@@ -2199,9 +2201,9 @@ export default {
       background: linear-gradient(90deg, var(--empty-hover-bg) 0%, transparent 100%);
       opacity: 1;
       transform: translateX(10px);
-      margin-right: 0px; // 补偿向右偏移，保持右边距
-      z-index: 50; // 增加z-index，确保边框可见
-      position: relative; // 确保z-index生效
+      margin-right: 0px; // Compensate for the right offset and preserve the right margin
+      z-index: 50; // Increase z-index so the border remains visible
+      position: relative; // Ensure z-index takes effect
     }
 
     &.selected {
@@ -2211,9 +2213,9 @@ export default {
       opacity: 1;
       transform: translateX(10px);
       border-width: 2px;
-      margin-right: 0px; // 补偿向右偏移，保持右边距
-      z-index: 100; // 增加z-index，确保边框可见
-      position: relative; // 确保z-index生效
+      margin-right: 0px; // Compensate for the right offset and preserve the right margin
+      z-index: 100; // Increase z-index so the border remains visible
+      position: relative; // Ensure z-index takes effect
     }
 
     &.completed {
@@ -2260,7 +2262,7 @@ export default {
 }
 
 .center-stage {
-  flex: 2; // 核心区域占比更大
+  flex: 2; // Give the core area a larger share
   background: var(--center-bg);
   border: 1px solid @border-color;
   border-radius: 4px;
@@ -2381,7 +2383,7 @@ export default {
       overflow: hidden;
       background: radial-gradient(circle at center, rgba(24, 144, 255, 0.03) 0%, transparent 70%);
 
-      // 科技背景层
+      // Tech background layer
       .tech-background {
         position: absolute;
         top: 0;
@@ -2391,7 +2393,7 @@ export default {
         z-index: 1;
         overflow: hidden;
 
-        // 像素风格猫
+        // Pixel-style cat
         .pixel-cat {
           position: absolute;
           bottom: 15%;
@@ -2511,7 +2513,7 @@ export default {
           }
         }
 
-        // 神经网络
+        // Neural network
         .neural-network {
           position: absolute;
           top: 0;
@@ -2532,7 +2534,7 @@ export default {
           }
         }
 
-        // 矩阵雨效果
+        // Matrix rain effect
         .matrix-rain {
           position: absolute;
           top: 0;
@@ -2576,7 +2578,7 @@ export default {
         }
       }
 
-      // 核心内容
+      // Core content
       .holo-core {
         z-index: 10;
         text-align: center;
@@ -2692,7 +2694,7 @@ export default {
         }
       }
 
-      // 金融数据可视化
+      // Financial data visualization
       .financial-visualization {
         position: absolute;
         bottom: 15%;
@@ -2722,7 +2724,7 @@ export default {
         }
       }
 
-      // AI分析指标
+      // AI analysis indicators
       .ai-metrics {
         position: absolute;
         top: 10%;
@@ -2777,7 +2779,7 @@ export default {
         }
       }
 
-      // 全息投影边框
+      // Holographic frame
       .hologram-border {
         position: absolute;
         top: 0;
@@ -2976,7 +2978,7 @@ export default {
 
 .terminal-panel {
   width: 100%;
-  flex: 1; // 占据右侧剩余空间（底部）
+  flex: 1; // Take the remaining space on the right, at the bottom
   min-height: 200px;
   display: flex;
   flex-direction: column;
@@ -3047,7 +3049,7 @@ export default {
 @keyframes floatUp { 0% { transform: translateY(100vh); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateY(-100px); opacity: 0; } }
 @keyframes glow { from { text-shadow: 0 0 10px var(--primary-color); } to { text-shadow: 0 0 20px var(--primary-color), 0 0 40px var(--primary-color); } }
 
-// 金融科技特效动画
+// Fintech effect animations
 @keyframes gridMove {
   0% {
     background-position: 0 0;
@@ -3135,7 +3137,7 @@ export default {
   }
 }
 
-// 新特效动画
+// New effect animations
 @keyframes catFloat {
   0%, 100% {
     transform: translateY(0) translateX(0);
@@ -3235,7 +3237,7 @@ export default {
   }
 }
 
-/* ant-btn-link 样式跟随主题色 */
+/* Let ant-btn-link styles follow the theme color */
 ::v-deep .ant-btn-link,
 .ant-btn-link {
   color: var(--primary-color) !important;
@@ -3319,7 +3321,7 @@ export default {
       text-align: left!important;
     }
 
-    /* 添加左右渐变遮罩，提示可以滑动 */
+    /* Add left and right gradient masks to hint that the list is scrollable */
     &::before,
     &::after {
       content: '';

@@ -1,14 +1,14 @@
 /**
- * 项目默认配置项
- * primaryColor - 默认主题色, 如果修改颜色不生效，请清理 localStorage
- * navTheme - sidebar theme ['dark', 'light'] 两种主题
- * colorWeak - 色盲模式
- * layout - 整体布局方式 ['sidemenu', 'topmenu'] 两种布局
- * fixedHeader - 固定 Header : boolean
- * fixSiderbar - 固定左侧菜单栏 ： boolean
- * contentWidth - 内容区布局： 流式 |  固定
+ * Default project settings
+ * primaryColor - default theme color. If changes do not apply, clear localStorage
+ * navTheme - sidebar theme ['dark', 'light'] with two theme options
+ * colorWeak - color weak mode
+ * layout - overall layout mode ['sidemenu', 'topmenu'] with two layout options
+ * fixedHeader - fixed Header : boolean
+ * fixSiderbar - fixed left sidebar : boolean
+ * contentWidth - content layout: fluid | fixed
  *
- * storageOptions: {} - Vue-ls 插件配置项 (localStorage/sessionStorage)
+ * storageOptions: {} - Vue-ls plugin options (localStorage/sessionStorage)
  *
  */
 
@@ -19,8 +19,8 @@ export default {
   primaryColor: '#13C2C2', // '#F5222D', // primary color of ant design
   layout: 'sidemenu', // nav menu position: `sidemenu` or `topmenu`
   contentWidth: 'Fluid', // layout of content: `Fluid` or `Fixed`, only works when layout is topmenu
-  fixedHeader: true, // sticky header - 固定顶部导航栏
-  fixSiderbar: true, // sticky siderbar - 固定左侧边栏
+  fixedHeader: true, // sticky header - pin the top navigation
+  fixSiderbar: true, // sticky siderbar - pin the left sidebar
   colorWeak: false,
   menu: {
     locale: true

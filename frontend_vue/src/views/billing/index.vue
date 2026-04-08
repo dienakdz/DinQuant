@@ -319,7 +319,7 @@ export default {
     async buy (plan) {
       this.purchasing = plan
       try {
-        // Prefer USDT scan-to-pay flow (方案B)
+        // Prefer the USDT scan-to-pay flow (Option B)
         const res = await createUsdtOrder(plan)
         if (res && res.code === 1 && res.data) {
           this.usdtOrder = res.data

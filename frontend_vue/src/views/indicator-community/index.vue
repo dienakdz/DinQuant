@@ -1,9 +1,9 @@
 <template>
   <div class="indicator-community-container" :class="{ 'theme-dark': isDarkTheme }">
-    <!-- 管理员：标签切换 -->
+    <!-- Admin: tab switch -->
     <a-tabs v-if="isAdmin" v-model="activeTab" class="admin-tabs" @change="handleTabChange">
       <a-tab-pane key="market" :tab="$t('community.title')">
-        <!-- 市场内容在下方 -->
+        <!-- Market content below -->
       </a-tab-pane>
       <a-tab-pane key="review">
         <template slot="tab">
@@ -14,7 +14,7 @@
       </a-tab-pane>
     </a-tabs>
 
-    <!-- 顶部工具栏（市场模式） -->
+    <!-- Top toolbar (market mode) -->
     <div v-show="activeTab === 'market'" class="market-header">
       <div class="header-left">
         <h2 class="page-title">
@@ -23,7 +23,7 @@
         </h2>
       </div>
       <div class="header-right">
-        <!-- 搜索 -->
+        <!-- Search -->
         <a-input-search
           v-model="filters.keyword"
           :placeholder="$t('community.searchPlaceholder')"
@@ -32,13 +32,13 @@
           @search="handleSearch"
           @pressEnter="handleSearch"
         />
-        <!-- 价格筛选 -->
+        <!-- Price filter -->
         <a-radio-group v-model="filters.pricingType" button-style="solid" @change="handleFilterChange">
           <a-radio-button value="">{{ $t('community.all') }}</a-radio-button>
           <a-radio-button value="free">{{ $t('community.freeOnly') }}</a-radio-button>
           <a-radio-button value="paid">{{ $t('community.paidOnly') }}</a-radio-button>
         </a-radio-group>
-        <!-- 排序 -->
+        <!-- Sort -->
         <a-select v-model="filters.sortBy" style="width: 140px" @change="handleFilterChange">
           <a-select-option value="newest">{{ $t('community.sortNewest') }}</a-select-option>
           <a-select-option value="hot">{{ $t('community.sortHot') }}</a-select-option>
@@ -46,7 +46,7 @@
           <a-select-option value="price_asc">{{ $t('community.sortPriceLow') }}</a-select-option>
           <a-select-option value="price_desc">{{ $t('community.sortPriceHigh') }}</a-select-option>
         </a-select>
-        <!-- 我的购买 -->
+        <!-- My purchases -->
         <a-button type="link" @click="showMyPurchases = true">
           <a-icon type="shopping" />
           {{ $t('community.myPurchases') }}
@@ -54,7 +54,7 @@
       </div>
     </div>
 
-    <!-- 指标网格（市场模式） -->
+    <!-- Indicator grid (market mode) -->
     <template v-if="activeTab === 'market'">
       <a-spin :spinning="loading">
         <div v-if="indicators.length === 0 && !loading" class="empty-state">
@@ -74,7 +74,7 @@
         </div>
       </a-spin>
 
-      <!-- 分页 -->
+      <!-- Pagination -->
       <div v-if="pagination.total > 0" class="pagination-wrapper">
         <a-pagination
           v-model="pagination.current"
@@ -87,10 +87,10 @@
       </div>
     </template>
 
-    <!-- 管理员审核区域 -->
+    <!-- Admin review area -->
     <template v-if="activeTab === 'review' && isAdmin">
       <div class="review-panel">
-        <!-- 审核状态筛选 -->
+        <!-- Review status filter -->
         <div class="review-header">
           <a-radio-group v-model="reviewFilter" button-style="solid" @change="loadPendingIndicators">
             <a-radio-button value="pending">
@@ -107,7 +107,7 @@
           </a-radio-group>
         </div>
 
-        <!-- 审核列表 -->
+        <!-- Review list -->
         <a-spin :spinning="reviewLoading">
           <div v-if="pendingIndicators.length === 0 && !reviewLoading" class="empty-state">
             <a-empty :description="$t('community.admin.noItems')" />
@@ -174,7 +174,7 @@
           </div>
         </a-spin>
 
-        <!-- 审核分页 -->
+        <!-- Review pagination -->
         <div v-if="reviewPagination.total > 0" class="pagination-wrapper">
           <a-pagination
             v-model="reviewPagination.current"
@@ -187,7 +187,7 @@
       </div>
     </template>
 
-    <!-- 审核弹窗 -->
+    <!-- Review modal -->
     <a-modal
       v-model="showReviewModal"
       :title="reviewAction === 'approve' ? $t('community.admin.approveTitle') : $t('community.admin.rejectTitle')"
@@ -206,7 +206,7 @@
       </a-form>
     </a-modal>
 
-    <!-- 详情弹窗 -->
+    <!-- Details modal -->
     <indicator-detail
       :visible="detailVisible"
       :indicator-id="selectedIndicatorId"
@@ -215,7 +215,7 @@
       @purchased="handlePurchased"
     />
 
-    <!-- 我的购买弹窗 -->
+    <!-- My purchases modal -->
     <a-modal
       v-model="showMyPurchases"
       :title="$t('community.myPurchases')"
@@ -295,7 +295,7 @@ export default {
       showMyPurchases: false,
       purchasesLoading: false,
       myPurchases: [],
-      // 管理员审核相关
+      // Admin review state
       activeTab: 'market',
       reviewFilter: 'pending',
       reviewLoading: false,
@@ -311,7 +311,7 @@ export default {
         rejected: 0
       },
       expandedCodes: {},
-      // 审核弹窗
+      // Review modal
       showReviewModal: false,
       reviewAction: 'approve',
       reviewNote: '',
@@ -410,7 +410,7 @@ export default {
     },
 
     handlePurchased () {
-      // 刷新列表
+      // Refresh the list
       this.loadIndicators()
     },
 
@@ -428,7 +428,7 @@ export default {
       return new Date(dateStr).toLocaleString()
     },
 
-    // ==================== 管理员审核方法 ====================
+    // ==================== Admin review methods ====================
 
     handleTabChange (tab) {
       if (tab === 'review') {
@@ -649,7 +649,7 @@ export default {
     padding: 40px 0;
   }
 
-  // 管理员标签
+  // Admin tabs
   .admin-tabs {
     margin-bottom: 16px;
     padding: 0 20px;
@@ -657,7 +657,7 @@ export default {
     border-radius: 8px;
   }
 
-  // 审核区域
+  // Review area
   .review-panel {
     .review-header {
       margin-bottom: 20px;
@@ -762,7 +762,7 @@ export default {
   }
 }
 
-// 暗色主题
+// Dark theme
 .indicator-community-container.theme-dark {
   background: #141414;
 
@@ -833,7 +833,7 @@ export default {
     background: #1f1f1f;
   }
 
-  // 穿透子组件样式 - IndicatorCard
+  // Reach into child component styles - IndicatorCard
   /deep/ .indicator-card {
     background: #1f1f1f;
     border-color: #303030;
@@ -857,7 +857,7 @@ export default {
     }
   }
 
-  // 修复搜索框、下拉框等组件的暗色样式
+  // Fix dark theme styles for the search box, dropdowns, and similar components
   /deep/ .ant-input {
     background: #262626;
     border-color: #434343;
@@ -949,7 +949,7 @@ export default {
     }
   }
 
-  // 我的购买弹窗
+  // My purchases modal
   /deep/ .ant-modal-content {
     background: #1f1f1f;
 
@@ -980,7 +980,7 @@ export default {
   }
 }
 
-// 响应式
+// Responsive
 @media (max-width: 768px) {
   .indicator-community-container {
     padding: 12px;

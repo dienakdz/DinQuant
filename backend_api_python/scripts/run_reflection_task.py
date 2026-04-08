@@ -2,8 +2,8 @@ import sys
 import os
 from dotenv import load_dotenv
 
-# 添加后端目录到 Python 路径（使得可以 import app.*）
-# 由于 app 包位于 backend_api_python/app 下，而脚本位于 backend_api_python/scripts
+# Add the backend directory to the Python path so app.* can be imported
+# The app package lives under backend_api_python/app while this script is under backend_api_python/scripts
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.services.reflection import ReflectionService
@@ -19,8 +19,8 @@ def main():
         load_dotenv(backend_env_path, override=False)
 
     """
-    运行自动反思验证任务
-    建议通过 cron 或 定时任务调度器 每天运行一次
+    Run the automated reflection verification task.
+    It is intended to run once per day via cron or another task scheduler.
     """
     print("Running Automated Reflection Verification Task...")
     service = ReflectionService()

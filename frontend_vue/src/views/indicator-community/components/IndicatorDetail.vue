@@ -10,7 +10,7 @@
   >
     <a-spin :spinning="loading">
       <div v-if="detail" class="detail-container">
-        <!-- 头部区域 -->
+        <!-- Header section -->
         <div class="detail-header" :style="headerStyle">
           <div class="header-cover" v-if="detail.preview_image">
             <img :src="detail.preview_image" :alt="detail.name" @error="imageError = true" />
@@ -50,15 +50,15 @@
           </div>
         </div>
 
-        <!-- 内容区域 -->
+        <!-- Content section -->
         <div class="detail-body">
-          <!-- 描述 -->
+          <!-- Description -->
           <div class="section">
             <h3>{{ $t('community.description') }}</h3>
             <p class="description">{{ detail.description || $t('community.noDescription') }}</p>
           </div>
 
-          <!-- 实盘表现 -->
+          <!-- Live performance -->
           <div class="section" v-if="performance">
             <h3>{{ $t('community.performance') }}</h3>
             <div class="performance-grid">
@@ -85,7 +85,7 @@
             </div>
           </div>
 
-          <!-- 评论区域 -->
+          <!-- Comment section -->
           <div class="section">
             <h3>{{ $t('community.reviews') }} ({{ comments.total || 0 }})</h3>
             <comment-list
@@ -102,7 +102,7 @@
           </div>
         </div>
 
-        <!-- 底部操作区域 -->
+        <!-- Bottom action section -->
         <div class="detail-footer">
           <div class="price-info">
             <a-tag v-if="detail.vip_free" color="gold" style="margin-right: 8px;">
@@ -178,10 +178,10 @@ export default {
     }
   },
   computed: {
-    // 头部背景样式
+    // Header background styles
     headerStyle () {
       if (!this.detail) return {}
-      // 根据指标 ID 生成渐变色
+      // Generate a gradient based on the indicator ID
       const gradients = [
         'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -193,7 +193,7 @@ export default {
       const index = (this.detail.id || 0) % gradients.length
       return { background: gradients[index] }
     },
-    // 指标名称首字母
+    // Indicator initials
     indicatorInitials () {
       if (!this.detail) return ''
       const name = this.detail.name || 'I'
@@ -316,7 +316,7 @@ export default {
           this.$message.success(this.$t('community.commentSuccess'))
           this.loadComments(1)
           this.loadMyComment()
-          // 刷新详情以更新评分
+          // Refresh the details to update the rating
           this.loadDetail()
         } else {
           const msgKey = `community.${res.msg}`
@@ -341,7 +341,7 @@ export default {
           this.$message.success(this.$t('community.commentUpdateSuccess'))
           this.loadComments(1)
           this.loadMyComment()
-          // 刷新详情以更新评分
+          // Refresh the details to update the rating
           this.loadDetail()
         } else {
           const msgKey = `community.${res.msg}`
@@ -576,7 +576,7 @@ export default {
   }
 }
 
-// 暗色主题
+// Dark theme
 [data-theme='dark'] {
   .indicator-detail-modal {
     .detail-body {

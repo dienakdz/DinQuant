@@ -13,7 +13,7 @@ export default {
       localDataSource: [],
       localPagination: Object.assign({}, this.pagination),
 
-      // 存储表格onchange时的filters， sorter对象
+      // Store filters and sorter objects from the table onchange event
       filters: {},
       sorter: {}
     }
@@ -123,8 +123,8 @@ export default {
   },
   methods: {
     /**
-     * 表格重新加载方法
-     * 如果参数为 true, 则强制刷新到第一页
+     * Table reload method
+     * If the argument is true, force refresh from the first page
      * @param Boolean bool
      */
     refresh (bool = false) {
@@ -134,10 +134,10 @@ export default {
       this.loadData()
     },
     /**
-     * 加载数据方法
-     * @param {Object} pagination 分页选项器
-     * @param {Object} filters 过滤条件
-     * @param {Object} sorter 排序条件
+     * Data loading method
+     * @param {Object} pagination pagination options
+     * @param {Object} filters filters
+     * @param {Object} sorter sorter
      */
     loadData (pagination, filters = this.filters, sorter = this.sorter) {
       this.filters = filters
@@ -160,26 +160,27 @@ export default {
       }
       )
       const result = this.data(parameter)
-      // 对接自己的通用数据接口需要修改下方代码中的 r.pageNo, r.totalCount, r.data
+      // Adjust r.pageNo, r.totalCount, and r.data below to match your generic data API
       // eslint-disable-next-line
       if ((typeof result === 'object' || typeof result === 'function') && typeof result.then === 'function') {
         result.then(r => {
           this.localPagination = this.showPagination && Object.assign({}, this.localPagination, {
-            current: r.pageNo, // 返回结果中的当前分页数
-            total: r.totalCount, // 返回结果中的总记录数
+            current: r.pageNo, // current page number from the response
+            total: r.totalCount, // total record count from the response
             showSizeChanger: this.showSizeChanger,
             pageSize: (pagination && pagination.pageSize) ||
               this.localPagination.pageSize
           }) || false
-          // 为防止删除数据后导致页面当前页面数据长度为 0 ,自动翻页到上一页
+          // Automatically move to the previous page if deleting data leaves the current page empty
           if (r.data.length === 0 && this.showPagination && this.localPagination.current > 1) {
             this.localPagination.current--
             this.loadData()
             return
           }
 
-          // 这里用于判断接口是否有返回 r.totalCount 且 this.showPagination = true 且 pageNo 和 pageSize 存在 且 totalCount 小于等于 pageNo * pageSize 的大小
-          // 当情况满足时，表示数据不满足分页大小，关闭 table 分页功能
+          // This checks whether the API returned r.totalCount, pagination is enabled, pageNo and pageSize exist,
+          // and totalCount is less than or equal to pageNo * pageSize.
+          // When this condition is met, disable table pagination because the data no longer requires it.
           try {
             if ((['auto', true].includes(this.showPagination) && r.totalCount <= (r.pageNo * this.localPagination.pageSize))) {
               this.localPagination.hideOnSinglePage = true
@@ -187,7 +188,7 @@ export default {
           } catch (e) {
             this.localPagination = false
           }
-          this.localDataSource = r.data // 返回结果中的数组数据
+          this.localDataSource = r.data // array data from the response
         })
         .finally(() => {
           this.localLoading = false
@@ -207,7 +208,7 @@ export default {
       return totalList
     },
     /**
-     * 用于更新已选中的列表数据 total 统计
+     * Used to update total statistics for selected rows
      * @param selectedRowKeys
      * @param selectedRows
      */
@@ -226,7 +227,7 @@ export default {
       })
     },
     /**
-     * 清空 table 已选中项
+     * Clear selected table rows
      */
     clearSelected () {
       if (this.rowSelection) {
@@ -235,7 +236,7 @@ export default {
       }
     },
     /**
-     * 处理交给 table 使用者去处理 clear 事件时，内部选中统计同时调用
+     * When clear is handled externally by the table consumer, also update the internal selection statistics
      * @param callback
      * @returns {*}
      */
@@ -245,29 +246,29 @@ export default {
         <a style="margin-left: 24px" onClick={() => {
           callback()
           this.clearSelected()
-        }}>清空</a>
+        }}>Clear</a>
       )
     },
     renderAlert () {
-      // 绘制统计列数据
+      // Render summary column data
       const needTotalItems = this.needTotalList.map((item) => {
         return (<span style="margin-right: 12px">
-          {item.title}总计 <a style="font-weight: 600">{!item.customRender ? item.total : item.customRender(item.total)}</a>
+          {item.title} Total <a style="font-weight: 600">{!item.customRender ? item.total : item.customRender(item.total)}</a>
         </span>)
       })
 
-      // 绘制 清空 按钮
+      // Render the clear button
       const clearItem = (typeof this.alert.clear === 'boolean' && this.alert.clear) ? (
         this.renderClear(this.clearSelected)
       ) : (this.alert !== null && typeof this.alert.clear === 'function') ? (
         this.renderClear(this.alert.clear)
       ) : null
 
-      // 绘制 alert 组件
+      // Render the alert component
       return (
         <a-alert showIcon={true} style="margin-bottom: 16px">
           <template slot="message">
-            <span style="margin-right: 12px">已选择: <a style="font-weight: 600">{this.selectedRows.length}</a></span>
+            <span style="margin-right: 12px">Selected: <a style="font-weight: 600">{this.selectedRows.length}</a></span>
             {needTotalItems}
             {clearItem}
           </template>
@@ -289,7 +290,7 @@ export default {
       }
       if (k === 'rowSelection') {
         if (showAlert && this.rowSelection) {
-          // 如果需要使用alert，则重新绑定 rowSelection 事件
+          // Rebind the rowSelection event when alert support is enabled
           props[k] = {
             ...this.rowSelection,
             selectedRows: this.selectedRows,
@@ -301,7 +302,7 @@ export default {
           }
           return props[k]
         } else if (!this.rowSelection) {
-          // 如果没打算开启 rowSelection 则清空默认的选择项
+          // Clear the default selection if rowSelection is not enabled
           props[k] = null
           return props[k]
         }

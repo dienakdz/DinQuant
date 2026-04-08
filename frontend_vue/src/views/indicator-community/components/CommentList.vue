@@ -1,6 +1,6 @@
 <template>
   <div class="comment-list">
-    <!-- 评论输入框（可评论/可编辑时显示） -->
+    <!-- Comment input shown when commenting or editing is allowed -->
     <div v-if="canComment || isEditing" class="comment-form">
       <div class="form-header" v-if="isEditing">
         <span class="edit-label">{{ $t('community.editComment') }}</span>
@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <!-- 已评论提示（不能再次评论，但可以编辑） -->
+    <!-- Commented hint: cannot comment again, but editing is allowed -->
     <div v-else-if="myComment && !canComment && !isEditing" class="my-comment-hint">
       <a-icon type="check-circle" theme="twoTone" two-tone-color="#52c41a" />
       <span>{{ $t('community.alreadyCommented') }}</span>
@@ -33,7 +33,7 @@
       </a-button>
     </div>
 
-    <!-- 评论列表 -->
+    <!-- Comment list -->
     <a-spin :spinning="loading">
       <div v-if="comments.length === 0" class="empty-comments">
         <a-empty :description="$t('community.noComments')" />
@@ -55,7 +55,7 @@
                 </span>
               </div>
             </div>
-            <!-- 编辑按钮（只有自己的评论显示） -->
+            <!-- Edit button shown only for your own comments -->
             <div v-if="comment.user && comment.user.id === currentUserId" class="comment-actions">
               <a-button type="link" size="small" @click="startEdit(comment)">
                 <a-icon type="edit" />
@@ -67,7 +67,7 @@
       </div>
     </a-spin>
 
-    <!-- 加载更多 -->
+    <!-- Load more -->
     <div v-if="hasMore" class="load-more">
       <a-button type="link" @click="$emit('load-more')">
         {{ $t('community.loadMore') }}
@@ -122,7 +122,7 @@ export default {
     }
   },
   watch: {
-    // 如果传入了 myComment，自动填充表单（用于编辑模式）
+    // Auto-fill the form when myComment is provided for edit mode
     myComment: {
       immediate: true,
       handler (val) {
@@ -162,17 +162,17 @@ export default {
         }
 
         if (this.isEditing && this.editingCommentId) {
-          // 更新评论
+          // Update comment
           await this.$emit('update-comment', {
             comment_id: this.editingCommentId,
             ...data
           })
         } else {
-          // 新增评论
+          // Add comment
           await this.$emit('add-comment', data)
         }
 
-        // 重置表单
+        // Reset form
         this.cancelEdit()
       } finally {
         this.submitting = false
@@ -185,26 +185,26 @@ export default {
       const now = new Date()
       const diff = now - date
 
-      // 小于1分钟
+      // Less than 1 minute
       if (diff < 60000) {
         return this.$t('community.justNow')
       }
-      // 小于1小时
+      // Less than 1 hour
       if (diff < 3600000) {
         const mins = Math.floor(diff / 60000)
         return `${mins} ${this.$t('community.minutesAgo')}`
       }
-      // 小于24小时
+      // Less than 24 hours
       if (diff < 86400000) {
         const hours = Math.floor(diff / 3600000)
         return `${hours} ${this.$t('community.hoursAgo')}`
       }
-      // 小于30天
+      // Less than 30 days
       if (diff < 2592000000) {
         const days = Math.floor(diff / 86400000)
         return `${days} ${this.$t('community.daysAgo')}`
       }
-      // 更早
+      // Earlier
       return date.toLocaleDateString()
     }
   }
@@ -354,7 +354,7 @@ export default {
   }
 }
 
-// 暗色主题
+// Dark theme
 [data-theme='dark'] {
   .comment-list {
     .comment-form {

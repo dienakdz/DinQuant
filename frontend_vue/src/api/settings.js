@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 
 /**
- * 获取配置项定义
+ * Get setting schema definitions
  */
 export function getSettingsSchema () {
   return request({
@@ -11,7 +11,7 @@ export function getSettingsSchema () {
 }
 
 /**
- * 获取当前配置值
+ * Get current setting values
  */
 export function getSettingsValues () {
   return request({
@@ -21,8 +21,8 @@ export function getSettingsValues () {
 }
 
 /**
- * 保存配置
- * @param {Object} data - 配置数据
+ * Save settings
+ * @param {Object} data - settings data
  */
 export function saveSettings (data) {
   return request({
@@ -33,9 +33,9 @@ export function saveSettings (data) {
 }
 
 /**
- * 测试API连接
- * @param {string} service - 服务名称 (openrouter, finnhub, etc.)
- * @param {Object} params - 额外参数
+ * Test API connection
+ * @param {string} service - service name (openrouter, finnhub, etc.)
+ * @param {Object} params - extra parameters
  */
 export function testConnection (service, params = {}) {
   return request({
@@ -46,7 +46,7 @@ export function testConnection (service, params = {}) {
 }
 
 /**
- * 查询 OpenRouter 账户余额
+ * Query OpenRouter account balance
  */
 export function getOpenRouterBalance () {
   return request({

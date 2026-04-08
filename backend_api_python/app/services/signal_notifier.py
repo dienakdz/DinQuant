@@ -501,15 +501,15 @@ class SignalNotifier:
         """
         Generic webhook delivery.
 
-        用户在个人中心配置：
-        - webhook_url: Webhook 地址
-        - webhook_token: Bearer Token（可选）
+        User configuration in the profile center:
+        - webhook_url: webhook URL
+        - webhook_token: optional Bearer token
 
-        支持功能：
-        - 自定义 headers: notification_config.targets.webhook_headers
+        Supported features:
+        - Custom headers: notification_config.targets.webhook_headers
         - Bearer Token: notification_config.targets.webhook_token
-        - 签名验证: notification_config.targets.webhook_signing_secret
-        - 自动重试: 429/5xx 时重试一次
+        - Signature verification: notification_config.targets.webhook_signing_secret
+        - Automatic retry: retry once on 429/5xx
         """
         if not url:
             return False, "missing_webhook_url"

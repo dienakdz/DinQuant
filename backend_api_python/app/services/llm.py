@@ -212,11 +212,11 @@ class LLMService:
             if "openrouter" in (base_url or "").lower():
                 from app.config.api_keys import APIKeys
                 if not APIKeys.OPENROUTER_API_KEY:
-                    error_msg += ". OPENROUTER_API_KEY 未配置，请在 backend_api_python/.env 中设置"
+                    error_msg += ". OPENROUTER_API_KEY is not configured. Set it in backend_api_python/.env"
                 elif response.status_code == 403:
-                    error_msg += ". 可能原因：API 密钥无效/过期、余额不足、或无模型权限。请检查 https://openrouter.ai/keys"
+                    error_msg += ". Possible causes: API key is invalid or expired, account balance is insufficient, or the model is not permitted. Check https://openrouter.ai/keys"
                 elif response.status_code == 404:
-                    error_msg += ". 可能原因：模型不可用或账户隐私/数据策略限制。请检查 https://openrouter.ai/settings/privacy"
+                    error_msg += ". Possible causes: the model is unavailable or blocked by account privacy/data-policy settings. Check https://openrouter.ai/settings/privacy"
 
             raise ValueError(error_msg)
         

@@ -84,7 +84,7 @@ class AnalysisMemory:
                 cur.execute("""
                     DO $$
                     BEGIN
-                        -- 添加 user_id 列（如果不存在）
+                        -- Add the user_id column if it does not exist
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns 
                             WHERE table_name = 'qd_analysis_memory' AND column_name = 'user_id'
@@ -92,7 +92,7 @@ class AnalysisMemory:
                             ALTER TABLE qd_analysis_memory ADD COLUMN user_id INT;
                         END IF;
                         
-                        -- 添加 raw_result 列（如果不存在）
+                        -- Add the raw_result column if it does not exist
                         IF NOT EXISTS (
                             SELECT 1 FROM information_schema.columns 
                             WHERE table_name = 'qd_analysis_memory' AND column_name = 'raw_result'

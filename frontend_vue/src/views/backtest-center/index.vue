@@ -255,7 +255,14 @@
               </div>
 
               <div class="run-section">
-                <a-button type="primary" block size="large" :loading="indicatorRunning" :disabled="!canRunIndicator" @click="runIndicatorBacktest">
+                <a-button
+                  type="primary"
+                  block
+                  size="large"
+                  :loading="indicatorRunning"
+                  :disabled="!canRunIndicator"
+                  @click="runIndicatorBacktest"
+                >
                   <a-icon v-if="!indicatorRunning" type="thunderbolt" />
                   {{ indicatorRunning ? tt('backtest-center.running', 'Running backtest...') : tt('backtest-center.indicator.runBacktest', 'Run indicator backtest') }}
                 </a-button>
@@ -468,7 +475,14 @@
               </div>
 
               <div class="run-section">
-                <a-button type="primary" block size="large" :loading="strategyRunning" :disabled="!canRunStrategy" @click="runStrategyBacktest">
+                <a-button
+                  type="primary"
+                  block
+                  size="large"
+                  :loading="strategyRunning"
+                  :disabled="!canRunStrategy"
+                  @click="runStrategyBacktest"
+                >
                   <a-icon v-if="!strategyRunning" type="thunderbolt" />
                   {{ strategyRunning ? tt('backtest-center.running', 'Running backtest...') : tt('backtest-center.strategy.runBacktest', 'Run strategy backtest') }}
                 </a-button>

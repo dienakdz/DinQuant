@@ -171,7 +171,7 @@
                         <div class="card-header">
                           <span class="card-name">{{ indicator.name }}</span>
                           <div class="card-actions">
-                            <!-- 编辑图标 -->
+                            <!-- Edit indicator -->
                             <a-tooltip :title="$t('dashboard.indicator.action.edit')">
                               <a-icon
                                 type="edit"
@@ -179,7 +179,7 @@
                                 @click.stop="handleEditIndicator(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 删除图标 -->
+                            <!-- Delete indicator -->
                             <a-tooltip :title="$t('dashboard.indicator.action.delete')">
                               <a-icon
                                 type="delete"
@@ -187,7 +187,7 @@
                                 @click.stop="handleDeleteIndicator(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 启动开关 -->
+                            <!-- Toggle indicator -->
                             <a-tooltip :title="isIndicatorActive('custom-' + indicator.id) ? $t('dashboard.indicator.action.stop') : $t('dashboard.indicator.action.start')">
                               <a-icon
                                 :type="isIndicatorActive('custom-' + indicator.id) ? 'pause-circle' : 'play-circle'"
@@ -195,7 +195,7 @@
                                 @click.stop="toggleIndicator(indicator, 'custom')"
                               />
                             </a-tooltip>
-                            <!-- 回测按钮 -->
+                            <!-- Open backtest -->
                             <a-tooltip :title="$t('dashboard.indicator.backtest.title')">
                               <a-icon
                                 type="experiment"
@@ -203,7 +203,7 @@
                                 @click.stop="handleOpenBacktest(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 回测记录 -->
+                            <!-- Open backtest history -->
                             <a-tooltip :title="$t('dashboard.indicator.backtest.historyTitle')">
                               <a-icon
                                 type="clock-circle"
@@ -211,7 +211,7 @@
                                 @click.stop="handleOpenBacktestHistory(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 发布到社区 -->
+                            <!-- Publish to community -->
                             <a-tooltip :title="indicator.publish_to_community ? $t('dashboard.indicator.action.unpublish') : $t('dashboard.indicator.action.publish')">
                               <a-icon
                                 :type="indicator.publish_to_community ? 'cloud' : 'cloud-upload'"
@@ -219,7 +219,7 @@
                                 @click.stop="handlePublishIndicator(indicator)"
                               />
                             </a-tooltip>
-                            <a-tooltip :title="tt('trading-assistant.createStrategy', 'Create Strategy')">
+                            <a-tooltip :title="tt('dashboard.indicator.action.createStrategy', 'Create Strategy')">
                               <a-icon
                                 type="rocket"
                                 class="action-icon create-strategy-icon"
@@ -231,7 +231,7 @@
                         <span class="card-desc">{{ indicator.description || '' }}</span>
                       </div>
                     </div>
-                    <!-- 空状态 -->
+                    <!-- Empty state -->
                     <div v-if="customIndicators.length === 0" class="empty-indicators">
                       <a-icon type="info-circle" />
                       <span>{{ $t('dashboard.indicator.empty') }}</span>
@@ -297,7 +297,7 @@
                         <span class="card-desc">{{ indicator.description || '' }}</span>
                       </div>
                     </div>
-                    <!-- 空状态 -->
+                    <!-- Empty state -->
                     <div v-if="purchasedIndicators.length === 0" class="empty-indicators">
                       <a-icon type="shopping" />
                       <span>{{ $t('dashboard.indicator.emptyPurchased') }}</span>
@@ -321,7 +321,7 @@
                         <div class="card-header">
                           <span class="card-name">{{ indicator.name }}</span>
                           <div class="card-actions">
-                            <!-- 编辑图标 -->
+                            <!-- Edit indicator -->
                             <a-tooltip :title="$t('dashboard.indicator.action.edit')">
                               <a-icon
                                 type="edit"
@@ -329,7 +329,7 @@
                                 @click.stop="handleEditIndicator(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 删除图标 -->
+                            <!-- Delete indicator -->
                             <a-tooltip :title="$t('dashboard.indicator.action.delete')">
                               <a-icon
                                 type="delete"
@@ -337,7 +337,7 @@
                                 @click.stop="handleDeleteIndicator(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 启动开关 -->
+                            <!-- Toggle indicator -->
                             <a-tooltip :title="isIndicatorActive('custom-' + indicator.id) ? $t('dashboard.indicator.action.stop') : $t('dashboard.indicator.action.start')">
                               <a-icon
                                 :type="isIndicatorActive('custom-' + indicator.id) ? 'pause-circle' : 'play-circle'"
@@ -345,7 +345,7 @@
                                 @click.stop="toggleIndicator(indicator, 'custom')"
                               />
                             </a-tooltip>
-                            <!-- 回测按钮 -->
+                            <!-- Open backtest -->
                             <a-tooltip :title="$t('dashboard.indicator.backtest.title')">
                               <a-icon
                                 type="experiment"
@@ -353,7 +353,7 @@
                                 @click.stop="handleOpenBacktest(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 回测记录 -->
+                            <!-- Open backtest history -->
                             <a-tooltip :title="$t('dashboard.indicator.backtest.historyTitle')">
                               <a-icon
                                 type="clock-circle"
@@ -361,7 +361,7 @@
                                 @click.stop="handleOpenBacktestHistory(indicator)"
                               />
                             </a-tooltip>
-                            <!-- 发布到社区 -->
+                            <!-- Publish to community -->
                             <a-tooltip :title="indicator.publish_to_community ? $t('dashboard.indicator.action.unpublish') : $t('dashboard.indicator.action.publish')">
                               <a-icon
                                 :type="indicator.publish_to_community ? 'cloud' : 'cloud-upload'"
@@ -369,7 +369,7 @@
                                 @click.stop="handlePublishIndicator(indicator)"
                               />
                             </a-tooltip>
-                            <a-tooltip :title="tt('trading-assistant.createStrategy', 'Create Strategy')">
+                            <a-tooltip :title="tt('dashboard.indicator.action.createStrategy', 'Create Strategy')">
                               <a-icon
                                 type="rocket"
                                 class="action-icon create-strategy-icon"
@@ -381,7 +381,7 @@
                         <span class="card-desc">{{ indicator.description || '' }}</span>
                       </div>
                     </div>
-                    <!-- 空状态 -->
+                    <!-- Empty state -->
                     <div v-if="customIndicators.length === 0" class="empty-indicators">
                       <a-icon type="info-circle" />
                       <span>{{ $t('dashboard.indicator.empty') }}</span>
@@ -785,17 +785,18 @@ export default {
       // Map 'dark' or 'realdark' to 'dark', others to 'light'
       return (this.navTheme === 'dark' || this.navTheme === 'realdark') ? 'dark' : 'light'
     },
-    // 判断是否为暗黑主题（用于添加类名）
+    // Used for theme-specific wrapper classes.
     isDarkTheme () {
       return this.navTheme === 'dark' || this.navTheme === 'realdark'
     }
   },
   setup () {
-    // 获取当前组件实例代理，用于动态访问 $t
+    // Access the component proxy so setup() can call $t dynamically.
     const instance = getCurrentInstance()
     const { proxy } = instance || {}
 
-    // 用户信息（本地化单用户模式：默认 userId=1，避免页面因未登录而无法加载自选/指标）
+    // Local single-user mode keeps userId fixed at 1 so watchlist and indicators
+    // still load even when auth state is not initialized.
     const userId = ref(1)
     const loadingUserInfo = ref(false)
 
@@ -807,7 +808,7 @@ export default {
     const symbolSearchValue = ref('') // Search input value
     const symbolSearchOpen = ref(false) // Whether dropdown is open
 
-    // 添加股票弹窗相关
+    // Add-symbol modal state.
     const showAddStockModal = ref(false)
     const addingStock = ref(false)
     const selectedMarketTab = ref('') // Currently selected market type tab
@@ -842,6 +843,9 @@ export default {
 
     const timeframe = ref('1D')
     const activeIndicators = ref([])
+    const customIndicators = ref([])
+    const purchasedIndicators = ref([])
+    const loadingIndicators = ref(false)
     const isMobile = ref(false)
 
     // SMA and EMA moving average group definition (deprecated, kept for compatibility)
@@ -862,6 +866,7 @@ export default {
     // Indicator parameter configuration modal
     const pendingIndicator = ref(null) // Indicator pending to run
     const pendingSource = ref('') // Source of pending indicator (custom/purchased)
+    const showParamsModal = ref(false)
     const indicatorParams = ref([]) // Indicator parameter declaration
     const indicatorParamValues = ref({}) // Parameter values set by user
     const loadingParams = ref(false)
@@ -1398,18 +1403,18 @@ export default {
       return activeIndicators.value.some(i => i.id === id)
     }
 
-    // 获取自定义激活的指标（排除默认指标）
+    // Return only user-defined active indicators, excluding built-ins.
     const getCustomActiveIndicators = () => {
-      // 获取所有默认指标的id列表（包括smaGroup、emaGroup）
+      // Build the ID set for all built-in indicators, including SMA and EMA groups.
       const defaultIndicatorIds = new Set()
       smaGroup.forEach(ind => defaultIndicatorIds.add(ind.id))
       emaGroup.forEach(ind => defaultIndicatorIds.add(ind.id))
 
-      // 过滤掉所有默认指标
+      // Remove built-in indicators from the active list.
       return activeIndicators.value.filter(i => !defaultIndicatorIds.has(i.id))
     }
 
-    // 加载数据库中的指标
+    // Load indicators from the backend.
     const loadIndicators = async () => {
       if (!userId.value) return
       loadingIndicators.value = true
@@ -1423,9 +1428,9 @@ export default {
         })
 
         if (res.code === 1 && res.data) {
-          // 我创建的指标（is_buy=0 或未设置）
+          // Indicators created by the current user (is_buy = 0 or unset).
           const customItems = res.data.filter(item => !item.is_buy || item.is_buy === 0 || item.is_buy === '0')
-          // 我购买的指标（is_buy=1）
+          // Indicators purchased by the current user (is_buy = 1).
           const purchasedItems = res.data.filter(item => item.is_buy === 1 || item.is_buy === '1')
 
           customIndicators.value = customItems.map(item => ({
@@ -1461,13 +1466,13 @@ export default {
 
       try {
         const pythonCode = indicator.code || ''
-        // 检查图表组件是否已初始化
+        // Ensure the chart component is ready.
         if (!klineChart.value) {
           message.error(proxy.$t('dashboard.indicator.error.chartNotReady'))
           return
         }
 
-        // 检查必要的方法是否存在
+        // Guard against missing chart methods.
         if (typeof klineChart.value.parsePythonStrategy !== 'function') {
           message.error(proxy.$t('dashboard.indicator.error.chartMethodNotReady'))
           return
@@ -1521,9 +1526,9 @@ export default {
           ...pythonIndicator,
           params: indicatorParamsFromParsed
         })
-        // KlineChart 组件会通过 watch activeIndicators 自动更新图表
+        // KlineChart reacts to activeIndicators changes and refreshes the chart itself.
       } catch (error) {
-        message.error(proxy.$t('dashboard.indicator.error.addIndicatorFailed') + ': ' + (error.message || '未知错误'))
+        message.error(proxy.$t('dashboard.indicator.error.addIndicatorFailed') + ': ' + (error.message || 'Unknown error'))
       }
     }
 
@@ -1574,7 +1579,7 @@ export default {
             pendingSource.value = source
             showParamsModal.value = true
           } else {
-            // 无参数，直接运行
+            // Run immediately when the indicator has no configurable params.
             addPythonIndicator(indicator, source)
           }
         } catch (err) {
@@ -1594,7 +1599,7 @@ export default {
         const indicatorKey = `${pendingSource.value}-${pendingIndicator.value.id}`
         savedIndicatorParams.value[indicatorKey] = { ...indicatorParamValues.value }
 
-        // 将参数传递给指标
+        // Pass the confirmed params into the indicator before activating it.
         const indicatorWithParams = {
           ...pendingIndicator.value,
           userParams: { ...indicatorParamValues.value }
@@ -1643,13 +1648,13 @@ export default {
 
       // Create a temporary indicator object for running
       try {
-        // 检查图表组件是否已初始化
+        // Ensure the chart component is ready.
         if (!klineChart.value) {
           message.error(proxy.$t('dashboard.indicator.error.chartNotReady'))
           return
         }
 
-        // 检查必要的方法是否存在
+        // Guard against missing chart methods.
         if (typeof klineChart.value.parsePythonStrategy !== 'function') {
           message.error(proxy.$t('dashboard.indicator.error.chartMethodNotReady'))
           return
@@ -1665,7 +1670,7 @@ export default {
           return
         }
 
-        // 创建Python指标对象
+        // Create a temporary Python indicator definition.
         const pythonIndicator = {
           id: 'temp-editor-indicator',
           name: name || 'Temporary Indicator',
@@ -1694,7 +1699,7 @@ export default {
           params: { ...parsed.params }
         })
 
-        // KlineChart 组件会通过 watch activeIndicators 自动更新图表
+        // KlineChart reacts to activeIndicators changes and refreshes the chart itself.
         message.success(proxy.$t('dashboard.indicator.success.runIndicator'))
       } catch (error) {
         message.error(proxy.$t('dashboard.indicator.error.runIndicatorFailed') + ': ' + (error.message || 'Unknown Error'))
@@ -1905,7 +1910,7 @@ export default {
           // Close modal
           showIndicatorEditor.value = false
           editingIndicator.value = null
-          // 重新加载指标列表
+          // Refresh the indicator list after saving.
           await loadIndicators()
         } else {
           message.error(res.msg || proxy.$t('dashboard.indicator.save.failed'))

@@ -13,7 +13,7 @@ import { printANSI } from '@/utils/screenLog'
 import defaultSettings from '@/config/defaultSettings'
 
 export default function Initializer () {
-  printANSI() // 请自行移除该行.  please remove this line
+  printANSI() // remove this line if it is not needed
 
   store.commit(TOGGLE_LAYOUT, storage.get(TOGGLE_LAYOUT, defaultSettings.layout))
   store.commit(TOGGLE_FIXED_HEADER, storage.get(TOGGLE_FIXED_HEADER, defaultSettings.fixedHeader))
@@ -24,7 +24,7 @@ export default function Initializer () {
   store.commit(TOGGLE_WEAK, storage.get(TOGGLE_WEAK, defaultSettings.colorWeak))
   store.commit(TOGGLE_COLOR, storage.get(TOGGLE_COLOR, defaultSettings.primaryColor))
   store.commit(TOGGLE_MULTI_TAB, storage.get(TOGGLE_MULTI_TAB, defaultSettings.multiTab))
-  // 处理 token 可能是字符串或对象的情况
+  // Handle tokens stored as either strings or objects
   let token = storage.get(ACCESS_TOKEN)
   if (token && typeof token !== 'string') {
     token = token.token || token.value || (typeof token === 'object' ? null : token)

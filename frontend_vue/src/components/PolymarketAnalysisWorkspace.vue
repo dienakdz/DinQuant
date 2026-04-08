@@ -284,7 +284,7 @@ export default {
       try {
         const res = await analyzePolymarket({
           input: this.inputText.trim(),
-          language: this.$i18n.locale || 'zh-CN'
+          language: this.$i18n.locale || 'en-US'
         })
         if (res && res.code === 1) {
           this.analysisResult = res.data

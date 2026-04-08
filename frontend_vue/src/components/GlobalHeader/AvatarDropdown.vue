@@ -71,7 +71,7 @@ export default {
   }
 }
 
-/* 暗黑主题 - 下拉菜单样式 */
+/* Dark theme - dropdown menu styles */
 body.dark .ant-dropdown-menu,
 body.realdark .ant-dropdown-menu,
 .ant-layout.dark .ant-dropdown-menu,

@@ -17,6 +17,8 @@ const api = {
   batchStopStrategies: '/api/strategies/batch-stop',
   batchDeleteStrategies: '/api/strategies/batch-delete',
   testConnection: '/api/strategies/test-connection',
+  verifyCode: '/api/strategies/verify-code',
+  aiGenerate: '/api/strategies/ai-generate',
   trades: '/api/strategies/trades',
   positions: '/api/strategies/positions',
   equityCurve: '/api/strategies/equityCurve',
@@ -232,6 +234,30 @@ export function testExchangeConnection (exchangeConfig) {
     url: api.testConnection,
     method: 'post',
     data: { exchange_config: exchangeConfig }
+  })
+}
+
+/**
+ * Verify script strategy code.
+ * @param {string} code - Python strategy source.
+ */
+export function verifyStrategyCode (code) {
+  return request({
+    url: api.verifyCode,
+    method: 'post',
+    data: { code }
+  })
+}
+
+/**
+ * Ask the backend LLM worker to generate script strategy code.
+ * @param {string} prompt - Natural language strategy description.
+ */
+export function aiGenerateStrategyCode (prompt) {
+  return request({
+    url: api.aiGenerate,
+    method: 'post',
+    data: { prompt }
   })
 }
 

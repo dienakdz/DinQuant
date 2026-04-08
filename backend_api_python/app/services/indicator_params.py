@@ -272,13 +272,13 @@ class IndicatorCaller:
 
 def get_indicator_params(indicator_id: int) -> List[Dict[str, Any]]:
     """
-    获取指标的参数声明（供API调用）
+    Get the indicator parameter declarations for API usage
     
     Args:
-        indicator_id: 指标ID
+        indicator_id: Indicator ID
         
     Returns:
-        参数声明列表
+        A list of parameter declarations
     """
     try:
         with get_db_connection() as db:

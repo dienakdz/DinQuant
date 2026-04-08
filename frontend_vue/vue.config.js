@@ -55,7 +55,7 @@ const vueConfig = {
       })
     ]
     // en_US: `if prod, add externals`
-    // zh_CN: `这里是用来控制编译忽略外部依赖的，与 config.plugin('html') 配合可以编译时引入外部CDN文件依赖`
+    // zh_CN: used to control ignored external dependencies during compilation, together with config.plugin('html') to inject external CDN files
     // externals: isProd ? assetsCDN.externals : {}
   },
 
@@ -95,7 +95,7 @@ const vueConfig = {
 				.end()
 
     // en_US: If prod is on assets require on cdn
-    // zh_CN: 如果是 prod 模式，则引入 CDN 依赖文件，有需要减少包大小请自行解除依赖
+    // zh_CN: in prod mode, inject CDN dependencies. Remove them if you need to reduce bundle size
     //
     // if (isProd) {
     //   config.plugin('html').tap(args => {
@@ -147,5 +147,5 @@ vueConfig.configureWebpack.plugins.push(createThemeColorReplacerPlugin())
 module.exports = vueConfig
 // vue.config.js
 // module.exports = {
-//   lintOnSave: false  // 禁用 ESLint
+//   lintOnSave: false  // Disable ESLint
 // }

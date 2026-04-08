@@ -86,7 +86,7 @@ class DataCache:
             if entry.is_expired():
                 del self._cache[key]
                 self._misses += 1
-                logger.debug(f"[缓存] {self.name}:{key} 已过期，删除")
+                logger.debug(f"[cache] {self.name}:{key} expired and was removed")
                 return None
             
             # Update access order (LRU)
@@ -94,7 +94,7 @@ class DataCache:
             entry.hit_count += 1
             self._hits += 1
             
-            logger.debug(f"[缓存命中] {self.name}:{key} (年龄: {entry.age():.0f}s/{entry.ttl:.0f}s)")
+            logger.debug(f"[cache hit] {self.name}:{key} (age: {entry.age():.0f}s/{entry.ttl:.0f}s)")
             return entry.data
     
     def set(
@@ -115,7 +115,7 @@ class DataCache:
             # Check capacity, perform LRU elimination
             while len(self._cache) >= self.max_size:
                 oldest_key, _ = self._cache.popitem(last=False)
-                logger.debug(f"[缓存] {self.name} 容量已满，淘汰: {oldest_key}")
+                logger.debug(f"[cache] {self.name} reached capacity, evicted: {oldest_key}")
             
             actual_ttl = ttl if ttl is not None else self.default_ttl
             self._cache[key] = CacheEntry(
@@ -124,14 +124,14 @@ class DataCache:
                 ttl=actual_ttl
             )
             
-            logger.debug(f"[缓存更新] {self.name}:{key} TTL={actual_ttl}s")
+            logger.debug(f"[cache update] {self.name}:{key} TTL={actual_ttl}s")
     
     def delete(self, key: str) -> bool:
         """Delete cache entry"""
         with self._lock:
             if key in self._cache:
                 del self._cache[key]
-                logger.debug(f"[缓存] {self.name}:{key} 已删除")
+                logger.debug(f"[cache] {self.name}:{key} deleted")
                 return True
             return False
     
@@ -140,7 +140,7 @@ class DataCache:
         with self._lock:
             count = len(self._cache)
             self._cache.clear()
-            logger.info(f"[缓存] {self.name} 已清空 {count} 条记录")
+            logger.info(f"[cache] {self.name} cleared {count} records")
             return count
     
     def cleanup_expired(self) -> int:
@@ -154,7 +154,7 @@ class DataCache:
                 del self._cache[key]
             
             if expired_keys:
-                logger.debug(f"[缓存] {self.name} 清理 {len(expired_keys)} 条过期记录")
+                logger.debug(f"[cache] {self.name} cleaned {len(expired_keys)} expired records")
             return len(expired_keys)
     
     def stats(self) -> Dict[str, Any]:

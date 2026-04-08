@@ -1,9 +1,9 @@
 
 <template>
   <div class="dashboard-pro" :class="{ 'theme-dark': isDarkTheme }">
-    <!-- 主要KPI指标卡片 -->
+    <!-- Primary KPI cards -->
     <div class="kpi-grid">
-      <!-- 总权益 -->
+      <!-- Total equity -->
       <div class="kpi-card kpi-primary">
         <div class="kpi-glow"></div>
         <div class="kpi-content">
@@ -26,14 +26,14 @@
         </div>
       </div>
 
-      <!-- 胜率 -->
+      <!-- Win rate -->
       <div class="kpi-card kpi-win-rate">
         <div class="kpi-content">
           <div class="kpi-header">
             <span class="kpi-icon">
               <a-icon type="trophy" />
             </span>
-            <span class="kpi-label">{{ $t('dashboard.winRate') || '胜率' }}</span>
+            <span class="kpi-label">{{ $t('dashboard.winRate') || 'Win Rate' }}</span>
           </div>
           <div class="kpi-value">
             <span class="amount">{{ formatNumber(performance.win_rate, 1) }}</span>
@@ -62,14 +62,14 @@
         </div>
       </div>
 
-      <!-- 盈亏比 -->
+      <!-- Profit factor -->
       <div class="kpi-card kpi-profit-factor">
         <div class="kpi-content">
           <div class="kpi-header">
             <span class="kpi-icon">
               <a-icon type="rise" />
             </span>
-            <span class="kpi-label">{{ $t('dashboard.profitFactor') || '盈亏比' }}</span>
+            <span class="kpi-label">{{ $t('dashboard.profitFactor') || 'Profit Factor' }}</span>
           </div>
           <div class="kpi-value">
             <span class="amount">{{ formatNumber(performance.profit_factor, 2) }}</span>
@@ -82,14 +82,14 @@
         </div>
       </div>
 
-      <!-- 最大回撤 -->
+      <!-- Max drawdown -->
       <div class="kpi-card kpi-drawdown">
         <div class="kpi-content">
           <div class="kpi-header">
             <span class="kpi-icon">
               <a-icon type="fall" />
             </span>
-            <span class="kpi-label">{{ $t('dashboard.maxDrawdown') || '最大回撤' }}</span>
+            <span class="kpi-label">{{ $t('dashboard.maxDrawdown') || 'Max Drawdown' }}</span>
           </div>
           <div class="kpi-value">
             <span class="amount negative">{{ formatNumber(performance.max_drawdown_pct, 1) }}</span>
@@ -101,14 +101,14 @@
         </div>
       </div>
 
-      <!-- 总交易数 -->
+      <!-- Total trades -->
       <div class="kpi-card kpi-trades">
         <div class="kpi-content">
           <div class="kpi-header">
             <span class="kpi-icon">
               <a-icon type="swap" />
             </span>
-            <span class="kpi-label">{{ $t('dashboard.totalTrades') || '总交易' }}</span>
+            <span class="kpi-label">{{ $t('dashboard.totalTrades') || 'Total Trades' }}</span>
           </div>
           <div class="kpi-value">
             <span class="amount">{{ performance.total_trades }}</span>
@@ -122,14 +122,14 @@
         </div>
       </div>
 
-      <!-- 运行策略 -->
+      <!-- Running strategies -->
       <div class="kpi-card kpi-strategies clickable" @click="goToStrategyManagement">
         <div class="kpi-content">
           <div class="kpi-header">
             <span class="kpi-icon">
               <a-icon type="thunderbolt" theme="filled" />
             </span>
-            <span class="kpi-label">{{ $t('dashboard.runningStrategies') || '运行中策略' }}</span>
+            <span class="kpi-label">{{ $t('dashboard.runningStrategies') || 'Running Strategies' }}</span>
           </div>
           <div class="kpi-value">
             <span class="amount">{{ summary.indicator_strategy_count }}</span>
@@ -164,14 +164,14 @@
       </div>
     </div>
 
-    <!-- 图表区域 - 第一行 -->
+    <!-- Chart area - first row -->
     <div class="chart-row">
-      <!-- 收益日历 -->
+      <!-- Profit calendar -->
       <div class="chart-panel chart-main">
         <div class="panel-header">
           <div class="panel-title">
             <a-icon type="calendar" />
-            <span>{{ $t('dashboard.profitCalendar') || '收益日曆' }}</span>
+            <span>{{ $t('dashboard.profitCalendar') || 'Profit Calendar' }}</span>
           </div>
           <div class="calendar-nav">
             <a-button type="link" size="small" @click="prevMonth" :disabled="currentCalendarIndex >= calendarMonths.length - 1">
@@ -235,49 +235,49 @@
         </div>
       </div>
 
-      <!-- 策略表现饼图 -->
+      <!-- Strategy allocation pie chart -->
       <div class="chart-panel chart-side">
         <div class="panel-header">
           <div class="panel-title">
             <a-icon type="pie-chart" />
-            <span>{{ $t('dashboard.strategyAllocation') || '策略分布' }}</span>
+            <span>{{ $t('dashboard.strategyAllocation') || 'Strategy Allocation' }}</span>
           </div>
         </div>
         <div ref="pieChart" class="chart-body"></div>
       </div>
     </div>
 
-    <!-- 图表区域 - 第二行 -->
+    <!-- Chart area - second row -->
     <div class="chart-row">
-      <!-- 回撤曲线 -->
+      <!-- Drawdown curve -->
       <div class="chart-panel chart-half">
         <div class="panel-header">
           <div class="panel-title">
             <a-icon type="area-chart" />
-            <span>{{ $t('dashboard.drawdownCurve') || '回撤曲线' }}</span>
+            <span>{{ $t('dashboard.drawdownCurve') || 'Drawdown Curve' }}</span>
           </div>
         </div>
         <div ref="drawdownChart" class="chart-body chart-sm"></div>
       </div>
 
-      <!-- 交易时段分布 -->
+      <!-- Hourly trading distribution -->
       <div class="chart-panel chart-half">
         <div class="panel-header">
           <div class="panel-title">
             <a-icon type="clock-circle" />
-            <span>{{ $t('dashboard.hourlyDistribution') || '交易时段' }}</span>
+            <span>{{ $t('dashboard.hourlyDistribution') || 'Trading Hours' }}</span>
           </div>
         </div>
         <div ref="hourlyChart" class="chart-body chart-sm"></div>
       </div>
     </div>
 
-    <!-- 策略排行榜 -->
+    <!-- Strategy ranking -->
     <div class="chart-panel">
       <div class="panel-header">
         <div class="panel-title">
           <a-icon type="ordered-list" />
-          <span>{{ $t('dashboard.strategyRanking') || '策略排行榜' }}</span>
+          <span>{{ $t('dashboard.strategyRanking') || 'Strategy Ranking' }}</span>
         </div>
       </div>
       <div class="strategy-ranking">
@@ -328,9 +328,9 @@
       </div>
     </div>
 
-    <!-- 数据表格区域 -->
+    <!-- Data tables -->
     <div class="table-row">
-      <!-- 当前持仓 -->
+      <!-- Current positions -->
       <div class="table-panel">
         <div class="panel-header">
           <div class="panel-title">
@@ -372,7 +372,7 @@
         </a-table>
       </div>
 
-      <!-- 最近交易 -->
+      <!-- Recent trades -->
       <div class="table-panel">
         <div class="panel-header">
           <div class="panel-title">
@@ -406,7 +406,7 @@
       </div>
     </div>
 
-    <!-- 订单执行记录 -->
+    <!-- Order execution records -->
     <div class="chart-panel orders-panel">
       <div class="panel-header">
         <div class="panel-title">
@@ -555,7 +555,7 @@ export default {
         pageSize: 20,
         total: 0
       },
-      // 声音提醒相关
+      // Sound notification logic
       orderPollTimer: null,
       lastOrderId: 0,
       orderPollIntervalMs: 5000,
@@ -805,12 +805,12 @@ export default {
           this.ordersPagination.total = Number(data.total || 0)
         }
       } catch (e) {
-        console.error('获取订单列表失败:', e)
+        console.error('Failed to get order list:', e)
       } finally {
         this.ordersLoading = false
       }
     },
-    // ========== 订单声音提醒 ==========
+    // ========== Order sound notifications ==========
     playOrderBeep () {
       if (!this.soundEnabled) return
       try {
@@ -818,11 +818,11 @@ export default {
         if (!AudioCtx) return
         if (!this.beepCtx) this.beepCtx = new AudioCtx()
         const ctx = this.beepCtx
-        // 部分浏览器需要用户交互后才能播放声音
+        // Some browsers require user interaction before audio can be played
         if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
           ctx.resume().catch(() => {})
         }
-        // 播放两声短促的提示音
+        // Play two short alert tones
         const playTone = (startTime, freq) => {
           const o = ctx.createOscillator()
           const g = ctx.createGain()
@@ -835,15 +835,15 @@ export default {
           o.stop(startTime + 0.12)
         }
         const now = ctx.currentTime
-        playTone(now, 880) // 第一声
-        playTone(now + 0.18, 1100) // 第二声更高
+        playTone(now, 880) // first tone
+        playTone(now + 0.18, 1100) // second tone at a higher pitch
       } catch (e) {
-        console.error('播放提示音失败:', e)
+        console.error('Failed to play alert sound:', e)
       }
     },
     startOrderPolling () {
       this.stopOrderPolling()
-      // 初始化 lastOrderId
+      // Initialize lastOrderId
       this.initLastOrderId()
       this.orderPollTimer = setInterval(() => {
         this.pollNewOrders()
@@ -859,11 +859,11 @@ export default {
       try {
         const res = await getPendingOrders({ page: 1, pageSize: 1 })
         if (res.code === 1 && res.data && res.data.list && res.data.list.length > 0) {
-          // 获取最新的订单ID
+          // Get the newest order ID
           this.lastOrderId = res.data.list[0].id || 0
         }
       } catch (e) {
-        console.error('初始化订单ID失败:', e)
+        console.error('Failed to initialize the order ID:', e)
       }
     },
     async pollNewOrders () {
@@ -874,7 +874,7 @@ export default {
         const orders = res.data.list || []
         if (orders.length === 0) return
 
-        // 检查是否有新订单
+        // Check for new orders
         let hasNew = false
         let maxId = this.lastOrderId
         for (const order of orders) {
@@ -888,9 +888,9 @@ export default {
         if (hasNew) {
           this.lastOrderId = maxId
           this.playOrderBeep()
-          // 刷新订单列表
+          // Refresh the order list
           this.fetchPendingOrders()
-          // 显示通知
+          // Show the notification
           this.$notification.info({
             message: this.$t('dashboard.newOrderNotify'),
             description: this.$t('dashboard.newOrderDesc'),
@@ -898,7 +898,7 @@ export default {
           })
         }
       } catch (e) {
-        console.error('轮询订单失败:', e)
+        console.error('Failed to poll orders:', e)
       }
     },
     toggleSound () {
@@ -995,19 +995,19 @@ export default {
       if (num === undefined || num === null) return '0.00'
       return Number(num).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
     },
-    // 格式化盈亏值（处理信号模式下没有实盘的情况）
+    // Format PnL values, including signal-only mode without live positions
     formatProfitValue (value, record) {
       if (value === null || value === undefined) return '--'
 
       const numValue = parseFloat(value)
 
-      // 如果值为0且是开仓信号（open_long/open_short），显示--
+      // If the value is 0 and the signal opens a position (open_long/open_short), show --
       const openTypes = ['open_long', 'open_short', 'add_long', 'add_short']
       if (numValue === 0 && record && openTypes.includes(record.type)) {
         return '--'
       }
 
-      // 如果值极小（科学计数法如0E-8），视为0
+      // Treat extremely small values, such as 0E-8, as 0
       if (Math.abs(numValue) < 0.000001) {
         if (record && openTypes.includes(record.type)) {
           return '--'
@@ -1015,7 +1015,7 @@ export default {
         return '$0.00'
       }
 
-      // 正常显示
+      // Render normally
       const sign = numValue >= 0 ? '+' : ''
       return `${sign}$${this.formatNumber(numValue)}`
     },
@@ -1151,7 +1151,7 @@ export default {
             return `
               <div style="padding: 4px 0;">
                 <div style="font-weight:600;margin-bottom:6px;">${p.name}</div>
-                <div style="color:${textColor}">占比 <span style="font-weight:600;color:${isDark ? '#f3f4f6' : '#1f2937'}">${p.percent}%</span></div>
+                <div style="color:${textColor}">Share <span style="font-weight:600;color:${isDark ? '#f3f4f6' : '#1f2937'}">${p.percent}%</span></div>
                 <div style="color:${textColor}">PNL <span style="font-weight:600;color:${svColor}">$${svStr}</span></div>
               </div>
             `
@@ -1171,7 +1171,7 @@ export default {
         color: colors,
         series: [
           {
-            name: '策略分布',
+            name: 'Strategy Allocation',
             type: 'pie',
             radius: ['50%', '75%'],
             center: ['50%', '45%'],

@@ -2,15 +2,15 @@ import Vue from 'vue'
 import store from '@/store'
 
 /**
- * Action 权限指令
- * 指令用法：
- *  - 在需要控制 action 级别权限的组件上使用 v-action:[method] , 如下：
- *    <i-button v-action:add >添加用户</a-button>
- *    <a-button v-action:delete>删除用户</a-button>
- *    <a v-action:edit @click="edit(record)">修改</a>
+ * Action permission directive
+ * Directive usage:
+ *  - Use v-action:[method] on components that need action-level permission control, for example:
+ *    <i-button v-action:add >Add user</a-button>
+ *    <a-button v-action:delete>Delete user</a-button>
+ *    <a v-action:edit @click="edit(record)">Edit</a>
  *
- *  - 当前用户没有权限时，组件上使用了该指令则会被隐藏
- *  - 当后台权限跟 pro 提供的模式不同时，只需要针对这里的权限过滤进行修改即可
+ *  - If the current user lacks permission, components using this directive will be hidden
+ *  - If backend permissions differ from the mode provided by pro, only adjust the permission filtering here
  *
  *  @see https://github.com/vueComponent/ant-design-vue-pro/pull/53
  */

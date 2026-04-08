@@ -9,7 +9,7 @@ Supported search engines (in order of priority):
 4. Bing Search API
 5. DuckDuckGo – Get the scoop for free
 
-参考：daily_stock_analysis-main/src/search_service.py
+Reference: daily_stock_analysis-main/src/search_service.py
 """
 import requests
 import json
@@ -72,9 +72,9 @@ class SearchResponse:
     def to_context(self, max_results: int = 5) -> str:
         """Transform search results into context that can be used for AI analysis"""
         if not self.success or not self.results:
-            return f"搜索 '{self.query}' 未找到相关结果。"
+            return f"No relevant results were found for '{self.query}'."
         
-        lines = [f"【{self.query} 搜索结果】（来源：{self.provider}）"]
+        lines = [f"[Search results for {self.query}] (source: {self.provider})"]
         for i, result in enumerate(self.results[:max_results], 1):
             lines.append(f"\n{i}. {result.to_text()}")
         
@@ -128,7 +128,7 @@ class BaseSearchProvider(ABC):
                 return key
         
         # There is a problem with all keys, reset the error count and return the first one
-        logger.warning(f"[{self._name}] 所有 API Key 都有错误记录，重置错误计数")
+        logger.warning(f"[{self._name}] all API keys have recorded errors, resetting error counters")
         self._key_errors = {key: 0 for key in self._api_keys}
         return self._api_keys[0] if self._api_keys else None
     
@@ -142,7 +142,7 @@ class BaseSearchProvider(ABC):
     def _record_error(self, key: str) -> None:
         """Log errors"""
         self._key_errors[key] = self._key_errors.get(key, 0) + 1
-        logger.warning(f"[{self._name}] API Key {key[:8]}... 错误计数: {self._key_errors[key]}")
+        logger.warning(f"[{self._name}] API key {key[:8]}... error count: {self._key_errors[key]}")
     
     @abstractmethod
     def _do_search(self, query: str, api_key: str, max_results: int, days: int = 7) -> SearchResponse:
@@ -168,7 +168,7 @@ class BaseSearchProvider(ABC):
                 results=[],
                 provider=self._name,
                 success=False,
-                error_message=f"{self._name} 未配置 API Key"
+                error_message=f"{self._name} API key is not configured"
             )
         
         start_time = time.time()
@@ -178,7 +178,7 @@ class BaseSearchProvider(ABC):
             
             if response.success:
                 self._record_success(api_key)
-                logger.info(f"[{self._name}] 搜索 '{query}' 成功，返回 {len(response.results)} 条结果，耗时 {response.search_time:.2f}s")
+                logger.info(f"[{self._name}] search '{query}' succeeded, returned {len(response.results)} results in {response.search_time:.2f}s")
             else:
                 self._record_error(api_key)
             
@@ -187,7 +187,7 @@ class BaseSearchProvider(ABC):
         except Exception as e:
             self._record_error(api_key)
             elapsed = time.time() - start_time
-            logger.error(f"[{self._name}] 搜索 '{query}' 失败: {e}")
+            logger.error(f"[{self._name}] search '{query}' failed: {e}")
             return SearchResponse(
                 query=query,
                 results=[],
@@ -203,9 +203,9 @@ class BaseSearchProvider(ABC):
         try:
             parsed = urlparse(url)
             domain = parsed.netloc.replace('www.', '')
-            return domain or '未知来源'
+            return domain or 'Unknown source'
         except:
-            return '未知来源'
+            return 'Unknown source'
 
 
 class TavilySearchProvider(BaseSearchProvider):
@@ -265,7 +265,7 @@ class TavilySearchProvider(BaseSearchProvider):
         except Exception as e:
             error_msg = str(e)
             if 'rate limit' in error_msg.lower() or 'quota' in error_msg.lower():
-                error_msg = f"API 配额已用尽: {error_msg}"
+                error_msg = f"API quota exhausted: {error_msg}"
             
             return SearchResponse(
                 query=query,
@@ -483,7 +483,7 @@ class GoogleSearchProvider(BaseSearchProvider):
                 results=[],
                 provider=self.name,
                 success=False,
-                error_message="Google Search 未配置 CX"
+                error_message="Google Search CX is not configured"
             )
         
         try:
@@ -515,7 +515,7 @@ class GoogleSearchProvider(BaseSearchProvider):
                     results=[],
                     provider=self.name,
                     success=False,
-                    error_message="Google API 配额已用尽"
+                    error_message="Google API quota exhausted"
                 )
             
             response.raise_for_status()
@@ -744,33 +744,33 @@ class SearchService:
         tavily_keys = APIKeys.TAVILY_API_KEYS
         if tavily_keys:
             self._providers.append(TavilySearchProvider(tavily_keys))
-            logger.info(f"已配置 Tavily 搜索，共 {len(tavily_keys)} 个 API Key")
+            logger.info(f"Configured Tavily search with {len(tavily_keys)} API keys")
         
         # 2. SerpAPI
         serpapi_keys = APIKeys.SERPAPI_KEYS
         if serpapi_keys:
             self._providers.append(SerpAPISearchProvider(serpapi_keys))
-            logger.info(f"已配置 SerpAPI 搜索，共 {len(serpapi_keys)} 个 API Key")
+            logger.info(f"Configured SerpAPI search with {len(serpapi_keys)} API keys")
         
         # 3. Google CSE
         google_api_key = self._config.get('google', {}).get('api_key')
         google_cx = self._config.get('google', {}).get('cx')
         if google_api_key and google_cx:
             self._providers.append(GoogleSearchProvider(google_api_key, google_cx))
-            logger.info("已配置 Google CSE 搜索")
+            logger.info("Configured Google CSE search")
         
         # 4. Bing
         bing_api_key = self._config.get('bing', {}).get('api_key')
         if bing_api_key:
             self._providers.append(BingSearchProvider(bing_api_key))
-            logger.info("已配置 Bing 搜索")
+            logger.info("Configured Bing search")
         
         # 5. DuckDuckGo (Free Tips)
         self._providers.append(DuckDuckGoSearchProvider())
-        logger.info("已配置 DuckDuckGo 搜索（免费兜底）")
+        logger.info("Configured DuckDuckGo search as the free fallback")
         
         if len(self._providers) == 1:
-            logger.warning("仅有 DuckDuckGo 可用，建议配置更多搜索引擎 API Key")
+            logger.warning("Only DuckDuckGo is available. Configure more search-engine API keys for better coverage.")
     
     @property
     def is_available(self) -> bool:
@@ -826,7 +826,7 @@ class SearchService:
             if response.success and response.results:
                 return response
             else:
-                logger.warning(f"{provider.name} 搜索失败: {response.error_message}，尝试下一个引擎")
+                logger.warning(f"{provider.name} search failed: {response.error_message}. Trying the next engine.")
         
         # all engines fail
         return SearchResponse(
@@ -834,7 +834,7 @@ class SearchService:
             results=[],
             provider="None",
             success=False,
-            error_message="所有搜索引擎都不可用或搜索失败"
+            error_message="All search engines are unavailable or failed"
         )
     
     def search_stock_news(
@@ -875,7 +875,7 @@ class SearchService:
         else:
             query = f"{stock_name} {stock_code} latest news"
         
-        logger.info(f"搜索股票新闻: {stock_name}({stock_code}), market={market}, days={search_days}")
+        logger.info(f"Searching stock news: {stock_name}({stock_code}), market={market}, days={search_days}")
         
         return self.search_with_fallback(query, max_results, search_days)
     

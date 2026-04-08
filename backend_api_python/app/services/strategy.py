@@ -933,6 +933,8 @@ class StrategyService:
         trading_config = payload.get('trading_config') if payload.get('trading_config') is not None else (existing.get('trading_config') or {})
         exchange_config = payload.get('exchange_config') if payload.get('exchange_config') is not None else (existing.get('exchange_config') or {})
         ai_model_config = payload.get('ai_model_config') if payload.get('ai_model_config') is not None else (existing.get('ai_model_config') or {})
+        strategy_mode = payload.get('strategy_mode') if payload.get('strategy_mode') is not None else (existing.get('strategy_mode') or 'signal')
+        strategy_code = payload.get('strategy_code') if payload.get('strategy_code') is not None else (existing.get('strategy_code') or '')
 
         # When credential_id is present, strip raw API keys to avoid
         # storing secrets in the strategy record — they live in qd_exchange_credentials.
@@ -964,6 +966,8 @@ class StrategyService:
                 """
                 UPDATE qd_strategies_trading
                 SET strategy_name = ?,
+                    strategy_mode = ?,
+                    strategy_code = ?,
                     market_category = ?,
                     execution_mode = ?,
                     notification_config = ?,
@@ -981,6 +985,8 @@ class StrategyService:
                 """,
                 (
                     name,
+                    strategy_mode,
+                    strategy_code,
                     market_category,
                     execution_mode,
                     self._dump_json_or_encrypt(notification_config, encrypt=False),

@@ -29,7 +29,7 @@ router.beforeEach((to, from, next) => {
   to.meta && typeof to.meta.title !== 'undefined' && setDocumentTitle(`${i18nRender(to.meta.title)} - ${domTitle}`)
 
   // Check whether we have a token (local-only auth).
-  // 处理 token 可能是字符串或对象的情况
+  // Handle tokens stored as either strings or objects
   let token = storage.get(ACCESS_TOKEN)
   if (token && typeof token !== 'string') {
     token = token.token || token.value || (typeof token === 'object' ? null : token)
@@ -37,32 +37,32 @@ router.beforeEach((to, from, next) => {
   token = typeof token === 'string' ? token : null
 
   if (token) {
-    // 有 token，允许访问所有页面
-    // 如果访问登录页，跳转到默认页面
+    // Token present, allow access to all pages
+    // If visiting the login page, redirect to the default page
     if (to.path === loginRoutePath) {
       next({ path: defaultRoutePath })
       NProgress.done()
     } else {
-      // 检查用户信息是否已加载
+      // Check whether user info has been loaded
       if (store.getters.roles.length === 0) {
         store.dispatch('GetInfo')
           .then(res => {
-            // 拉取用户信息成功
+            // User info loaded successfully
             // const roles = res && res.role
-            // 生成路由
+            // Generate routes
             store.dispatch('GenerateRoutes', { token }).then(() => {
-              // 动态添加可访问路由表
-              resetRouter() // 重置路由
+              // Dynamically add accessible routes
+              resetRouter() // Reset routes
               store.getters.addRouters.forEach(r => {
                 router.addRoute(r)
               })
-              // 请求带有 redirect 重定向时，登录自动重定向到该地址
+              // If a redirect query is present, automatically redirect there after login
               const redirect = decodeURIComponent(from.query.redirect || to.path)
               if (to.path === redirect) {
-                // hack方法 确保addRoutes已完成 ,set the replace: true so the navigation will not leave a history record
+                // Hack to ensure addRoutes has completed. Use replace: true so navigation does not create a history entry
                 next({ ...to, replace: true })
               } else {
-                // 跳转到目的路由
+                // Navigate to the target route
                 next({ path: redirect })
               }
             })
@@ -90,17 +90,17 @@ router.beforeEach((to, from, next) => {
             })
           })
       } else {
-        // 检查路由是否已初始化
+        // Check whether routes have been initialized
         const addRouters = store.getters.addRouters
-        // 如果路由未初始化，先初始化路由
+        // Initialize routes first if they are not ready
         if (!addRouters || addRouters.length === 0) {
           store.dispatch('GenerateRoutes', { token }).then(() => {
-            // 动态添加可访问路由表
-            resetRouter() // 重置路由 防止退出重新登录或者 token 过期后页面未刷新，导致的路由重复添加
+            // Dynamically add accessible routes
+            resetRouter() // Reset routes to avoid duplicates after logout or token expiration without a page refresh
             store.getters.addRouters.forEach(r => {
               router.addRoute(r)
             })
-            // 重新进入当前路由，避免首次刷新空白
+            // Re-enter the current route to avoid a blank first refresh
             next({ ...to, replace: true })
           }).catch(() => {
             next()
@@ -111,12 +111,12 @@ router.beforeEach((to, from, next) => {
       }
     }
   } else {
-    // 没有 token
+    // No token
     if (allowList.includes(to.name)) {
-      // 在免登录名单，直接进入
+      // Allow direct access to public routes
       next()
     } else {
-      // 跳转到登录页
+      // Redirect to the login page
       next({ path: loginRoutePath, query: { redirect: to.fullPath } })
       NProgress.done() // if current page is login will not trigger afterEach hook, so manually handle it
     }

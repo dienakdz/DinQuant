@@ -109,7 +109,7 @@ Vue.use(Space)
 Vue.use(Empty)
 Vue.use(Rate)
 Vue.use(AutoComplete)
-// Textarea 是 Input 组件的一部分，通过 Vue.use(Input) 已自动注册
+// Textarea is part of the Input component and is auto-registered via Vue.use(Input)
 
 Vue.prototype.$confirm = Modal.confirm
 Vue.prototype.$message = message

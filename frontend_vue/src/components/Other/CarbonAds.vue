@@ -43,7 +43,7 @@ export default {
   },
   render () {
     // return <ins class="adsbygoogle" style="display:inline-block;width:728px;height:90px" data-ad-client="ca-pub-4801326429087140" data-ad-slot="6929057621" />
-    return <div class="business-pro-ad"><a href="https://store.antdv.com/pro/" target="_blank">(推荐) 企业级商用版 Admin Pro 现已发售，采用 Vue3 + TS 欢迎购买。</a></div>;
+    return <div class="business-pro-ad"><a href="https://store.antdv.com/pro/" target="_blank">(Recommended) The enterprise commercial edition of Admin Pro is now available, built with Vue3 + TS.</a></div>;
   }
 }
 </script>
