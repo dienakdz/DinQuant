@@ -1830,7 +1830,35 @@ IMPORTANT:
         # But we need to "reweight the available information": when some modules are missing (such as news/macro is not obtained), do not use 0 points to dilute the overall strength.
         # Instead, the weights are renormalized so that technical signals can still play a leading role in their absence.
         market_type = str(data.get("market") or "")
-        fundamental_present = (market_type == "USStock") and bool(fundamental)
+
+        def _fundamental_meaningful(fund: Dict[str, Any]) -> bool:
+            if not fund:
+                return False
+            for key in (
+                "pe_ratio",
+                "pb_ratio",
+                "ps_ratio",
+                "market_cap",
+                "roe",
+                "eps",
+                "revenue_growth",
+                "profit_margin",
+                "dividend_yield",
+            ):
+                v = fund.get(key)
+                if v is None or v == "":
+                    continue
+                try:
+                    if isinstance(v, float) and v != v:  # NaN
+                        continue
+                    return True
+                except Exception:
+                    return True
+            return False
+
+        fundamental_present = (
+            market_type in ("USStock", "CNStock", "HKStock") and _fundamental_meaningful(fundamental)
+        )
         sentiment_present = bool(news)
         macro_present = bool(macro)
         # indicators usually exist once they are successfully calculated, but they are also protected here.
@@ -2057,7 +2085,7 @@ IMPORTANT:
     
     def _calculate_fundamental_score(self, fundamental: Dict, market: str) -> float:
         """Calculate fundamental score (-100 to +100)"""
-        if market != "USStock" or not fundamental:
+        if market not in ("USStock", "CNStock", "HKStock") or not fundamental:
             return 0.0  # Non-U.S. stocks or no fundamental data, return neutral
         
         score = 0.0
@@ -2142,7 +2170,9 @@ IMPORTANT:
         # Normalization (if there are multiple factors)
         if factors > 0:
             score = score / factors * 100 / 4  # The maximum possible score is 20 points for each of the 4 factors = 80, normalized to 100
-        
+        else:
+            return 50.0
+
         return max(-100, min(100, score))
     
     def _calculate_sentiment_score(self, news: List[Dict]) -> float:

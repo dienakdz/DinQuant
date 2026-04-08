@@ -57,13 +57,11 @@ class PolymarketDataSource:
                 markets = self._fetch_markets_from_api(category, limit * 2)
                 all_markets.extend(markets)
             else:
-                # If no category is specified or "all" is specified, get data from multiple categories
-                categories_to_fetch = ["crypto", "politics", "economics", "sports"]
-                for cat in categories_to_fetch:
-                    markets = self._fetch_markets_from_api(cat, limit // len(categories_to_fetch) + 10)
-                    all_markets.extend(markets)
+                # Retrieve all events (without specifying a category to avoid duplicate requests)
+                markets = self._fetch_from_gamma_api(category=None, limit=100)
+                all_markets.extend(markets)
             
-            # Deduplication (by market_id)
+            # 去重（按market_id）
             seen = set()
             unique_markets = []
             for market in all_markets:

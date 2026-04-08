@@ -87,26 +87,20 @@ class PolymarketWorker:
             logger.info("Starting Polymarket data update and analysis...")
             start_time = time.time()
             
-            # 1. Update market data (obtained from all major categories)
-            categories = ["crypto", "politics", "economics", "sports", "tech", "finance", "geopolitics", "culture", "climate", "entertainment"]
-            all_markets = []
+            # Gamma API /events has no category param — fetch ALL once, categorize locally.
+            all_markets = self.polymarket_source.get_trending_markets(category="all", limit=500)
+            logger.info(f"Fetched {len(all_markets)} markets from Gamma API (single request)")
             
-            for category in categories:
-                try:
-                    markets = self.polymarket_source.get_trending_markets(category, limit=50)
-                    all_markets.extend(markets)
-                    logger.info(f"Fetched {len(markets)} markets from category: {category}")
-                except Exception as e:
-                    logger.warning(f"Failed to fetch markets for category {category}: {e}")
-            
-            # Deduplication (by market_id)
             unique_markets = {}
+            cat_counts: Dict[str, int] = {}
             for market in all_markets:
                 market_id = market.get('market_id')
                 if market_id:
                     unique_markets[market_id] = market
+                    cat = market.get('category', 'other')
+                    cat_counts[cat] = cat_counts.get(cat, 0) + 1
             
-            logger.info(f"Total unique markets: {len(unique_markets)}")
+            logger.info(f"Total unique markets: {len(unique_markets)}, by category: {cat_counts}")
             
             # 2. Analyze the market in batches (analyze all markets at once, and use AI to screen opportunities)
             markets_list = list(unique_markets.values())
