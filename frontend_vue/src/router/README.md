@@ -1,8 +1,8 @@
-路由/菜单说明
+Router and Menu Notes
 ====
 
 
-格式和说明
+Format and Overview
 ----
 
 ```ecmascript 6
@@ -22,34 +22,32 @@ const routerObject = {
 
 
 
-`{ Route }` 对象
+`{ Route }` object
 
-| 参数     | 说明                                      | 类型    | 默认值 |
-| -------- | ----------------------------------------- | ------- | ------ |
-| hidden   | 控制路由是否显示在 sidebar                | boolean | false |
-| redirect | 重定向地址, 访问这个路由时,自定进行重定向 | string  | -      |
-| name     | 路由名称, 必须设置,且不能重名           | string  | -      |
-| meta     | 路由元信息（路由附带扩展信息）            | object  | {}     |
-| hideChildrenInMenu | 强制菜单显示为Item而不是SubItem(配合 meta.hidden) | boolean  | -   |
+| Field | Description | Type | Default |
+| ----- | ----------- | ---- | ------- |
+| hidden | Controls whether the route is shown in the sidebar | boolean | false |
+| redirect | Redirect target used when the route is accessed | string | - |
+| name | Route name. Must be unique and is required | string | - |
+| meta | Route metadata (extended route information) | object | {} |
+| hideChildrenInMenu | Forces the menu to render as an item instead of a submenu, typically used with `meta.hidden` | boolean | - |
 
 
-`{ Meta }` 路由元信息对象
+`{ Meta }` route metadata object
 
-| 参数                | 说明                                                         | 类型    | 默认值 |
-| ------------------- | ------------------------------------------------------------ | ------- | ------ |
-| title               | 路由标题, 用于显示面包屑, 页面标题 *推荐设置                 | string  | -      |
-| icon                | 路由在 menu 上显示的图标                                     | [string,svg]  | -      |
-| keepAlive           | 缓存该路由                                                   | boolean | false  |
-| target              | 菜单链接跳转目标（参考 html a 标记）                          | string | -  |
-| hidden              | 配合`hideChildrenInMenu`使用，用于隐藏菜单时，提供递归到父菜单显示 选中菜单项_（可参考 个人页 配置方式）_ | boolean | false  |
-| hiddenHeaderContent | *特殊 隐藏 [PageHeader](https://github.com/vueComponent/ant-design-vue-pro/blob/master/src/components/PageHeader/PageHeader.vue#L6) 组件中的页面带的 面包屑和页面标题栏 | boolean | false  |
-| permission          | 与项目提供的权限拦截匹配的权限，如果不匹配，则会被禁止访问该路由页面 | array   | []     |
+| Field | Description | Type | Default |
+| ----- | ----------- | ---- | ------- |
+| title | Route title used for breadcrumbs and page titles. Recommended | string | - |
+| icon | Icon shown in the menu | [string,svg] | - |
+| keepAlive | Whether the route should be cached | boolean | false |
+| target | Link target for menu navigation, similar to the HTML `a` tag | string | - |
+| hidden | Used together with `hideChildrenInMenu` to keep the correct parent menu item selected when the current menu node is hidden | boolean | false |
+| hiddenHeaderContent | Hides the breadcrumb and page header content in the [PageHeader](https://github.com/vueComponent/ant-design-vue-pro/blob/master/src/components/PageHeader/PageHeader.vue#L6) component | boolean | false |
+| permission | Permission keys checked by the app permission guard. Routes without a matching permission are blocked | array | [] |
 
-> 路由自定义 `Icon` 请引入自定义 `svg` Icon 文件，然后传递给路由的 `meta.icon` 参数即可
+> For a custom route `Icon`, import the corresponding custom `svg` file and pass it through the route `meta.icon` field.
 
-路由构建例子方案1
-
-路由例子
+Example Route Configuration
 ----
 
 ```ecmascript 6
@@ -58,7 +56,7 @@ const asyncRouterMap = [
     path: '/',
     name: 'index',
     component: BasicLayout,
-    meta: { title: '首页' },
+    meta: { title: 'Home' },
     redirect: '/ai-analysis',
     children: [
       {
@@ -66,51 +64,51 @@ const asyncRouterMap = [
         component: RouteView,
         name: 'dashboard',
         redirect: '/dashboard/workplace',
-        meta: {title: '仪表盘', icon: 'dashboard', permission: ['dashboard']},
+        meta: { title: 'Dashboard', icon: 'dashboard', permission: ['dashboard'] },
         children: [
           {
             path: '/ai-analysis',
             name: 'Analysis',
             component: () => import('@/views/dashboard/Analysis'),
-            meta: {title: '分析页', permission: ['dashboard']}
+            meta: { title: 'Analysis', permission: ['dashboard'] }
           },
           {
             path: '/dashboard/monitor',
             name: 'Monitor',
             hidden: true,
             component: () => import('@/views/dashboard/Monitor'),
-            meta: {title: '监控页', permission: ['dashboard']}
+            meta: { title: 'Monitor', permission: ['dashboard'] }
           },
           {
             path: '/dashboard/workplace',
             name: 'Workplace',
             component: () => import('@/views/dashboard/Workplace'),
-            meta: {title: '工作台', permission: ['dashboard']}
+            meta: { title: 'Workplace', permission: ['dashboard'] }
           }
         ]
       },
 
-      // result
+      // Result pages
       {
         path: '/result',
         name: 'result',
         component: PageView,
         redirect: '/result/success',
-        meta: { title: '结果页', icon: 'check-circle-o', permission: [ 'result' ] },
+        meta: { title: 'Result', icon: 'check-circle-o', permission: [ 'result' ] },
         children: [
           {
             path: '/result/success',
             name: 'ResultSuccess',
             component: () => import(/* webpackChunkName: "result" */ '@/views/result/Success'),
-            // 该页面隐藏面包屑和页面标题栏
-            meta: { title: '成功', hiddenHeaderContent: true, permission: [ 'result' ] }
+            // This page hides breadcrumbs and the page title bar.
+            meta: { title: 'Success', hiddenHeaderContent: true, permission: [ 'result' ] }
           },
           {
             path: '/result/fail',
             name: 'ResultFail',
             component: () => import(/* webpackChunkName: "result" */ '@/views/result/Error'),
-            // 该页面隐藏面包屑和页面标题栏
-            meta: { title: '失败', hiddenHeaderContent: true, permission: [ 'result' ] }
+            // This page hides breadcrumbs and the page title bar.
+            meta: { title: 'Failure', hiddenHeaderContent: true, permission: [ 'result' ] }
           }
         ]
       },
@@ -120,15 +118,16 @@ const asyncRouterMap = [
 ]
 ```
 
-> 1. 请注意 `component: () => import('..') ` 方式引入路由的页面组件为 懒加载模式。具体可以看 [Vue 官方文档](https://router.vuejs.org/zh/guide/advanced/lazy-loading.html)
-> 2. 增加新的路由应该增加在 '/' (index) 路由的 `children` 内
-> 3. 子路由的父级路由必须有 `router-view` 才能让子路由渲染出来，请仔细查阅 vue-router 文档
-> 4. `permission` 可以进行自定义修改，只需要对这个模块进行自定义修改即可 [src/store/modules/permission.js#L10](https://github.com/vueComponent/ant-design-vue-pro/blob/master/src/store/modules/permission.js#L10)
+> 1. `component: () => import('..')` uses lazy-loaded route components. See the [Vue Router docs](https://router.vuejs.org/guide/advanced/lazy-loading.html) for details.
+> 2. New top-level application routes should usually be added under the `'/'` route `children`.
+> 3. A parent route for nested children must expose `router-view`, otherwise child routes cannot render.
+> 4. The `permission` system can be customized in the corresponding permission module, for example [src/store/modules/permission.js#L10](https://github.com/vueComponent/ant-design-vue-pro/blob/master/src/store/modules/permission.js#L10).
 
 
-附权限路由结构：
+Permission Route Structure
 
-![权限结构](https://static-2.loacg.com/open/static/github/permissions.png)
+![Permission Structure](https://static-2.loacg.com/open/static/github/permissions.png)
 
 
-第二种前端路由由后端动态生成的设计，可以前往官网文档 https://pro.antdv.com/docs/authority-management 参考
+If you prefer backend-driven dynamic route generation, refer to the official documentation:
+https://pro.antdv.com/docs/authority-management
