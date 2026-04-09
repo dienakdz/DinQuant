@@ -232,7 +232,7 @@ END$$;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_strategies_trading' AND column_name = 'last_rebalance_at'
     ) THEN
         ALTER TABLE qd_strategies_trading ADD COLUMN last_rebalance_at TIMESTAMP;
@@ -663,28 +663,6 @@ INSERT INTO qd_market_symbols (market, symbol, name, exchange, currency, is_acti
 ('Futures', 'ZW', 'Wheat', 'CBOT', 'USD', 1, 1, 93),
 ('Futures', 'ES', 'S&P 500 E-mini', 'CME', 'USD', 1, 1, 92),
 ('Futures', 'NQ', 'NASDAQ 100 E-mini', 'CME', 'USD', 1, 1, 91),
--- A股 (CNStock)
-('CNStock', '600519', '贵州茅台', 'SSE', 'CNY', 1, 1, 100),
-('CNStock', '600036', '招商银行', 'SSE', 'CNY', 1, 1, 99),
-('CNStock', '601318', '中国平安', 'SSE', 'CNY', 1, 1, 98),
-('CNStock', '600900', '长江电力', 'SSE', 'CNY', 1, 1, 97),
-('CNStock', '601899', '紫金矿业', 'SSE', 'CNY', 1, 1, 96),
-('CNStock', '000858', '五粮液', 'SZSE', 'CNY', 1, 1, 95),
-('CNStock', '000333', '美的集团', 'SZSE', 'CNY', 1, 1, 94),
-('CNStock', '002594', '比亚迪', 'SZSE', 'CNY', 1, 1, 93),
-('CNStock', '300750', '宁德时代', 'SZSE', 'CNY', 1, 1, 92),
-('CNStock', '000001', '平安银行', 'SZSE', 'CNY', 1, 1, 91),
--- 港股/H股 (HKStock)
-('HKStock', '00700', '腾讯控股', 'HKEX', 'HKD', 1, 1, 100),
-('HKStock', '09988', '阿里巴巴-W', 'HKEX', 'HKD', 1, 1, 99),
-('HKStock', '03690', '美团-W', 'HKEX', 'HKD', 1, 1, 98),
-('HKStock', '01810', '小米集团-W', 'HKEX', 'HKD', 1, 1, 97),
-('HKStock', '00939', '建设银行', 'HKEX', 'HKD', 1, 1, 96),
-('HKStock', '01299', '友邦保险', 'HKEX', 'HKD', 1, 1, 95),
-('HKStock', '02318', '中国平安', 'HKEX', 'HKD', 1, 1, 94),
-('HKStock', '00388', '香港交易所', 'HKEX', 'HKD', 1, 1, 93),
-('HKStock', '00883', '中国海洋石油', 'HKEX', 'HKD', 1, 1, 92),
-('HKStock', '01398', '工商银行', 'HKEX', 'HKD', 1, 1, 91)
 ON CONFLICT (market, symbol) DO NOTHING;
 
 -- =============================================================================
@@ -727,7 +705,7 @@ CREATE INDEX IF NOT EXISTS idx_analysis_memory_user ON qd_analysis_memory(user_i
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_analysis_memory' AND column_name = 'user_id'
     ) THEN
         ALTER TABLE qd_analysis_memory ADD COLUMN user_id INT;
@@ -746,7 +724,7 @@ END $$;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_users' AND column_name = 'token_version'
     ) THEN
         ALTER TABLE qd_users ADD COLUMN token_version INTEGER DEFAULT 1;
@@ -808,31 +786,31 @@ CREATE INDEX IF NOT EXISTS idx_comments_user ON qd_indicator_comments(user_id);
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'purchase_count'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN purchase_count INTEGER DEFAULT 0;
         RAISE NOTICE 'Added purchase_count column to qd_indicator_codes';
     END IF;
-    
+
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'avg_rating'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN avg_rating DECIMAL(3,2) DEFAULT 0;
         RAISE NOTICE 'Added avg_rating column to qd_indicator_codes';
     END IF;
-    
+
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'rating_count'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN rating_count INTEGER DEFAULT 0;
         RAISE NOTICE 'Added rating_count column to qd_indicator_codes';
     END IF;
-    
+
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'view_count'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN view_count INTEGER DEFAULT 0;

@@ -10,24 +10,23 @@ For local mode, we expose Python equivalents under `/api/indicator/*`.
 
 from __future__ import annotations
 
+import builtins
 import json
 import os
 import re
 import time
 import traceback
-from typing import Any, Dict, List
-import builtins
+from typing import Any, Dict
 
-from flask import Blueprint, Response, jsonify, request, g
-import pandas as pd
 import numpy as np
+import pandas as pd
+from flask import Blueprint, Response, g, jsonify, request
 
+from app.services.indicator_params import IndicatorCaller
+from app.utils.auth import login_required
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
-from app.utils.auth import login_required
-from app.services.indicator_params import IndicatorCaller
-from app.utils.safe_exec import validate_code_safety, safe_exec_code
-import requests
+from app.utils.safe_exec import safe_exec_code, validate_code_safety
 
 logger = get_logger(__name__)
 
@@ -92,32 +91,34 @@ def _row_to_indicator(row: Dict[str, Any], user_id: int) -> Dict[str, Any]:
 def _generate_mock_df(length=200):
     """Generate mock K-line data for verification."""
     from datetime import datetime, timedelta
-    
+
     dates = [datetime.now() - timedelta(minutes=i) for i in range(length)]
     dates.reverse()
-    
+
     # Random walk with trend
     returns = np.random.normal(0, 0.002, length)
     price_path = 10000 * np.exp(np.cumsum(returns))
-    
+
     close = price_path
     high = close * (1 + np.abs(np.random.normal(0, 0.001, length)))
     low = close * (1 - np.abs(np.random.normal(0, 0.001, length)))
-    open_p = close * (1 + np.random.normal(0, 0.001, length)) # Slight deviation from close
+    open_p = close * (1 + np.random.normal(0, 0.001, length))  # Slight deviation from close
     # Ensure High is highest and Low is lowest
     high = np.maximum(high, np.maximum(open_p, close))
     low = np.minimum(low, np.minimum(open_p, close))
-    
+
     volume = np.abs(np.random.normal(100, 50, length)) * 1000
-    
-    df = pd.DataFrame({
-        'time': [int(d.timestamp() * 1000) for d in dates],
-        'open': open_p,
-        'high': high,
-        'low': low,
-        'close': close,
-        'volume': volume
-    })
+
+    df = pd.DataFrame(
+        {
+            "time": [int(d.timestamp() * 1000) for d in dates],
+            "open": open_p,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        }
+    )
     return df
 
 
@@ -211,9 +212,9 @@ def save_indicator():
         now = _now_ts()  # For BIGINT fields (createtime, updatetime)
 
         # Check whether the user is an administrator (indicators published by the administrator automatically pass the review)
-        user_role = getattr(g, 'user_role', 'user')
-        is_admin = user_role == 'admin'
-        
+        user_role = getattr(g, "user_role", "user")
+        is_admin = user_role == "admin"
+
         with get_db_connection() as db:
             cur = db.cursor()
             # Best-effort schema upgrade for VIP-free indicators
@@ -226,13 +227,13 @@ def save_indicator():
                 if publish_to_community:
                     cur.execute(
                         "SELECT publish_to_community, review_status FROM qd_indicator_codes WHERE id = ? AND user_id = ?",
-                        (indicator_id, user_id)
+                        (indicator_id, user_id),
                     )
                     existing = cur.fetchone()
-                    was_published = existing and existing.get('publish_to_community')
+                    was_published = existing and existing.get("publish_to_community")
                     # If it has not been published before, publish it now and set the review status
                     # Posted by the administrator, it passes directly, and ordinary users need to wait for review.
-                    new_review_status = 'approved' if is_admin else 'pending'
+                    new_review_status = "approved" if is_admin else "pending"
                     if not was_published:
                         cur.execute(
                             """
@@ -244,8 +245,21 @@ def save_indicator():
                                 updatetime = ?, updated_at = NOW()
                             WHERE id = ? AND user_id = ? AND (is_buy IS NULL OR is_buy = 0)
                             """,
-                            (name, code, description, publish_to_community, pricing_type, price, preview_image, vip_free,
-                             new_review_status, user_id if is_admin else None, now, indicator_id, user_id),
+                            (
+                                name,
+                                code,
+                                description,
+                                publish_to_community,
+                                pricing_type,
+                                price,
+                                preview_image,
+                                vip_free,
+                                new_review_status,
+                                user_id if is_admin else None,
+                                now,
+                                indicator_id,
+                                user_id,
+                            ),
                         )
                     else:
                         # Updates that have been released will remain in their original review status.
@@ -258,7 +272,19 @@ def save_indicator():
                                 updatetime = ?, updated_at = NOW()
                             WHERE id = ? AND user_id = ? AND (is_buy IS NULL OR is_buy = 0)
                             """,
-                            (name, code, description, publish_to_community, pricing_type, price, preview_image, vip_free, now, indicator_id, user_id),
+                            (
+                                name,
+                                code,
+                                description,
+                                publish_to_community,
+                                pricing_type,
+                                price,
+                                preview_image,
+                                vip_free,
+                                now,
+                                indicator_id,
+                                user_id,
+                            ),
                         )
                 else:
                     # Unpublish and clear review status
@@ -272,13 +298,24 @@ def save_indicator():
                             updatetime = ?, updated_at = NOW()
                         WHERE id = ? AND user_id = ? AND (is_buy IS NULL OR is_buy = 0)
                         """,
-                        (name, code, description, publish_to_community, pricing_type, price, preview_image, now, indicator_id, user_id),
+                        (
+                            name,
+                            code,
+                            description,
+                            publish_to_community,
+                            pricing_type,
+                            price,
+                            preview_image,
+                            now,
+                            indicator_id,
+                            user_id,
+                        ),
                     )
             else:
                 # New indicators - those released by administrators are passed directly, ordinary users need to wait for review
                 review_status = None
                 if publish_to_community:
-                    review_status = 'approved' if is_admin else 'pending'
+                    review_status = "approved" if is_admin else "pending"
                 cur.execute(
                     """
                     INSERT INTO qd_indicator_codes
@@ -287,7 +324,20 @@ def save_indicator():
                        createtime, updatetime, created_at, updated_at)
                     VALUES (?, 0, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                     """,
-                    (user_id, name, code, description, publish_to_community, pricing_type, price, preview_image, vip_free, review_status, now, now),
+                    (
+                        user_id,
+                        name,
+                        code,
+                        description,
+                        publish_to_community,
+                        pricing_type,
+                        price,
+                        preview_image,
+                        vip_free,
+                        review_status,
+                        now,
+                        now,
+                    ),
                 )
                 indicator_id = int(cur.lastrowid or 0)
             db.commit()
@@ -330,12 +380,12 @@ def delete_indicator():
 def get_indicator_params():
     """
     Get parameter declaration of indicator
-    
+
     Used by the front end to display a configurable parameter form when creating a policy.
-    
+
     Query params:
         indicator_id: indicator ID
-        
+
     Returns:
         params: [
             {
@@ -349,19 +399,19 @@ def get_indicator_params():
     """
     try:
         from app.services.indicator_params import get_indicator_params as get_params
-        
+
         indicator_id = request.args.get("indicator_id")
         if not indicator_id:
             return jsonify({"code": 0, "msg": "indicator_id is required", "data": None}), 400
-        
+
         try:
             indicator_id = int(indicator_id)
         except ValueError:
             return jsonify({"code": 0, "msg": "indicator_id must be an integer", "data": None}), 400
-        
+
         params = get_params(indicator_id)
         return jsonify({"code": 1, "msg": "success", "data": params})
-        
+
     except Exception as e:
         logger.error(f"get_indicator_params failed: {str(e)}", exc_info=True)
         return jsonify({"code": 0, "msg": str(e), "data": None}), 500
@@ -380,42 +430,47 @@ def verify_code():
     try:
         data = request.get_json() or {}
         code = data.get("code") or ""
-        
+
         if not code or not str(code).strip():
             return jsonify({"code": 0, "msg": "Code is empty", "data": None}), 400
 
         # 1. Generate mock data
         df = _generate_mock_df()
-        
+
         # 2. Prepare execution environment (sandboxed)
-        exec_env = {
-            'df': df.copy(),
-            'pd': pd,
-            'np': np,
-            'output': None
-        }
+        exec_env = {"df": df.copy(), "pd": pd, "np": np, "output": None}
 
         # 2.1 Create restricted __import__ that only allows safe modules
         def safe_import(name, *args, **kwargs):
             """Only allow importing a small set of safe modules inside indicator scripts."""
-            allowed_modules = ['numpy', 'pandas', 'math', 'json', 'datetime', 'time']
-            if name in allowed_modules or name.split('.')[0] in allowed_modules:
+            allowed_modules = ["numpy", "pandas", "math", "json", "datetime", "time"]
+            if name in allowed_modules or name.split(".")[0] in allowed_modules:
                 return builtins.__import__(name, *args, **kwargs)
             raise ImportError(f"Import not allowed: {name}")
 
         safe_builtins = {
             k: getattr(builtins, k)
             for k in dir(builtins)
-            if not k.startswith('_') and k not in [
-                'eval', 'exec', 'compile', 'open', 'input',
-                'help', 'exit', 'quit',
-                'copyright', 'credits', 'license'
+            if not k.startswith("_")
+            and k
+            not in [
+                "eval",
+                "exec",
+                "compile",
+                "open",
+                "input",
+                "help",
+                "exit",
+                "quit",
+                "copyright",
+                "credits",
+                "license",
             ]
         }
-        safe_builtins['__import__'] = safe_import
+        safe_builtins["__import__"] = safe_import
 
         exec_env_sandbox = exec_env.copy()
-        exec_env_sandbox['__builtins__'] = safe_builtins
+        exec_env_sandbox["__builtins__"] = safe_builtins
 
         # 2.2 Pre-import commonly used modules into the sandbox
         pre_import_code = """
@@ -426,95 +481,118 @@ import pandas as pd
             exec(pre_import_code, exec_env_sandbox)
         except Exception as e:
             tb = traceback.format_exc()
-            return jsonify({
-                "code": 0,
-                "msg": f"Runtime Error during pre-import: {str(e)}",
-                "data": {"type": type(e).__name__, "details": tb}
-            })
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": f"Runtime Error during pre-import: {str(e)}",
+                    "data": {"type": type(e).__name__, "details": tb},
+                }
+            )
 
         # 3. Static safety check
         is_safe, error_msg = validate_code_safety(code)
         if not is_safe:
             logger.error(f"Indicator verifyCode security check failed: {error_msg}")
-            return jsonify({
-                "code": 0,
-                "msg": f"Code contains unsafe operations: {error_msg}",
-                "data": {"type": "SecurityError", "details": error_msg}
-            })
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": f"Code contains unsafe operations: {error_msg}",
+                    "data": {"type": "SecurityError", "details": error_msg},
+                }
+            )
 
         # 4. Execute code with timeout in sandbox
         exec_result = safe_exec_code(
             code=code,
             exec_globals=exec_env_sandbox,
             exec_locals=exec_env_sandbox,
-            timeout=20  # indicator verification should be quick
+            timeout=20,  # indicator verification should be quick
         )
 
-        if not exec_result.get('success'):
-            error_detail = exec_result.get('error') or 'Unknown error'
-            return jsonify({
-                "code": 0,
-                "msg": f"Runtime Error: {error_detail}",
-                "data": {"type": "RuntimeError", "details": error_detail}
-            })
-            
-        # 5. Check output
-        output = exec_env_sandbox.get('output')
-        
-        if output is None:
-            return jsonify({
-                "code": 0, 
-                "msg": "Missing 'output' variable. Your code must define an 'output' dictionary.", 
-                "data": {"type": "MissingOutput"}
-            })
-            
-        if not isinstance(output, dict):
-            return jsonify({
-                "code": 0, 
-                "msg": f"'output' must be a dictionary, got {type(output).__name__}", 
-                "data": {"type": "InvalidOutputType"}
-            })
-            
-        # Check required fields
-        if 'plots' not in output and 'signals' not in output:
-             return jsonify({
-                "code": 0, 
-                "msg": "'output' dict should contain 'plots' or 'signals' list.", 
-                "data": {"type": "InvalidOutputStructure"}
-            })
-            
-        # Basic check for lengths
-        plots = output.get('plots', [])
-        signals = output.get('signals', [])
-        
-        for p in plots:
-            if 'data' not in p:
-                return jsonify({"code": 0, "msg": f"Plot '{p.get('name')}' missing 'data' field.", "data": {"type": "InvalidPlot"}})
-            if len(p['data']) != len(df):
-                return jsonify({
-                    "code": 0, 
-                    "msg": f"Plot '{p.get('name')}' data length ({len(p['data'])}) does not match DataFrame length ({len(df)}).", 
-                    "data": {"type": "LengthMismatch"}
-                })
-                
-        for s in signals:
-            if 'data' not in s:
-                return jsonify({"code": 0, "msg": f"Signal '{s.get('type')}' missing 'data' field.", "data": {"type": "InvalidSignal"}})
-            if len(s['data']) != len(df):
-                return jsonify({
-                    "code": 0, 
-                    "msg": f"Signal '{s.get('type')}' data length ({len(s['data'])}) does not match DataFrame length ({len(df)}).", 
-                    "data": {"type": "LengthMismatch"}
-                })
+        if not exec_result.get("success"):
+            error_detail = exec_result.get("error") or "Unknown error"
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": f"Runtime Error: {error_detail}",
+                    "data": {"type": "RuntimeError", "details": error_detail},
+                }
+            )
 
-        return jsonify({
-            "code": 1, 
-            "msg": "Verification passed! Code executed successfully.", 
-            "data": {
-                "plots_count": len(plots),
-                "signals_count": len(signals)
+        # 5. Check output
+        output = exec_env_sandbox.get("output")
+
+        if output is None:
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": "Missing 'output' variable. Your code must define an 'output' dictionary.",
+                    "data": {"type": "MissingOutput"},
+                }
+            )
+
+        if not isinstance(output, dict):
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": f"'output' must be a dictionary, got {type(output).__name__}",
+                    "data": {"type": "InvalidOutputType"},
+                }
+            )
+
+        # Check required fields
+        if "plots" not in output and "signals" not in output:
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": "'output' dict should contain 'plots' or 'signals' list.",
+                    "data": {"type": "InvalidOutputStructure"},
+                }
+            )
+
+        # Basic check for lengths
+        plots = output.get("plots", [])
+        signals = output.get("signals", [])
+
+        for p in plots:
+            if "data" not in p:
+                return jsonify(
+                    {"code": 0, "msg": f"Plot '{p.get('name')}' missing 'data' field.", "data": {"type": "InvalidPlot"}}
+                )
+            if len(p["data"]) != len(df):
+                return jsonify(
+                    {
+                        "code": 0,
+                        "msg": f"Plot '{p.get('name')}' data length ({len(p['data'])}) does not match DataFrame length ({len(df)}).",
+                        "data": {"type": "LengthMismatch"},
+                    }
+                )
+
+        for s in signals:
+            if "data" not in s:
+                return jsonify(
+                    {
+                        "code": 0,
+                        "msg": f"Signal '{s.get('type')}' missing 'data' field.",
+                        "data": {"type": "InvalidSignal"},
+                    }
+                )
+            if len(s["data"]) != len(df):
+                return jsonify(
+                    {
+                        "code": 0,
+                        "msg": f"Signal '{s.get('type')}' data length ({len(s['data'])}) does not match DataFrame length ({len(df)}).",
+                        "data": {"type": "LengthMismatch"},
+                    }
+                )
+
+        return jsonify(
+            {
+                "code": 1,
+                "msg": "Verification passed! Code executed successfully.",
+                "data": {"plots_count": len(plots), "signals_count": len(signals)},
             }
-        })
+        )
 
     except Exception as e:
         logger.error(f"verify_code failed: {str(e)}", exc_info=True)
@@ -602,8 +680,8 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
     def _template_code() -> str:
         # Fallback template that follows the project expectations.
         header = (
-            f"my_indicator_name = \"Custom Indicator\"\n"
-            f"my_indicator_description = \"{prompt.replace('\\n', ' ')[:200]}\"\n\n"
+            f'my_indicator_name = "Custom Indicator"\n'
+            f'my_indicator_description = "{prompt.replace("\\n", " ")[:200]}"\n\n'
         )
         body = (
             "df = df.copy()\n\n"
@@ -646,17 +724,19 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
     def _generate_code_via_llm() -> str:
         """Use unified LLMService to support all configured providers (OpenRouter, OpenAI, Grok, etc.)."""
         from app.services.llm import LLMService
-        
+
         llm = LLMService()
-        
+
         # Get provider and model from env config (no frontend override)
         current_provider = llm.provider
         current_model = llm.get_code_generation_model()
         current_api_key = llm.get_api_key()
         base_url = llm.get_base_url()
-        
-        logger.info(f"AI Code Generation - Provider: {current_provider.value}, Model: {current_model}, Base URL: {base_url}, API Key configured: {bool(current_api_key)}")
-        
+
+        logger.info(
+            f"AI Code Generation - Provider: {current_provider.value}, Model: {current_model}, Base URL: {base_url}, API Key configured: {bool(current_api_key)}"
+        )
+
         # Check if any LLM provider is configured
         if not current_api_key:
             logger.warning("No LLM API key configured, using template code")
@@ -674,7 +754,7 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
             )
 
         temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.7") or 0.7)
-        
+
         # Call LLM using the unified API (auto-selects provider based on LLM_PROVIDER env)
         # use_json_mode=False because we want raw Python code output
         content = llm.call_llm_api(
@@ -684,9 +764,9 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
             ],
             model=current_model,
             temperature=temperature,
-            use_json_mode=False  # Code generation doesn't need JSON mode
+            use_json_mode=False,  # Code generation doesn't need JSON mode
         )
-        
+
         # Clean up markdown code blocks if present
         content = content.strip()
         if content.startswith("```python"):
@@ -695,18 +775,18 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
             content = content[3:]
         if content.endswith("```"):
             content = content[:-3]
-        
+
         return content.strip() or _template_code()
 
     # Capture user_id before generator runs (generator executes outside request context)
     user_id = g.user_id
+
     def stream():
         from app.services.billing_service import get_billing_service
+
         billing = get_billing_service()
         ok, msg = billing.check_and_consume(
-            user_id=user_id,
-            feature='ai_code_gen',
-            reference_id=f"ai_code_gen_{user_id}_{int(time.time())}"
+            user_id=user_id, feature="ai_code_gen", reference_id=f"ai_code_gen_{user_id}_{int(time.time())}"
         )
         if not ok:
             yield "data: " + json.dumps({"error": f"Insufficient credits: {msg}"}, ensure_ascii=False) + "\n\n"
@@ -741,7 +821,7 @@ IMPORTANT: Output Python code directly, without explanations, without descriptio
 def call_indicator():
     """
     Call another indicator (for use by the front-end Pyodide environment)
-    
+
     POST /api/indicator/callIndicator
     Body: {
         "indicatorRef": int | str, # indicator ID or name
@@ -749,7 +829,7 @@ def call_indicator():
         "params": Dict, # Parameters passed to the called indicator (optional)
         "currentIndicatorId": int # Current indicator ID (used for circular dependency detection, optional)
     }
-    
+
     Returns:
         {
             "code": 1,
@@ -765,62 +845,43 @@ def call_indicator():
         kline_data = data.get("klineData", [])
         params = data.get("params") or {}
         current_indicator_id = data.get("currentIndicatorId")
-        
+
         if not indicator_ref:
-            return jsonify({
-                "code": 0,
-                "msg": "indicatorRef is required",
-                "data": None
-            }), 400
-        
+            return jsonify({"code": 0, "msg": "indicatorRef is required", "data": None}), 400
+
         if not kline_data or not isinstance(kline_data, list):
-            return jsonify({
-                "code": 0,
-                "msg": "klineData must be a non-empty list",
-                "data": None
-            }), 400
-        
+            return jsonify({"code": 0, "msg": "klineData must be a non-empty list", "data": None}), 400
+
         # Get user ID
         user_id = g.user_id
-        
+
         # Create IndicatorCaller
         indicator_caller = IndicatorCaller(user_id, current_indicator_id)
-        
+
         # Convert the K-line data passed in from the front end into a DataFrame
         df = pd.DataFrame(kline_data)
-        
+
         # Make sure necessary columns exist
-        required_columns = ['open', 'high', 'low', 'close', 'volume']
+        required_columns = ["open", "high", "low", "close", "volume"]
         for col in required_columns:
             if col not in df.columns:
                 df[col] = 0.0
-        
+
         # Convert data type
-        df['open'] = df['open'].astype('float64')
-        df['high'] = df['high'].astype('float64')
-        df['low'] = df['low'].astype('float64')
-        df['close'] = df['close'].astype('float64')
-        df['volume'] = df['volume'].astype('float64')
-        
+        df["open"] = df["open"].astype("float64")
+        df["high"] = df["high"].astype("float64")
+        df["low"] = df["low"].astype("float64")
+        df["close"] = df["close"].astype("float64")
+        df["volume"] = df["volume"].astype("float64")
+
         # call indicator
         result_df = indicator_caller.call_indicator(indicator_ref, df, params)
-        
+
         # Convert the DataFrame to JSON format (a format that the front end can use)
-        result_dict = result_df.to_dict(orient='records')
-        
-        return jsonify({
-            "code": 1,
-            "msg": "success",
-            "data": {
-                "df": result_dict,
-                "columns": list(result_df.columns)
-            }
-        })
-        
+        result_dict = result_df.to_dict(orient="records")
+
+        return jsonify({"code": 1, "msg": "success", "data": {"df": result_dict, "columns": list(result_df.columns)}})
+
     except Exception as e:
         logger.error(f"Error calling indicator: {e}", exc_info=True)
-        return jsonify({
-            "code": 0,
-            "msg": str(e),
-            "data": None
-        }), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500

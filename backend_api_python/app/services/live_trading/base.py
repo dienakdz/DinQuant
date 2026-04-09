@@ -149,5 +149,3 @@ class BaseRestClient:
     @staticmethod
     def _json_dumps(obj: Any) -> str:
         return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
-
-

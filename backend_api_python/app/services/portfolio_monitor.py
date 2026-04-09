@@ -2,6 +2,7 @@
 Portfolio Monitor Service.
 Runs scheduled AI analysis on manual positions and sends notifications.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -12,12 +13,12 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
+from app.services.billing_service import get_billing_service
+from app.services.fast_analysis import get_fast_analysis_service
+from app.services.kline import KlineService
+from app.services.signal_notifier import SignalNotifier
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
-from app.services.fast_analysis import get_fast_analysis_service
-from app.services.signal_notifier import SignalNotifier
-from app.services.kline import KlineService
-from app.services.billing_service import get_billing_service
 
 logger = get_logger(__name__)
 
@@ -28,37 +29,37 @@ _stop_event = threading.Event()
 
 # Multilingual message templates
 ALERT_MESSAGES = {
-    'zh-CN': {
-        'price_above': '🔔 价格突破预警: {symbol} 当前价格 ${current_price:.4f} 已突破 ${threshold:.4f}',
-        'price_below': '🔔 价格跌破预警: {symbol} 当前价格 ${current_price:.4f} 已跌破 ${threshold:.4f}',
-        'pnl_above': '🎉 盈利预警: {symbol} 当前盈亏 {pnl_percent:.1f}% 已达到 {threshold:.1f}% 目标',
-        'pnl_below': '⚠️ 亏损预警: {symbol} 当前盈亏 {pnl_percent:.1f}% 已触及 {threshold:.1f}% 止损线',
-        'alert_title': '价格/盈亏预警'
+    "zh-CN": {
+        "price_above": "🔔 价格突破预警: {symbol} 当前价格 ${current_price:.4f} 已突破 ${threshold:.4f}",
+        "price_below": "🔔 价格跌破预警: {symbol} 当前价格 ${current_price:.4f} 已跌破 ${threshold:.4f}",
+        "pnl_above": "🎉 盈利预警: {symbol} 当前盈亏 {pnl_percent:.1f}% 已达到 {threshold:.1f}% 目标",
+        "pnl_below": "⚠️ 亏损预警: {symbol} 当前盈亏 {pnl_percent:.1f}% 已触及 {threshold:.1f}% 止损线",
+        "alert_title": "价格/盈亏预警",
     },
-    'en-US': {
-        'price_above': '🔔 Price Alert: {symbol} current price ${current_price:.4f} has exceeded ${threshold:.4f}',
-        'price_below': '🔔 Price Alert: {symbol} current price ${current_price:.4f} has dropped below ${threshold:.4f}',
-        'pnl_above': '🎉 Profit Alert: {symbol} P&L {pnl_percent:.1f}% has reached {threshold:.1f}% target',
-        'pnl_below': '⚠️ Loss Alert: {symbol} P&L {pnl_percent:.1f}% has hit {threshold:.1f}% stop-loss',
-        'alert_title': 'Price/P&L Alert'
-    }
+    "en-US": {
+        "price_above": "🔔 Price Alert: {symbol} current price ${current_price:.4f} has exceeded ${threshold:.4f}",
+        "price_below": "🔔 Price Alert: {symbol} current price ${current_price:.4f} has dropped below ${threshold:.4f}",
+        "pnl_above": "🎉 Profit Alert: {symbol} P&L {pnl_percent:.1f}% has reached {threshold:.1f}% target",
+        "pnl_below": "⚠️ Loss Alert: {symbol} P&L {pnl_percent:.1f}% has hit {threshold:.1f}% stop-loss",
+        "alert_title": "Price/P&L Alert",
+    },
 }
 
 
-def _get_alert_message(alert_type: str, language: str = 'en-US', **kwargs) -> str:
+def _get_alert_message(alert_type: str, language: str = "en-US", **kwargs) -> str:
     """Get localized alert message."""
-    lang = 'zh-CN' if language and language.startswith('zh') else 'en-US'
-    templates = ALERT_MESSAGES.get(lang, ALERT_MESSAGES['en-US'])
-    template = templates.get(alert_type, '')
+    lang = "zh-CN" if language and language.startswith("zh") else "en-US"
+    templates = ALERT_MESSAGES.get(lang, ALERT_MESSAGES["en-US"])
+    template = templates.get(alert_type, "")
     if template:
         return template.format(**kwargs)
-    return ''
+    return ""
 
 
-def _get_alert_title(language: str = 'en-US') -> str:
+def _get_alert_title(language: str = "en-US") -> str:
     """Get localized alert title."""
-    lang = 'zh-CN' if language and language.startswith('zh') else 'en-US'
-    return ALERT_MESSAGES.get(lang, ALERT_MESSAGES['en-US']).get('alert_title', 'Alert')
+    lang = "zh-CN" if language and language.startswith("zh") else "en-US"
+    return ALERT_MESSAGES.get(lang, ALERT_MESSAGES["en-US"]).get("alert_title", "Alert")
 
 
 def _now_ts() -> int:
@@ -72,16 +73,16 @@ def _resolve_notification_delivery(user_id: int, notification_config: Optional[D
     If the current channels cannot be delivered (no email/Chat ID, etc.), add a browser to ensure on-site notification.
     """
     cfg: Dict[str, Any] = dict(notification_config) if isinstance(notification_config, dict) else {}
-    raw_ch = cfg.get('channels')
+    raw_ch = cfg.get("channels")
     if isinstance(raw_ch, str):
         raw_ch = [raw_ch]
     elif not isinstance(raw_ch, list):
         raw_ch = []
     channels = [str(c).strip().lower() for c in raw_ch if c is not None and str(c).strip()]
     if not channels:
-        channels = ['browser']
+        channels = ["browser"]
 
-    targets: Dict[str, Any] = dict(cfg.get('targets') or {})
+    targets: Dict[str, Any] = dict(cfg.get("targets") or {})
 
     try:
         with get_db_connection() as db:
@@ -150,18 +151,18 @@ def _get_positions_for_monitor(position_ids: List[int] = None, user_id: int = No
     try:
         kline_service = KlineService()
         effective_user_id = user_id if user_id is not None else DEFAULT_USER_ID
-        
+
         with get_db_connection() as db:
             cur = db.cursor()
             if position_ids:
-                placeholders = ','.join(['?' for _ in position_ids])
+                placeholders = ",".join(["?" for _ in position_ids])
                 cur.execute(
                     f"""
                     SELECT id, market, symbol, name, side, quantity, entry_price, group_name
                     FROM qd_manual_positions
                     WHERE user_id = ? AND id IN ({placeholders})
                     """,
-                    [effective_user_id] + list(position_ids)
+                    [effective_user_id] + list(position_ids),
                 )
             else:
                 cur.execute(
@@ -170,50 +171,52 @@ def _get_positions_for_monitor(position_ids: List[int] = None, user_id: int = No
                     FROM qd_manual_positions
                     WHERE user_id = ?
                     """,
-                    (effective_user_id,)
+                    (effective_user_id,),
                 )
             rows = cur.fetchall() or []
             cur.close()
 
         positions = []
         for row in rows:
-            market = row.get('market')
-            symbol = row.get('symbol')
-            entry_price = float(row.get('entry_price') or 0)
-            quantity = float(row.get('quantity') or 0)
-            side = row.get('side') or 'long'
-            group_name = row.get('group_name')
-            
+            market = row.get("market")
+            symbol = row.get("symbol")
+            entry_price = float(row.get("entry_price") or 0)
+            quantity = float(row.get("quantity") or 0)
+            side = row.get("side") or "long"
+            group_name = row.get("group_name")
+
             # Get current price (use realtime price API)
             current_price = 0
             try:
                 price_data = kline_service.get_realtime_price(market, symbol)
-                current_price = float(price_data.get('price') or 0)
+                current_price = float(price_data.get("price") or 0)
             except Exception:
                 pass
-            
+
             # Calculate PnL
-            if side == 'long':
+            if side == "long":
                 pnl = (current_price - entry_price) * quantity
             else:
                 pnl = (entry_price - current_price) * quantity
-            
+
             pnl_percent = round(pnl / (entry_price * quantity) * 100, 2) if entry_price * quantity > 0 else 0
-            
-            positions.append({
-                'id': row.get('id'),
-                'market': market,
-                'symbol': symbol,
-                'name': row.get('name') or symbol,
-                'side': side,
-                'quantity': quantity,
-                'entry_price': entry_price,
-                'current_price': current_price,
-                'pnl': round(pnl, 2),
-                'pnl_percent': pnl_percent,
-                'group_name': group_name
-            })
-        
+
+            positions.append(
+                {
+                    "id": row.get("id"),
+                    "market": market,
+                    "symbol": symbol,
+                    "name": row.get("name") or symbol,
+                    "side": side,
+                    "quantity": quantity,
+                    "entry_price": entry_price,
+                    "current_price": current_price,
+                    "pnl": round(pnl, 2),
+                    "pnl_percent": pnl_percent,
+                    "group_name": group_name,
+                }
+            )
+
         return positions
     except Exception as e:
         logger.error(f"_get_positions_for_monitor failed: {e}")
@@ -225,57 +228,65 @@ MAX_PARALLEL_ANALYSIS = 5
 
 def _analyze_single_position(pos: Dict[str, Any], language: str, user_id: int = None) -> Dict[str, Any]:
     """Analyze a single position (designed to run inside a thread pool)."""
-    market = pos.get('market')
-    symbol = pos.get('symbol')
-    name = pos.get('name') or symbol
-    group_name = pos.get('group_name')
+    market = pos.get("market")
+    symbol = pos.get("symbol")
+    name = pos.get("name") or symbol
+    group_name = pos.get("group_name")
 
     if not market or not symbol:
-        return {'market': market, 'symbol': symbol, 'name': name, 'error': 'missing market/symbol'}
+        return {"market": market, "symbol": symbol, "name": name, "error": "missing market/symbol"}
 
     try:
         logger.info(f"Running fast AI analysis for {market}:{symbol} (user={user_id})")
         service = get_fast_analysis_service()
         analysis_result = service.analyze(
-            market=market, symbol=symbol, language=language, timeframe='1D',
+            market=market,
+            symbol=symbol,
+            language=language,
+            timeframe="1D",
             user_id=user_id,
         )
 
-        detailed = analysis_result.get('detailed_analysis', {})
-        trading_plan = analysis_result.get('trading_plan', {})
-        scores = analysis_result.get('scores', {})
-        risks = analysis_result.get('risks', [])
-        risk_report = '\n'.join([f"• {r}" for r in risks]) if risks else ''
+        detailed = analysis_result.get("detailed_analysis", {})
+        trading_plan = analysis_result.get("trading_plan", {})
+        scores = analysis_result.get("scores", {})
+        risks = analysis_result.get("risks", [])
+        risk_report = "\n".join([f"• {r}" for r in risks]) if risks else ""
 
         result = {
-            'market': market, 'symbol': symbol, 'name': name, 'group_name': group_name,
-            'entry_price': pos.get('entry_price'),
-            'current_price': pos.get('current_price') or analysis_result.get('market_data', {}).get('current_price'),
-            'pnl': pos.get('pnl'), 'pnl_percent': pos.get('pnl_percent'),
-            'quantity': pos.get('quantity'), 'side': pos.get('side'),
-            'final_decision': analysis_result.get('decision', 'HOLD'),
-            'confidence': analysis_result.get('confidence', 50),
-            'reasoning': analysis_result.get('summary', ''),
-            'trader_decision': analysis_result.get('decision', 'HOLD'),
-            'trader_reasoning': analysis_result.get('summary', ''),
-            'overview_report': detailed.get('technical', ''),
-            'fundamental_report': detailed.get('fundamental', ''),
-            'sentiment_report': detailed.get('sentiment', ''),
-            'risk_report': risk_report,
-            'suggested_entry': trading_plan.get('entry_price'),
-            'suggested_stop_loss': trading_plan.get('stop_loss'),
-            'suggested_take_profit': trading_plan.get('take_profit'),
-            'technical_score': scores.get('technical', 50),
-            'fundamental_score': scores.get('fundamental', 50),
-            'sentiment_score': scores.get('sentiment', 50),
-            'key_reasons': analysis_result.get('reasons', []),
-            'error': analysis_result.get('error')
+            "market": market,
+            "symbol": symbol,
+            "name": name,
+            "group_name": group_name,
+            "entry_price": pos.get("entry_price"),
+            "current_price": pos.get("current_price") or analysis_result.get("market_data", {}).get("current_price"),
+            "pnl": pos.get("pnl"),
+            "pnl_percent": pos.get("pnl_percent"),
+            "quantity": pos.get("quantity"),
+            "side": pos.get("side"),
+            "final_decision": analysis_result.get("decision", "HOLD"),
+            "confidence": analysis_result.get("confidence", 50),
+            "reasoning": analysis_result.get("summary", ""),
+            "trader_decision": analysis_result.get("decision", "HOLD"),
+            "trader_reasoning": analysis_result.get("summary", ""),
+            "overview_report": detailed.get("technical", ""),
+            "fundamental_report": detailed.get("fundamental", ""),
+            "sentiment_report": detailed.get("sentiment", ""),
+            "risk_report": risk_report,
+            "suggested_entry": trading_plan.get("entry_price"),
+            "suggested_stop_loss": trading_plan.get("stop_loss"),
+            "suggested_take_profit": trading_plan.get("take_profit"),
+            "technical_score": scores.get("technical", 50),
+            "fundamental_score": scores.get("fundamental", 50),
+            "sentiment_score": scores.get("sentiment", 50),
+            "key_reasons": analysis_result.get("reasons", []),
+            "error": analysis_result.get("error"),
         }
         logger.info(f"Fast analysis completed for {market}:{symbol}: {analysis_result.get('decision', 'N/A')}")
         return result
     except Exception as e:
         logger.error(f"Failed to analyze {market}:{symbol}: {e}")
-        return {'market': market, 'symbol': symbol, 'name': name, 'error': str(e)}
+        return {"market": market, "symbol": symbol, "name": name, "error": str(e)}
 
 
 def _run_ai_analysis(positions: List[Dict[str, Any]], config: Dict[str, Any], user_id: int = None) -> Dict[str, Any]:
@@ -285,13 +296,13 @@ def _run_ai_analysis(positions: List[Dict[str, Any]], config: Dict[str, Any], us
     duplicate positions so we don't waste LLM calls or show redundant entries.
     """
     try:
-        language = config.get('language', 'en-US')
-        custom_prompt = config.get('prompt', '')
+        language = config.get("language", "en-US")
+        custom_prompt = config.get("prompt", "")
 
         # ── Deduplicate by (market, symbol) ──
-        unique_map: Dict[str, int] = {}          # "market|symbol" -> index in unique_positions
+        unique_map: Dict[str, int] = {}  # "market|symbol" -> index in unique_positions
         unique_positions: List[Dict[str, Any]] = []
-        pos_to_unique: List[int] = []             # positions[i] -> unique_positions index
+        pos_to_unique: List[int] = []  # positions[i] -> unique_positions index
         for pos in positions:
             key = f"{pos.get('market')}|{pos.get('symbol')}"
             if key not in unique_map:
@@ -314,8 +325,10 @@ def _run_ai_analysis(positions: List[Dict[str, Any]], config: Dict[str, Any], us
                 except Exception as e:
                     pos = unique_positions[idx]
                     unique_analyses[idx] = {
-                        'market': pos.get('market'), 'symbol': pos.get('symbol'),
-                        'name': pos.get('name') or pos.get('symbol'), 'error': str(e)
+                        "market": pos.get("market"),
+                        "symbol": pos.get("symbol"),
+                        "name": pos.get("name") or pos.get("symbol"),
+                        "error": str(e),
                     }
 
         # ── Map back: each position gets its own copy with position-specific P&L ──
@@ -327,30 +340,29 @@ def _run_ai_analysis(positions: List[Dict[str, Any]], config: Dict[str, Any], us
                 continue
             seen_keys.add(key)
             base = dict(unique_analyses[pos_to_unique[i]])
-            base['entry_price'] = pos.get('entry_price')
-            base['current_price'] = base.get('current_price') or pos.get('current_price')
+            base["entry_price"] = pos.get("entry_price")
+            base["current_price"] = base.get("current_price") or pos.get("current_price")
             combined_qty = sum(
-                float(p.get('quantity') or 0)
+                float(p.get("quantity") or 0)
                 for j, p in enumerate(positions)
                 if f"{p.get('market')}|{p.get('symbol')}" == key
             )
             combined_cost = sum(
-                float(p.get('entry_price') or 0) * float(p.get('quantity') or 0)
+                float(p.get("entry_price") or 0) * float(p.get("quantity") or 0)
                 for j, p in enumerate(positions)
                 if f"{p.get('market')}|{p.get('symbol')}" == key
             )
-            cur_price = float(base.get('current_price') or 0)
             combined_pnl = sum(
-                float(p.get('pnl') or 0)
+                float(p.get("pnl") or 0)
                 for j, p in enumerate(positions)
                 if f"{p.get('market')}|{p.get('symbol')}" == key
             )
             avg_entry = round(combined_cost / combined_qty, 4) if combined_qty else 0
             pnl_pct = round(combined_pnl / combined_cost * 100, 2) if combined_cost else 0
-            base['quantity'] = combined_qty
-            base['entry_price'] = avg_entry
-            base['pnl'] = round(combined_pnl, 2)
-            base['pnl_percent'] = pnl_pct
+            base["quantity"] = combined_qty
+            base["entry_price"] = avg_entry
+            base["pnl"] = round(combined_pnl, 2)
+            base["pnl_percent"] = pnl_pct
             position_analyses.append(base)
 
         # Also provide deduplicated positions list for report building
@@ -362,35 +374,32 @@ def _run_ai_analysis(positions: List[Dict[str, Any]], config: Dict[str, Any], us
                 continue
             seen_keys2.add(key)
             merged = dict(pos)
-            merged['quantity'] = position_analyses[len(deduped_positions)].get('quantity', pos.get('quantity'))
-            merged['entry_price'] = position_analyses[len(deduped_positions)].get('entry_price', pos.get('entry_price'))
-            merged['pnl'] = position_analyses[len(deduped_positions)].get('pnl', pos.get('pnl'))
-            merged['pnl_percent'] = position_analyses[len(deduped_positions)].get('pnl_percent', pos.get('pnl_percent'))
+            merged["quantity"] = position_analyses[len(deduped_positions)].get("quantity", pos.get("quantity"))
+            merged["entry_price"] = position_analyses[len(deduped_positions)].get("entry_price", pos.get("entry_price"))
+            merged["pnl"] = position_analyses[len(deduped_positions)].get("pnl", pos.get("pnl"))
+            merged["pnl_percent"] = position_analyses[len(deduped_positions)].get("pnl_percent", pos.get("pnl_percent"))
             deduped_positions.append(merged)
 
         analysis_report = _build_comprehensive_report(deduped_positions, position_analyses, language, custom_prompt)
 
         return {
-            'success': True,
-            'analysis': analysis_report,
-            'position_analyses': position_analyses,
-            'positions': deduped_positions,
-            'position_count': len(deduped_positions),
-            'analyzed_count': len([p for p in position_analyses if not p.get('error')]),
-            'timestamp': _now_ts()
+            "success": True,
+            "analysis": analysis_report,
+            "position_analyses": position_analyses,
+            "positions": deduped_positions,
+            "position_count": len(deduped_positions),
+            "analyzed_count": len([p for p in position_analyses if not p.get("error")]),
+            "timestamp": _now_ts(),
         }
 
     except Exception as e:
         logger.error(f"_run_ai_analysis failed: {e}")
         logger.error(traceback.format_exc())
-        return {'success': False, 'error': str(e), 'timestamp': _now_ts()}
+        return {"success": False, "error": str(e), "timestamp": _now_ts()}
 
 
 def _build_comprehensive_report(
-    positions: List[Dict[str, Any]],
-    position_analyses: List[Dict[str, Any]],
-    language: str,
-    custom_prompt: str = ''
+    positions: List[Dict[str, Any]], position_analyses: List[Dict[str, Any]], language: str, custom_prompt: str = ""
 ) -> str:
     """Build a comprehensive text report (backward compatible)."""
     # Use HTML report as the main format
@@ -398,62 +407,61 @@ def _build_comprehensive_report(
 
 
 def _build_html_report(
-    positions: List[Dict[str, Any]],
-    position_analyses: List[Dict[str, Any]],
-    language: str,
-    custom_prompt: str = ''
+    positions: List[Dict[str, Any]], position_analyses: List[Dict[str, Any]], language: str, custom_prompt: str = ""
 ) -> str:
     """Build a beautiful HTML report with collapsible sections."""
-    
+
     # Calculate portfolio summary
-    total_cost = sum(float(p.get('entry_price', 0)) * float(p.get('quantity', 0)) for p in positions)
-    total_pnl = sum(float(p.get('pnl', 0)) for p in positions)
+    total_cost = sum(float(p.get("entry_price", 0)) * float(p.get("quantity", 0)) for p in positions)
+    total_pnl = sum(float(p.get("pnl", 0)) for p in positions)
     total_pnl_percent = round(total_pnl / total_cost * 100, 2) if total_cost > 0 else 0
-    total_market_value = sum(float(p.get('current_price', 0)) * float(p.get('quantity', 0)) for p in positions)
-    
+    total_market_value = sum(float(p.get("current_price", 0)) * float(p.get("quantity", 0)) for p in positions)
+
     # Count recommendations
-    buy_count = len([p for p in position_analyses if p.get('final_decision') == 'BUY'])
-    sell_count = len([p for p in position_analyses if p.get('final_decision') == 'SELL'])
-    hold_count = len([p for p in position_analyses if p.get('final_decision') == 'HOLD'])
-    
-    is_zh = language.startswith('zh')
-    
+    buy_count = len([p for p in position_analyses if p.get("final_decision") == "BUY"])
+    sell_count = len([p for p in position_analyses if p.get("final_decision") == "SELL"])
+    hold_count = len([p for p in position_analyses if p.get("final_decision") == "HOLD"])
+
+    is_zh = language.startswith("zh")
+
     # Text translations
     texts = {
-        'title': '投资组合AI分析报告' if is_zh else 'Portfolio AI Analysis Report',
-        'subtitle': '由 QuantDinger AI 快速分析引擎生成' if is_zh else 'Generated by QuantDinger Fast AI Analysis Engine',
-        'overview': '组合概览' if is_zh else 'Portfolio Overview',
-        'positions': '持仓数量' if is_zh else 'Positions',
-        'total_value': '总市值' if is_zh else 'Total Value',
-        'total_cost': '总成本' if is_zh else 'Total Cost',
-        'total_pnl': '总盈亏' if is_zh else 'Total P&L',
-        'ai_recommendations': '🤖 AI智能分析建议' if is_zh else '🤖 AI Recommendations',
-        'buy': '买入' if is_zh else 'Buy',
-        'sell': '卖出' if is_zh else 'Sell',
-        'hold': '持有' if is_zh else 'Hold',
-        'position_analysis': '📈 各持仓详细分析' if is_zh else '📈 Position Analysis',
-        'current_price': '当前价格' if is_zh else 'Current',
-        'entry_price': '买入价' if is_zh else 'Entry',
-        'pnl': '盈亏' if is_zh else 'P&L',
-        'quantity': '数量' if is_zh else 'Qty',
-        'side': '方向' if is_zh else 'Side',
-        'long': '做多' if is_zh else 'Long',
-        'short': '做空' if is_zh else 'Short',
-        'ai_decision': 'AI决策' if is_zh else 'AI Decision',
-        'confidence': '置信度' if is_zh else 'Confidence',
-        'reasoning': '分析摘要' if is_zh else 'Summary',
-        'trader_report': '📋 交易员详细评估' if is_zh else '📋 Trader Analysis',
-        'risk_report': '⚠️ 风险评估' if is_zh else '⚠️ Risk Assessment',
-        'overview_report': '📊 市场概览' if is_zh else '📊 Market Overview',
-        'click_expand': '点击展开详情' if is_zh else 'Click to expand',
-        'user_focus': '👤 用户关注点' if is_zh else '👤 User Focus',
-        'generated_at': '报告生成时间' if is_zh else 'Generated at',
-        'disclaimer': '本报告仅供参考，不构成投资建议。' if is_zh else 'For reference only. Not investment advice.',
-        'analysis_failed': '分析失败' if is_zh else 'Analysis failed'
+        "title": "投资组合AI分析报告" if is_zh else "Portfolio AI Analysis Report",
+        "subtitle": "由 QuantDinger AI 快速分析引擎生成"
+        if is_zh
+        else "Generated by QuantDinger Fast AI Analysis Engine",
+        "overview": "组合概览" if is_zh else "Portfolio Overview",
+        "positions": "持仓数量" if is_zh else "Positions",
+        "total_value": "总市值" if is_zh else "Total Value",
+        "total_cost": "总成本" if is_zh else "Total Cost",
+        "total_pnl": "总盈亏" if is_zh else "Total P&L",
+        "ai_recommendations": "🤖 AI智能分析建议" if is_zh else "🤖 AI Recommendations",
+        "buy": "买入" if is_zh else "Buy",
+        "sell": "卖出" if is_zh else "Sell",
+        "hold": "持有" if is_zh else "Hold",
+        "position_analysis": "📈 各持仓详细分析" if is_zh else "📈 Position Analysis",
+        "current_price": "当前价格" if is_zh else "Current",
+        "entry_price": "买入价" if is_zh else "Entry",
+        "pnl": "盈亏" if is_zh else "P&L",
+        "quantity": "数量" if is_zh else "Qty",
+        "side": "方向" if is_zh else "Side",
+        "long": "做多" if is_zh else "Long",
+        "short": "做空" if is_zh else "Short",
+        "ai_decision": "AI决策" if is_zh else "AI Decision",
+        "confidence": "置信度" if is_zh else "Confidence",
+        "reasoning": "分析摘要" if is_zh else "Summary",
+        "trader_report": "📋 交易员详细评估" if is_zh else "📋 Trader Analysis",
+        "risk_report": "⚠️ 风险评估" if is_zh else "⚠️ Risk Assessment",
+        "overview_report": "📊 市场概览" if is_zh else "📊 Market Overview",
+        "click_expand": "点击展开详情" if is_zh else "Click to expand",
+        "user_focus": "👤 用户关注点" if is_zh else "👤 User Focus",
+        "generated_at": "报告生成时间" if is_zh else "Generated at",
+        "disclaimer": "本报告仅供参考，不构成投资建议。" if is_zh else "For reference only. Not investment advice.",
+        "analysis_failed": "分析失败" if is_zh else "Analysis failed",
     }
-    
+
     # CSS Styles
-    css = '''
+    css = """
     <style>
         .qd-report { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; }
         .qd-report * { box-sizing: border-box; }
@@ -528,78 +536,78 @@ def _build_html_report(
             .qd-pos-stats { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
-    '''
-    
+    """
+
     # Build HTML
-    pnl_class = 'positive' if total_pnl >= 0 else 'negative'
-    pnl_sign = '+' if total_pnl >= 0 else ''
-    
-    html = f'''
+    pnl_class = "positive" if total_pnl >= 0 else "negative"
+    pnl_sign = "+" if total_pnl >= 0 else ""
+
+    html = f"""
     {css}
     <div class="qd-report">
         <div class="qd-header">
-            <h1>{texts['title']}</h1>
-            <div class="subtitle">{texts['subtitle']}</div>
+            <h1>{texts["title"]}</h1>
+            <div class="subtitle">{texts["subtitle"]}</div>
         </div>
         <div class="qd-content">
             <!-- Overview Section -->
             <div class="qd-section">
-                <h2 class="qd-section-title">{texts['overview']}</h2>
+                <h2 class="qd-section-title">{texts["overview"]}</h2>
                 <div class="qd-overview-grid">
                     <div class="qd-stat-card">
-                        <div class="label">{texts['positions']}</div>
+                        <div class="label">{texts["positions"]}</div>
                         <div class="value">{len(positions)}</div>
                     </div>
                     <div class="qd-stat-card">
-                        <div class="label">{texts['total_value']}</div>
+                        <div class="label">{texts["total_value"]}</div>
                         <div class="value">${total_market_value:,.2f}</div>
                     </div>
                     <div class="qd-stat-card">
-                        <div class="label">{texts['total_cost']}</div>
+                        <div class="label">{texts["total_cost"]}</div>
                         <div class="value">${total_cost:,.2f}</div>
                     </div>
                     <div class="qd-stat-card">
-                        <div class="label">{texts['total_pnl']}</div>
+                        <div class="label">{texts["total_pnl"]}</div>
                         <div class="value {pnl_class}">{pnl_sign}${total_pnl:,.2f}<span class="percent">({pnl_sign}{total_pnl_percent:.1f}%)</span></div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- AI Recommendations Section -->
             <div class="qd-section">
-                <h2 class="qd-section-title">{texts['ai_recommendations']}</h2>
+                <h2 class="qd-section-title">{texts["ai_recommendations"]}</h2>
                 <div class="qd-rec-grid">
                     <div class="qd-rec-card buy">
                         <div class="emoji">🟢</div>
                         <div class="count">{buy_count}</div>
-                        <div class="label">{texts['buy']}</div>
+                        <div class="label">{texts["buy"]}</div>
                     </div>
                     <div class="qd-rec-card sell">
                         <div class="emoji">🔴</div>
                         <div class="count">{sell_count}</div>
-                        <div class="label">{texts['sell']}</div>
+                        <div class="label">{texts["sell"]}</div>
                     </div>
                     <div class="qd-rec-card hold">
                         <div class="emoji">🟡</div>
                         <div class="count">{hold_count}</div>
-                        <div class="label">{texts['hold']}</div>
+                        <div class="label">{texts["hold"]}</div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- Position Analysis Section -->
             <div class="qd-section">
-                <h2 class="qd-section-title">{texts['position_analysis']}</h2>
-    '''
-    
+                <h2 class="qd-section-title">{texts["position_analysis"]}</h2>
+    """
+
     for pa in position_analyses:
-        symbol = pa.get('symbol', '')
-        name = pa.get('name', symbol)
-        market = pa.get('market', '')
-        group_name = pa.get('group_name', '')
-        
-        if pa.get('error'):
-            html += f'''
+        symbol = pa.get("symbol", "")
+        name = pa.get("name", symbol)
+        market = pa.get("market", "")
+        group_name = pa.get("group_name", "")
+
+        if pa.get("error"):
+            html += f"""
                 <div class="qd-position">
                     <div class="qd-pos-header">
                         <div class="qd-pos-symbol">
@@ -610,33 +618,33 @@ def _build_html_report(
                             </div>
                         </div>
                     </div>
-                    <div class="qd-error" style="margin: 16px;">{texts['analysis_failed']}: {pa.get('error')}</div>
+                    <div class="qd-error" style="margin: 16px;">{texts["analysis_failed"]}: {pa.get("error")}</div>
                 </div>
-            '''
+            """
             continue
-        
-        decision = pa.get('final_decision', 'HOLD')
+
+        decision = pa.get("final_decision", "HOLD")
         decision_lower = decision.lower()
         decision_text = texts.get(decision_lower, decision)
-        confidence = pa.get('confidence', 50)
-        
-        current_price = pa.get('current_price', 0)
-        entry_price = pa.get('entry_price', 0)
-        pnl = pa.get('pnl', 0)
-        pnl_pct = pa.get('pnl_percent', 0)
-        quantity = pa.get('quantity', 0)
-        side = pa.get('side', 'long')
-        side_text = texts['long'] if side == 'long' else texts['short']
-        
-        pnl_class = 'positive' if pnl >= 0 else 'negative'
-        pnl_sign = '+' if pnl >= 0 else ''
-        
-        reasoning = pa.get('reasoning', '')
-        trader_reasoning = pa.get('trader_reasoning', '')
-        overview_report = pa.get('overview_report', '')
-        risk_report = pa.get('risk_report', '')
-        
-        html += f'''
+        confidence = pa.get("confidence", 50)
+
+        current_price = pa.get("current_price", 0)
+        entry_price = pa.get("entry_price", 0)
+        pnl = pa.get("pnl", 0)
+        pnl_pct = pa.get("pnl_percent", 0)
+        quantity = pa.get("quantity", 0)
+        side = pa.get("side", "long")
+        side_text = texts["long"] if side == "long" else texts["short"]
+
+        pnl_class = "positive" if pnl >= 0 else "negative"
+        pnl_sign = "+" if pnl >= 0 else ""
+
+        reasoning = pa.get("reasoning", "")
+        trader_reasoning = pa.get("trader_reasoning", "")
+        overview_report = pa.get("overview_report", "")
+        risk_report = pa.get("risk_report", "")
+
+        html += f"""
                 <div class="qd-position">
                     <div class="qd-pos-header">
                         <div class="qd-pos-symbol">
@@ -648,41 +656,41 @@ def _build_html_report(
                         </div>
                         <div class="qd-pos-decision">
                             <div class="decision-tag {decision_lower}">{decision_text}</div>
-                            <div class="confidence">{texts['confidence']}: {confidence}%</div>
+                            <div class="confidence">{texts["confidence"]}: {confidence}%</div>
                         </div>
                     </div>
                     <div class="qd-pos-stats">
                         <div class="stat">
-                            <div class="label">{texts['current_price']}</div>
+                            <div class="label">{texts["current_price"]}</div>
                             <div class="value">${current_price:.4f}</div>
                         </div>
                         <div class="stat">
-                            <div class="label">{texts['entry_price']}</div>
+                            <div class="label">{texts["entry_price"]}</div>
                             <div class="value">${entry_price:.4f}</div>
                         </div>
                         <div class="stat">
-                            <div class="label">{texts['pnl']}</div>
+                            <div class="label">{texts["pnl"]}</div>
                             <div class="value {pnl_class}">{pnl_sign}${pnl:.2f} ({pnl_sign}{pnl_pct:.1f}%)</div>
                         </div>
                         <div class="stat">
-                            <div class="label">{texts['quantity']} / {texts['side']}</div>
+                            <div class="label">{texts["quantity"]} / {texts["side"]}</div>
                             <div class="value">{quantity} / {side_text}</div>
                         </div>
                     </div>
-        '''
-        
+        """
+
         # Reasoning summary
         if reasoning:
-            html += f'''
+            html += f"""
                     <div class="qd-pos-reasoning">
-                        <div class="label">{texts['reasoning']}</div>
-                        <div class="text">{reasoning[:500]}{'...' if len(reasoning) > 500 else ''}</div>
+                        <div class="label">{texts["reasoning"]}</div>
+                        <div class="text">{reasoning[:500]}{"..." if len(reasoning) > 500 else ""}</div>
                     </div>
-            '''
-        
+            """
+
         # Generate unique ID for collapsible sections (use symbol hash to avoid special chars)
         section_id_base = hashlib.md5(f"{symbol}_{market}_{group_name}".encode()).hexdigest()[:8]
-        
+
         # Collapsible: Trader Analysis
         if trader_reasoning:
             trader_id = f"trader_{section_id_base}"
@@ -690,13 +698,13 @@ def _build_html_report(
                     <div class="qd-collapsible">
                         <input type="checkbox" id="{trader_id}">
                         <label for="{trader_id}" class="qd-collapsible-header">
-                            <span class="title">{texts['trader_report']}</span>
+                            <span class="title">{texts["trader_report"]}</span>
                             <span class="arrow">▼</span>
                         </label>
-                        <div class="qd-collapsible-content">{trader_reasoning.replace(chr(10), '<br>')}</div>
+                        <div class="qd-collapsible-content">{trader_reasoning.replace(chr(10), "<br>")}</div>
                     </div>
             '''
-        
+
         # Collapsible: Market Overview
         if overview_report:
             overview_id = f"overview_{section_id_base}"
@@ -704,13 +712,13 @@ def _build_html_report(
                     <div class="qd-collapsible">
                         <input type="checkbox" id="{overview_id}">
                         <label for="{overview_id}" class="qd-collapsible-header">
-                            <span class="title">{texts['overview_report']}</span>
+                            <span class="title">{texts["overview_report"]}</span>
                             <span class="arrow">▼</span>
                         </label>
-                        <div class="qd-collapsible-content">{overview_report.replace(chr(10), '<br>')}</div>
+                        <div class="qd-collapsible-content">{overview_report.replace(chr(10), "<br>")}</div>
                     </div>
             '''
-        
+
         # Collapsible: Risk Assessment
         if risk_report:
             risk_id = f"risk_{section_id_base}"
@@ -718,45 +726,42 @@ def _build_html_report(
                     <div class="qd-collapsible">
                         <input type="checkbox" id="{risk_id}">
                         <label for="{risk_id}" class="qd-collapsible-header">
-                            <span class="title">{texts['risk_report']}</span>
+                            <span class="title">{texts["risk_report"]}</span>
                             <span class="arrow">▼</span>
                         </label>
-                        <div class="qd-collapsible-content">{risk_report.replace(chr(10), '<br>')}</div>
+                        <div class="qd-collapsible-content">{risk_report.replace(chr(10), "<br>")}</div>
                     </div>
             '''
-        
-        html += '''
+
+        html += """
                 </div>
-        '''
-    
+        """
+
     # User focus section
     if custom_prompt:
-        html += f'''
+        html += f"""
             </div>
             <div class="qd-section">
-                <h2 class="qd-section-title">{texts['user_focus']}</h2>
+                <h2 class="qd-section-title">{texts["user_focus"]}</h2>
                 <div class="qd-user-focus">{custom_prompt}</div>
-        '''
-    
+        """
+
     # Footer
-    html += f'''
+    html += f"""
             </div>
             <div class="qd-footer">
-                <div class="time">{texts['generated_at']}: {time.strftime('%Y-%m-%d %H:%M:%S')}</div>
-                <div class="disclaimer">{texts['disclaimer']}</div>
+                <div class="time">{texts["generated_at"]}: {time.strftime("%Y-%m-%d %H:%M:%S")}</div>
+                <div class="disclaimer">{texts["disclaimer"]}</div>
             </div>
         </div>
     </div>
-    '''
-    
+    """
+
     return html
 
 
 def _build_telegram_report(
-    positions: List[Dict[str, Any]],
-    position_analyses: List[Dict[str, Any]],
-    language: str,
-    custom_prompt: str = ''
+    positions: List[Dict[str, Any]], position_analyses: List[Dict[str, Any]], language: str, custom_prompt: str = ""
 ) -> str:
     """Build a concise report suitable for Telegram (HTML format).
 
@@ -765,22 +770,22 @@ def _build_telegram_report(
     """
 
     def _has_holding(pa: Dict[str, Any]) -> bool:
-        return float(pa.get('quantity') or 0) > 0 and float(pa.get('entry_price') or 0) > 0
+        return float(pa.get("quantity") or 0) > 0 and float(pa.get("entry_price") or 0) > 0
 
-    held = [p for p in position_analyses if _has_holding(p) and not p.get('error')]
-    watched = [p for p in position_analyses if not _has_holding(p) and not p.get('error')]
-    errored = [p for p in position_analyses if p.get('error')]
+    held = [p for p in position_analyses if _has_holding(p) and not p.get("error")]
+    watched = [p for p in position_analyses if not _has_holding(p) and not p.get("error")]
+    errored = [p for p in position_analyses if p.get("error")]
 
-    total_cost = sum(float(p.get('entry_price', 0)) * float(p.get('quantity', 0)) for p in held)
-    total_pnl = sum(float(p.get('pnl', 0)) for p in held)
+    total_cost = sum(float(p.get("entry_price", 0)) * float(p.get("quantity", 0)) for p in held)
+    total_pnl = sum(float(p.get("pnl", 0)) for p in held)
     total_pnl_pct = round(total_pnl / total_cost * 100, 2) if total_cost > 0 else 0
-    pnl_sign = '+' if total_pnl >= 0 else ''
+    pnl_sign = "+" if total_pnl >= 0 else ""
 
-    buy_count = len([p for p in position_analyses if p.get('final_decision') == 'BUY'])
-    sell_count = len([p for p in position_analyses if p.get('final_decision') == 'SELL'])
-    hold_count = len([p for p in position_analyses if p.get('final_decision') == 'HOLD'])
+    buy_count = len([p for p in position_analyses if p.get("final_decision") == "BUY"])
+    sell_count = len([p for p in position_analyses if p.get("final_decision") == "SELL"])
+    hold_count = len([p for p in position_analyses if p.get("final_decision") == "HOLD"])
 
-    is_zh = language.startswith('zh')
+    is_zh = language.startswith("zh")
 
     # ── Header / Overview ──
     if is_zh:
@@ -793,11 +798,13 @@ def _build_telegram_report(
         if watched:
             overview.append(f"• Observations: {len(watched)}")
         lines.extend(overview)
-        lines.extend([
-            "",
-            "<b>🤖 Summary of AI suggestions</b>",
-            f"🟢 Buy: {buy_count} | 🔴 Sell: {sell_count} | 🟡 Hold: {hold_count}",
-        ])
+        lines.extend(
+            [
+                "",
+                "<b>🤖 Summary of AI suggestions</b>",
+                f"🟢 Buy: {buy_count} | 🔴 Sell: {sell_count} | 🟡 Hold: {hold_count}",
+            ]
+        )
     else:
         lines = ["<b>📊 AI Asset Analysis Report</b>", ""]
         overview = ["<b>📈 Overview</b>"]
@@ -808,24 +815,26 @@ def _build_telegram_report(
         if watched:
             overview.append(f"• Watchlist: {len(watched)}")
         lines.extend(overview)
-        lines.extend([
-            "",
-            "<b>🤖 AI Recommendations</b>",
-            f"🟢 Buy: {buy_count} | 🔴 Sell: {sell_count} | 🟡 Hold: {hold_count}",
-        ])
+        lines.extend(
+            [
+                "",
+                "<b>🤖 AI Recommendations</b>",
+                f"🟢 Buy: {buy_count} | 🔴 Sell: {sell_count} | 🟡 Hold: {hold_count}",
+            ]
+        )
 
     # ── Helper: render one analysis entry ──
     def _render_pa(pa: Dict[str, Any], show_pnl: bool) -> None:
-        decision = pa.get('final_decision', 'HOLD')
-        emoji = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'}.get(decision, '⚪')
+        decision = pa.get("final_decision", "HOLD")
+        emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "🟡"}.get(decision, "⚪")
         d_text = decision
         if is_zh:
-            d_text = {'BUY': 'Buy', 'SELL': 'Sell', 'HOLD': 'Hold'}.get(decision, 'Hold')
+            d_text = {"BUY": "Buy", "SELL": "Sell", "HOLD": "Hold"}.get(decision, "Hold")
         lines.append(f"\n{emoji} <b>{pa.get('name', pa.get('symbol'))}</b> ({pa.get('market')}/{pa.get('symbol')})")
         if show_pnl:
-            pnl = pa.get('pnl', 0)
-            pnl_pct = pa.get('pnl_percent', 0)
-            ps = '+' if pnl >= 0 else ''
+            pnl = pa.get("pnl", 0)
+            pnl_pct = pa.get("pnl_percent", 0)
+            ps = "+" if pnl >= 0 else ""
             lines.append(
                 f"   💰 ${pa.get('current_price', 0):,.2f} | "
                 f"{'profit and loss' if is_zh else 'P&L'}: {ps}${pnl:,.2f} ({ps}{pnl_pct:.1f}%)"
@@ -836,7 +845,7 @@ def _build_telegram_report(
             f"   🎯 {'建议' if is_zh else 'Rec'}: <b>{d_text}</b> "
             f"({'confidence' if is_zh else 'Conf'}: {pa.get('confidence', 50)}%)"
         )
-        reasoning = pa.get('reasoning', '')
+        reasoning = pa.get("reasoning", "")
         if reasoning:
             lines.append(f"   📝 {reasoning[:150]}{'...' if len(reasoning) > 150 else ''}")
 
@@ -854,20 +863,22 @@ def _build_telegram_report(
 
     # ── Errors ──
     for pa in errored:
-        label = pa.get('name') or pa.get('symbol') or '?'
+        label = pa.get("name") or pa.get("symbol") or "?"
         lines.append(f"\n⚠️ <b>{label}</b>: {'Analysis failed' if is_zh else 'Analysis failed'}")
 
     if custom_prompt:
         lines.extend(["", f"<b>👤 {'关注点' if is_zh else 'Focus'}:</b> {custom_prompt}"])
 
-    lines.extend([
-        "",
-        "─────────────────────",
-        f"<i>⏰ {time.strftime('%Y-%m-%d %H:%M')}</i>",
-        f"<i>{'Generated by QuantDinger Multi-Agent System' if is_zh else 'Generated by QuantDinger Multi-Agent System'}</i>",
-    ])
+    lines.extend(
+        [
+            "",
+            "─────────────────────",
+            f"<i>⏰ {time.strftime('%Y-%m-%d %H:%M')}</i>",
+            f"<i>{'Generated by QuantDinger Multi-Agent System' if is_zh else 'Generated by QuantDinger Multi-Agent System'}</i>",
+        ]
+    )
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def _build_batch_telegram_report(
@@ -875,37 +886,37 @@ def _build_batch_telegram_report(
     language: str,
 ) -> str:
     """Build a single Telegram report that combines multiple monitor results."""
-    is_zh = language.startswith('zh')
+    is_zh = language.startswith("zh")
 
     def _has_holding(pa: Dict[str, Any]) -> bool:
-        return float(pa.get('quantity') or 0) > 0 and float(pa.get('entry_price') or 0) > 0
+        return float(pa.get("quantity") or 0) > 0 and float(pa.get("entry_price") or 0) > 0
 
     all_analyses: List[Dict[str, Any]] = []
     monitor_sections: List[str] = []
 
     for res in monitor_results:
-        meta = res.get('_meta', {})
-        m_name = meta.get('monitor_name', '?')
-        m_analyses = meta.get('position_analyses', [])
+        meta = res.get("_meta", {})
+        m_name = meta.get("monitor_name", "?")
+        m_analyses = meta.get("position_analyses", [])
         all_analyses.extend(m_analyses)
 
         section_lines: List[str] = [f"\n<b>📋 {m_name}</b>"]
         for pa in m_analyses:
-            if pa.get('error'):
-                label = pa.get('name') or pa.get('symbol') or '?'
+            if pa.get("error"):
+                label = pa.get("name") or pa.get("symbol") or "?"
                 section_lines.append(f" ⚠️ {label}: {'Analysis failed' if is_zh else 'Failed'}")
                 continue
-            decision = pa.get('final_decision', 'HOLD')
-            emoji = {'BUY': '🟢', 'SELL': '🔴', 'HOLD': '🟡'}.get(decision, '⚪')
-            d_text = ({'BUY': 'Buy', 'SELL': 'Sell', 'HOLD': 'Hold'}.get(decision, 'Hold')) if is_zh else decision
-            cur_price = pa.get('current_price', 0)
+            decision = pa.get("final_decision", "HOLD")
+            emoji = {"BUY": "🟢", "SELL": "🔴", "HOLD": "🟡"}.get(decision, "⚪")
+            d_text = ({"BUY": "Buy", "SELL": "Sell", "HOLD": "Hold"}.get(decision, "Hold")) if is_zh else decision
+            cur_price = pa.get("current_price", 0)
             section_lines.append(
                 f"{emoji} <b>{pa.get('name', pa.get('symbol'))}</b> ({pa.get('market')}/{pa.get('symbol')})"
             )
             if _has_holding(pa):
-                pnl = pa.get('pnl', 0)
-                pnl_s = '+' if pnl >= 0 else ''
-                pnl_pct = pa.get('pnl_percent', 0)
+                pnl = pa.get("pnl", 0)
+                pnl_s = "+" if pnl >= 0 else ""
+                pnl_pct = pa.get("pnl_percent", 0)
                 section_lines.append(
                     f"   💰 ${cur_price:,.2f} | {'盈亏' if is_zh else 'P&L'}: {pnl_s}${pnl:,.2f} ({pnl_s}{pnl_pct:.1f}%)"
                 )
@@ -915,20 +926,20 @@ def _build_batch_telegram_report(
                 f"   🎯 {'建议' if is_zh else 'Rec'}: <b>{d_text}</b> "
                 f"({'confidence' if is_zh else 'Conf'}: {pa.get('confidence', 50)}%)"
             )
-            reasoning = pa.get('reasoning', '')
+            reasoning = pa.get("reasoning", "")
             if reasoning:
                 section_lines.append(f"   📝 {reasoning[:120]}{'...' if len(reasoning) > 120 else ''}")
-        monitor_sections.append('\n'.join(section_lines))
+        monitor_sections.append("\n".join(section_lines))
 
-    held = [a for a in all_analyses if _has_holding(a) and not a.get('error')]
-    watched = [a for a in all_analyses if not _has_holding(a) and not a.get('error')]
-    total_cost = sum(float(a.get('entry_price', 0)) * float(a.get('quantity', 0)) for a in held)
-    total_pnl = sum(float(a.get('pnl', 0)) for a in held)
+    held = [a for a in all_analyses if _has_holding(a) and not a.get("error")]
+    watched = [a for a in all_analyses if not _has_holding(a) and not a.get("error")]
+    total_cost = sum(float(a.get("entry_price", 0)) * float(a.get("quantity", 0)) for a in held)
+    total_pnl = sum(float(a.get("pnl", 0)) for a in held)
     total_pnl_pct = round(total_pnl / total_cost * 100, 2) if total_cost else 0
-    pnl_sign = '+' if total_pnl >= 0 else ''
-    buy_c = len([a for a in all_analyses if a.get('final_decision') == 'BUY'])
-    sell_c = len([a for a in all_analyses if a.get('final_decision') == 'SELL'])
-    hold_c = len([a for a in all_analyses if a.get('final_decision') == 'HOLD'])
+    pnl_sign = "+" if total_pnl >= 0 else ""
+    buy_c = len([a for a in all_analyses if a.get("final_decision") == "BUY"])
+    sell_c = len([a for a in all_analyses if a.get("final_decision") == "SELL"])
+    hold_c = len([a for a in all_analyses if a.get("final_decision") == "HOLD"])
 
     if is_zh:
         header = [
@@ -939,14 +950,18 @@ def _build_batch_telegram_report(
             f"• Number of targets: {len(all_analyses)}",
         ]
         if held:
-            header.append(f"• Positions: {len(held)} | Total cost: ${total_cost:,.2f} | Profit and loss: {pnl_sign}${total_pnl:,.2f} ({pnl_sign}{total_pnl_pct:.1f}%)")
+            header.append(
+                f"• Positions: {len(held)} | Total cost: ${total_cost:,.2f} | Profit and loss: {pnl_sign}${total_pnl:,.2f} ({pnl_sign}{total_pnl_pct:.1f}%)"
+            )
         if watched:
             header.append(f"• Observations: {len(watched)}")
-        header.extend([
-            "",
-            "<b>🤖 Summary of AI suggestions</b>",
-            f"🟢 Buy: {buy_c} | 🔴 Sell: {sell_c} | 🟡 Hold: {hold_c}",
-        ])
+        header.extend(
+            [
+                "",
+                "<b>🤖 Summary of AI suggestions</b>",
+                f"🟢 Buy: {buy_c} | 🔴 Sell: {sell_c} | 🟡 Hold: {hold_c}",
+            ]
+        )
     else:
         header = [
             "<b>📊 Scheduled Portfolio Report</b>",
@@ -956,14 +971,18 @@ def _build_batch_telegram_report(
             f"• Symbols: {len(all_analyses)}",
         ]
         if held:
-            header.append(f"• Holdings: {len(held)} | Cost: ${total_cost:,.2f} | P&L: {pnl_sign}${total_pnl:,.2f} ({pnl_sign}{total_pnl_pct:.1f}%)")
+            header.append(
+                f"• Holdings: {len(held)} | Cost: ${total_cost:,.2f} | P&L: {pnl_sign}${total_pnl:,.2f} ({pnl_sign}{total_pnl_pct:.1f}%)"
+            )
         if watched:
             header.append(f"• Watchlist: {len(watched)}")
-        header.extend([
-            "",
-            "<b>🤖 AI Recommendations</b>",
-            f"🟢 Buy: {buy_c} | 🔴 Sell: {sell_c} | 🟡 Hold: {hold_c}",
-        ])
+        header.extend(
+            [
+                "",
+                "<b>🤖 AI Recommendations</b>",
+                f"🟢 Buy: {buy_c} | 🔴 Sell: {sell_c} | 🟡 Hold: {hold_c}",
+            ]
+        )
 
     footer = [
         "",
@@ -972,7 +991,7 @@ def _build_batch_telegram_report(
         f"<i>{'Generated by QuantDinger Multi-Agent System' if is_zh else 'Generated by QuantDinger Multi-Agent System'}</i>",
     ]
 
-    return '\n'.join(header + monitor_sections + footer)
+    return "\n".join(header + monitor_sections + footer)
 
 
 def _build_batch_html_report(
@@ -982,11 +1001,11 @@ def _build_batch_html_report(
     """Build a combined HTML report for browser / email channel."""
     parts: List[str] = []
     for res in monitor_results:
-        report = res.get('analysis', '')
+        report = res.get("analysis", "")
         if report:
             parts.append(report)
     if not parts:
-        return ''
+        return ""
     if len(parts) == 1:
         return parts[0]
     divider = '<hr style="border:none;border-top:1px solid #e8e8e8;margin:24px 0;">'
@@ -1001,31 +1020,31 @@ def _send_batch_notification(
     if not monitor_results:
         return
 
-    successful = [r for r in monitor_results if r.get('success')]
+    successful = [r for r in monitor_results if r.get("success")]
     if not successful:
         for r in monitor_results:
-            meta = r.get('_meta', {})
+            meta = r.get("_meta", {})
             _send_monitor_notification(
-                monitor_name=meta.get('monitor_name', '?'),
+                monitor_name=meta.get("monitor_name", "?"),
                 result=r,
-                notification_config=meta.get('notification_config', {}),
-                positions=meta.get('positions', []),
-                position_analyses=meta.get('position_analyses', []),
-                language=meta.get('language', 'en-US'),
-                custom_prompt=meta.get('custom_prompt', ''),
+                notification_config=meta.get("notification_config", {}),
+                positions=meta.get("positions", []),
+                position_analyses=meta.get("position_analyses", []),
+                language=meta.get("language", "en-US"),
+                custom_prompt=meta.get("custom_prompt", ""),
                 user_id=user_id,
             )
         return
 
-    first_meta = successful[0].get('_meta', {})
-    language = first_meta.get('language', 'en-US')
+    first_meta = successful[0].get("_meta", {})
+    language = first_meta.get("language", "en-US")
 
     # Merge channels from all monitors (union)
     all_channels: set = set()
     for r in successful:
-        m = r.get('_meta', {})
-        nc = m.get('notification_config', {})
-        chs = nc.get('channels')
+        m = r.get("_meta", {})
+        nc = m.get("notification_config", {})
+        chs = nc.get("channels")
         if isinstance(chs, str):
             chs = [chs]
         elif not isinstance(chs, list):
@@ -1034,18 +1053,18 @@ def _send_batch_notification(
             if c:
                 all_channels.add(str(c).strip().lower())
     if not all_channels:
-        all_channels = {'browser'}
+        all_channels = {"browser"}
 
-    merged_nc = {'channels': list(all_channels), 'targets': {}}
+    merged_nc = {"channels": list(all_channels), "targets": {}}
     resolved_nc = _resolve_notification_delivery(user_id, merged_nc)
-    channels = resolved_nc.get('channels') or ['browser']
-    targets = resolved_nc.get('targets', {})
+    channels = resolved_nc.get("channels") or ["browser"]
+    targets = resolved_nc.get("targets", {})
 
-    is_zh = language.startswith('zh')
-    names = ', '.join(r.get('_meta', {}).get('monitor_name', '?') for r in successful)
+    is_zh = language.startswith("zh")
+    names = ", ".join(r.get("_meta", {}).get("monitor_name", "?") for r in successful)
     title = f"📊 Scheduled Asset Monitoring: {names}" if is_zh else f"📊 Scheduled Report: {names}"
     if len(title) > 255:
-        title = title[:252] + '...'
+        title = title[:252] + "..."
 
     html_report = _build_batch_html_report(successful, language)
     telegram_report = _build_batch_telegram_report(successful, language)
@@ -1055,7 +1074,7 @@ def _send_batch_notification(
         for channel in channels:
             try:
                 ch = str(channel).strip().lower()
-                if ch == 'browser':
+                if ch == "browser":
                     with get_db_connection() as db:
                         cur = db.cursor()
                         cur.execute(
@@ -1064,34 +1083,48 @@ def _send_batch_notification(
                             (user_id, strategy_id, symbol, signal_type, channels, title, message, payload_json, created_at)
                             VALUES (?, NULL, ?, ?, ?, ?, ?, ?, NOW())
                             """,
-                            (user_id, 'PORTFOLIO', 'ai_monitor', 'browser', title, html_report,
-                             json.dumps({'batch': True, 'count': len(successful)}, ensure_ascii=False, default=str)),
+                            (
+                                user_id,
+                                "PORTFOLIO",
+                                "ai_monitor",
+                                "browser",
+                                title,
+                                html_report,
+                                json.dumps({"batch": True, "count": len(successful)}, ensure_ascii=False, default=str),
+                            ),
                         )
                         db.commit()
                         cur.close()
-                elif ch == 'telegram':
-                    chat_id = targets.get('telegram', '')
-                    token_override = targets.get('telegram_bot_token', '')
+                elif ch == "telegram":
+                    chat_id = targets.get("telegram", "")
+                    token_override = targets.get("telegram_bot_token", "")
                     if chat_id:
                         notifier._notify_telegram(
-                            chat_id=chat_id, text=telegram_report,
-                            token_override=token_override, parse_mode="HTML",
+                            chat_id=chat_id,
+                            text=telegram_report,
+                            token_override=token_override,
+                            parse_mode="HTML",
                         )
-                elif ch == 'email':
-                    to_email = targets.get('email', '')
+                elif ch == "email":
+                    to_email = targets.get("email", "")
                     if to_email:
                         notifier._notify_email(
-                            to_email=to_email, subject=title,
-                            body_text=html_report, body_html=html_report,
+                            to_email=to_email,
+                            subject=title,
+                            body_text=html_report,
+                            body_html=html_report,
                         )
-                elif ch == 'webhook':
-                    url = targets.get('webhook', '')
+                elif ch == "webhook":
+                    url = targets.get("webhook", "")
                     if url:
-                        notifier._notify_webhook(url=url, payload={
-                            'type': 'portfolio_monitor_batch',
-                            'monitors': [r.get('_meta', {}).get('monitor_name') for r in successful],
-                            'html_report': html_report,
-                        })
+                        notifier._notify_webhook(
+                            url=url,
+                            payload={
+                                "type": "portfolio_monitor_batch",
+                                "monitors": [r.get("_meta", {}).get("monitor_name") for r in successful],
+                                "html_report": html_report,
+                            },
+                        )
             except Exception as e:
                 logger.warning(f"Batch notification channel {channel} failed: {e}")
     except Exception as e:
@@ -1104,9 +1137,9 @@ def _send_monitor_notification(
     notification_config: Dict[str, Any],
     positions: List[Dict[str, Any]] = None,
     position_analyses: List[Dict[str, Any]] = None,
-    language: str = 'en-US',
-    custom_prompt: str = '',
-    user_id: int = None
+    language: str = "en-US",
+    custom_prompt: str = "",
+    user_id: int = None,
 ) -> None:
     """Send notification with analysis result using appropriate format for each channel."""
     try:
@@ -1114,23 +1147,35 @@ def _send_monitor_notification(
         effective_user_id = user_id if user_id is not None else DEFAULT_USER_ID
         notification_config = _resolve_notification_delivery(effective_user_id, notification_config)
 
-        channels = notification_config.get('channels') or ['browser']
-        targets = notification_config.get('targets', {})
+        channels = notification_config.get("channels") or ["browser"]
+        targets = notification_config.get("targets", {})
 
-        title = f"📊 Asset Monitor: {monitor_name}" if language.startswith('zh') else f"📊 Portfolio Monitor: {monitor_name}"
+        title = (
+            f"📊 Asset Monitor: {monitor_name}"
+            if language.startswith("zh")
+            else f"📊 Portfolio Monitor: {monitor_name}"
+        )
         if len(title) > 255:
-            title = title[:252] + '...'
-        
-        if not result.get('success'):
-            error_title = f"⚠️ Asset monitoring failed: {monitor_name}" if language.startswith('zh') else f"⚠️ Monitor Failed: {monitor_name}"
+            title = title[:252] + "..."
+
+        if not result.get("success"):
+            error_title = (
+                f"⚠️ Asset monitoring failed: {monitor_name}"
+                if language.startswith("zh")
+                else f"⚠️ Monitor Failed: {monitor_name}"
+            )
             if len(error_title) > 255:
-                error_title = error_title[:252] + '...'
-            error_msg = f"分析失败: {result.get('error', 'Unknown error')}" if language.startswith('zh') else f"Analysis failed: {result.get('error', 'Unknown error')}"
-            
+                error_title = error_title[:252] + "..."
+            error_msg = (
+                f"分析失败: {result.get('error', 'Unknown error')}"
+                if language.startswith("zh")
+                else f"Analysis failed: {result.get('error', 'Unknown error')}"
+            )
+
             for channel in channels:
                 try:
                     ch = str(channel).strip().lower()
-                    if ch == 'browser':
+                    if ch == "browser":
                         with get_db_connection() as db:
                             cur = db.cursor()
                             cur.execute(
@@ -1139,44 +1184,57 @@ def _send_monitor_notification(
                                 (user_id, strategy_id, symbol, signal_type, channels, title, message, payload_json, created_at)
                                 VALUES (?, NULL, ?, ?, ?, ?, ?, ?, NOW())
                                 """,
-                                (effective_user_id, 'PORTFOLIO', 'ai_monitor', 'browser', error_title, error_msg,
-                                 json.dumps(result, ensure_ascii=False, default=str))
+                                (
+                                    effective_user_id,
+                                    "PORTFOLIO",
+                                    "ai_monitor",
+                                    "browser",
+                                    error_title,
+                                    error_msg,
+                                    json.dumps(result, ensure_ascii=False, default=str),
+                                ),
                             )
                             db.commit()
                             cur.close()
-                    elif ch == 'telegram':
-                        chat_id = targets.get('telegram', '')
-                        token_override = targets.get('telegram_bot_token', '')
+                    elif ch == "telegram":
+                        chat_id = targets.get("telegram", "")
+                        token_override = targets.get("telegram_bot_token", "")
                         if chat_id:
-                            notifier._notify_telegram(chat_id=chat_id, text=f"<b>{error_title}</b>\n\n{error_msg}", token_override=token_override, parse_mode="HTML")
-                    elif ch == 'email':
-                        to_email = targets.get('email', '')
+                            notifier._notify_telegram(
+                                chat_id=chat_id,
+                                text=f"<b>{error_title}</b>\n\n{error_msg}",
+                                token_override=token_override,
+                                parse_mode="HTML",
+                            )
+                    elif ch == "email":
+                        to_email = targets.get("email", "")
                         if to_email:
                             notifier._notify_email(to_email=to_email, subject=error_title, body_text=error_msg)
                 except Exception as e:
                     logger.warning(f"Failed to send error notification to {channel}: {e}")
             return
-        
+
         # Generate reports for different channels
-        html_report = result.get('analysis', '')  # This is already HTML from _build_html_report
-        
+        html_report = result.get("analysis", "")  # This is already HTML from _build_html_report
+
         # Generate Telegram-specific report if we have the data
-        telegram_report = ''
+        telegram_report = ""
         if positions is not None and position_analyses is not None:
             telegram_report = _build_telegram_report(positions, position_analyses, language, custom_prompt)
         else:
             # Fallback: strip HTML tags for Telegram
             import re
-            telegram_report = re.sub(r'<[^>]+>', '', html_report)
+
+            telegram_report = re.sub(r"<[^>]+>", "", html_report)
             if len(telegram_report) > 4000:
-                telegram_report = telegram_report[:4000] + '...'
-        
+                telegram_report = telegram_report[:4000] + "..."
+
         # Send to each channel
         for channel in channels:
             try:
                 ch = str(channel).strip().lower()
-                
-                if ch == 'browser':
+
+                if ch == "browser":
                     # Browser notification uses HTML report
                     with get_db_connection() as db:
                         cur = db.cursor()
@@ -1186,51 +1244,55 @@ def _send_monitor_notification(
                             (user_id, strategy_id, symbol, signal_type, channels, title, message, payload_json, created_at)
                             VALUES (?, NULL, ?, ?, ?, ?, ?, ?, NOW())
                             """,
-                            (effective_user_id, 'PORTFOLIO', 'ai_monitor', 'browser', title, html_report,
-                             json.dumps(result, ensure_ascii=False, default=str))
+                            (
+                                effective_user_id,
+                                "PORTFOLIO",
+                                "ai_monitor",
+                                "browser",
+                                title,
+                                html_report,
+                                json.dumps(result, ensure_ascii=False, default=str),
+                            ),
                         )
                         db.commit()
                         cur.close()
-                
-                elif ch == 'telegram':
-                    chat_id = targets.get('telegram', '')
-                    token_override = targets.get('telegram_bot_token', '')
+
+                elif ch == "telegram":
+                    chat_id = targets.get("telegram", "")
+                    token_override = targets.get("telegram_bot_token", "")
                     if chat_id:
                         # Use Telegram-optimized format
                         notifier._notify_telegram(
-                            chat_id=chat_id,
-                            text=telegram_report,
-                            token_override=token_override,
-                            parse_mode="HTML"
+                            chat_id=chat_id, text=telegram_report, token_override=token_override, parse_mode="HTML"
                         )
-                
-                elif ch == 'email':
-                    to_email = targets.get('email', '')
+
+                elif ch == "email":
+                    to_email = targets.get("email", "")
                     if to_email:
                         # Email uses full HTML report
                         notifier._notify_email(
                             to_email=to_email,
                             subject=title,
                             body_text=html_report,
-                            body_html=html_report  # Send as HTML email
+                            body_html=html_report,  # Send as HTML email
                         )
-                
-                elif ch == 'webhook':
-                    url = targets.get('webhook', '')
+
+                elif ch == "webhook":
+                    url = targets.get("webhook", "")
                     if url:
                         notifier._notify_webhook(
                             url=url,
                             payload={
-                                'type': 'portfolio_monitor',
-                                'monitor_name': monitor_name,
-                                'result': result,
-                                'html_report': html_report
-                            }
+                                "type": "portfolio_monitor",
+                                "monitor_name": monitor_name,
+                                "result": result,
+                                "html_report": html_report,
+                            },
                         )
-                        
+
             except Exception as e:
                 logger.warning(f"Failed to send notification to {channel}: {e}")
-                
+
     except Exception as e:
         logger.error(f"_send_monitor_notification failed: {e}")
 
@@ -1260,35 +1322,31 @@ def run_single_monitor(
                 FROM qd_position_monitors
                 WHERE id = ? AND user_id = ?
                 """,
-                (monitor_id, effective_user_id)
+                (monitor_id, effective_user_id),
             )
             row = cur.fetchone()
             cur.close()
 
         if not row:
-            return {'success': False, 'error': 'Monitor not found'}
+            return {"success": False, "error": "Monitor not found"}
 
-        monitor_user_id = int(row.get('user_id') or effective_user_id)
-        name = row.get('name') or f'Monitor #{monitor_id}'
-        position_ids = _safe_json_loads(row.get('position_ids'), [])
-        monitor_type = row.get('monitor_type') or 'ai'
-        config = _safe_json_loads(row.get('config'), {})
-        notification_config = _safe_json_loads(row.get('notification_config'), {})
+        monitor_user_id = int(row.get("user_id") or effective_user_id)
+        name = row.get("name") or f"Monitor #{monitor_id}"
+        position_ids = _safe_json_loads(row.get("position_ids"), [])
+        monitor_type = row.get("monitor_type") or "ai"
+        config = _safe_json_loads(row.get("config"), {})
+        notification_config = _safe_json_loads(row.get("notification_config"), {})
 
         if override_language:
-            config['language'] = override_language
+            config["language"] = override_language
 
-        interval_minutes = int(
-            config.get('run_interval_minutes')
-            or config.get('interval_minutes')
-            or 60
-        )
+        interval_minutes = int(config.get("run_interval_minutes") or config.get("interval_minutes") or 60)
 
         if position_ids:
             positions = _get_positions_for_monitor(position_ids, user_id=monitor_user_id)
-        elif config.get('symbol'):
-            target_sym = config['symbol'].strip().upper()
-            target_mkt = (config.get('market') or '').strip()
+        elif config.get("symbol"):
+            target_sym = config["symbol"].strip().upper()
+            target_mkt = (config.get("market") or "").strip()
 
             # Rule 4: symbol deleted from watchlist → skip
             still_in_watchlist = False
@@ -1309,39 +1367,42 @@ def run_single_monitor(
 
             if not still_in_watchlist:
                 logger.info(f"Monitor #{monitor_id} skipped: {target_mkt}:{target_sym} removed from watchlist")
-                return {'success': False, 'error': 'Symbol removed from watchlist'}
+                return {"success": False, "error": "Symbol removed from watchlist"}
 
             # Rules 1&2: match real position if exists, otherwise virtual observation
             matched = _get_positions_for_monitor(None, user_id=monitor_user_id)
             positions = [
-                p for p in matched
-                if (p.get('symbol') or '').strip().upper() == target_sym
-                and (not target_mkt or (p.get('market') or '').strip() == target_mkt)
+                p
+                for p in matched
+                if (p.get("symbol") or "").strip().upper() == target_sym
+                and (not target_mkt or (p.get("market") or "").strip() == target_mkt)
             ]
             if not positions:
-                positions = [{
-                    'market': target_mkt,
-                    'symbol': config['symbol'].strip(),
-                    'name': config.get('name', config['symbol']).strip(),
-                    'side': 'long',
-                    'quantity': 0,
-                    'entry_price': 0,
-                    'current_price': 0,
-                    'pnl': 0,
-                    'pnl_percent': 0,
-                }]
+                positions = [
+                    {
+                        "market": target_mkt,
+                        "symbol": config["symbol"].strip(),
+                        "name": config.get("name", config["symbol"]).strip(),
+                        "side": "long",
+                        "quantity": 0,
+                        "entry_price": 0,
+                        "current_price": 0,
+                        "pnl": 0,
+                        "pnl_percent": 0,
+                    }
+                ]
         else:
             # Rule 5: no position_ids, no config.symbol → nothing to analyze
             positions = []
 
         if not positions:
             logger.info(f"Monitor #{monitor_id} skipped: no matching positions found")
-            return {'success': False, 'error': 'No matching positions found'}
+            return {"success": False, "error": "No matching positions found"}
 
         # ── Billing ──
         billing = get_billing_service()
         symbol_count = len(positions)
-        per_symbol_cost = billing.get_feature_cost('ai_analysis')
+        per_symbol_cost = billing.get_feature_cost("ai_analysis")
         total_cost = per_symbol_cost * symbol_count
 
         if total_cost > 0 and billing.is_billing_enabled():
@@ -1351,25 +1412,22 @@ def run_single_monitor(
                     f"Monitor #{monitor_id} skipped: insufficient credits "
                     f"({user_credits} < {total_cost} for {symbol_count} symbols)"
                 )
-                return {
-                    'success': False,
-                    'error': f'Insufficient credits: need {total_cost}, have {user_credits}'
-                }
+                return {"success": False, "error": f"Insufficient credits: need {total_cost}, have {user_credits}"}
             for i in range(symbol_count):
                 pos = positions[i]
                 ok, msg = billing.check_and_consume(
                     user_id=monitor_user_id,
-                    feature='ai_analysis',
-                    reference_id=f"monitor_{monitor_id}_{pos.get('symbol', '')}"
+                    feature="ai_analysis",
+                    reference_id=f"monitor_{monitor_id}_{pos.get('symbol', '')}",
                 )
                 if not ok:
-                    logger.warning(f"Monitor #{monitor_id} billing failed at symbol #{i+1}: {msg}")
+                    logger.warning(f"Monitor #{monitor_id} billing failed at symbol #{i + 1}: {msg}")
                     break
 
-        if monitor_type == 'ai':
+        if monitor_type == "ai":
             result = _run_ai_analysis(positions, config, user_id=monitor_user_id)
         else:
-            result = {'success': False, 'error': f'Unsupported monitor type: {monitor_type}'}
+            result = {"success": False, "error": f"Unsupported monitor type: {monitor_type}"}
 
         with get_db_connection() as db:
             cur = db.cursor()
@@ -1383,26 +1441,26 @@ def run_single_monitor(
                     updated_at = NOW()
                 WHERE id = ?
                 """,
-                (interval_minutes, json.dumps(result, ensure_ascii=False, default=str), monitor_id)
+                (interval_minutes, json.dumps(result, ensure_ascii=False, default=str), monitor_id),
             )
             db.commit()
             cur.close()
 
-        language = config.get('language', 'en-US')
-        custom_prompt = config.get('prompt', '')
-        position_analyses = result.get('position_analyses', [])
-        deduped_positions = result.get('positions', positions)
+        language = config.get("language", "en-US")
+        custom_prompt = config.get("prompt", "")
+        position_analyses = result.get("position_analyses", [])
+        deduped_positions = result.get("positions", positions)
 
         # Attach metadata used by batch notification / history
-        result['_meta'] = {
-            'monitor_id': monitor_id,
-            'monitor_name': name,
-            'user_id': monitor_user_id,
-            'language': language,
-            'custom_prompt': custom_prompt,
-            'notification_config': notification_config,
-            'positions': deduped_positions,
-            'position_analyses': position_analyses,
+        result["_meta"] = {
+            "monitor_id": monitor_id,
+            "monitor_name": name,
+            "user_id": monitor_user_id,
+            "language": language,
+            "custom_prompt": custom_prompt,
+            "notification_config": notification_config,
+            "positions": deduped_positions,
+            "position_analyses": position_analyses,
         }
 
         if not skip_notification:
@@ -1421,17 +1479,18 @@ def run_single_monitor(
     except Exception as e:
         logger.error(f"run_single_monitor failed: {e}")
         logger.error(traceback.format_exc())
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def _check_position_alerts():
     """Check all active alerts and trigger notifications if conditions are met."""
     from datetime import datetime, timezone
+
     try:
         kline_service = KlineService()
         notifier = SignalNotifier()
         now = datetime.now(timezone.utc)
-        
+
         with get_db_connection() as db:
             cur = db.cursor()
             # Get active alerts for all users that haven't been triggered (or can repeat)
@@ -1447,20 +1506,20 @@ def _check_position_alerts():
             )
             alerts = cur.fetchall() or []
             cur.close()
-        
+
         for alert in alerts:
             try:
-                alert_id = alert.get('id')
-                alert_user_id = int(alert.get('user_id') or 1)
-                alert_type = alert.get('alert_type')
-                threshold = float(alert.get('threshold') or 0)
-                market = alert.get('market')
-                symbol = alert.get('symbol')
-                is_triggered = bool(alert.get('is_triggered'))
-                last_triggered_at = alert.get('last_triggered_at')  # datetime or None
-                repeat_interval = int(alert.get('repeat_interval') or 0)
-                notification_config = _safe_json_loads(alert.get('notification_config'), {})
-                
+                alert_id = alert.get("id")
+                alert_user_id = int(alert.get("user_id") or 1)
+                alert_type = alert.get("alert_type")
+                threshold = float(alert.get("threshold") or 0)
+                market = alert.get("market")
+                symbol = alert.get("symbol")
+                is_triggered = bool(alert.get("is_triggered"))
+                last_triggered_at = alert.get("last_triggered_at")  # datetime or None
+                repeat_interval = int(alert.get("repeat_interval") or 0)
+                notification_config = _safe_json_loads(alert.get("notification_config"), {})
+
                 # Check if we can trigger (not triggered yet, or repeat interval passed)
                 can_trigger = not is_triggered
                 if is_triggered and repeat_interval > 0 and last_triggered_at:
@@ -1470,71 +1529,75 @@ def _check_position_alerts():
                     elapsed_seconds = (now - last_triggered_at).total_seconds()
                     if elapsed_seconds >= repeat_interval:
                         can_trigger = True
-                
+
                 if not can_trigger:
                     continue
-                
+
                 # Get current price (use realtime price API)
                 current_price = 0
                 try:
                     price_data = kline_service.get_realtime_price(market, symbol)
-                    current_price = float(price_data.get('price') or 0)
+                    current_price = float(price_data.get("price") or 0)
                 except Exception:
                     continue
-                
+
                 if current_price <= 0:
                     continue
-                
+
                 triggered = False
                 alert_message = ""
-                
+
                 # Get language from notification_config (saved when alert was created)
-                alert_language = notification_config.get('language', 'en-US')
-                
-                if alert_type == 'price_above':
+                alert_language = notification_config.get("language", "en-US")
+
+                if alert_type == "price_above":
                     if current_price >= threshold:
                         triggered = True
                         alert_message = _get_alert_message(
-                            'price_above', alert_language,
-                            symbol=symbol, current_price=current_price, threshold=threshold
+                            "price_above",
+                            alert_language,
+                            symbol=symbol,
+                            current_price=current_price,
+                            threshold=threshold,
                         )
-                
-                elif alert_type == 'price_below':
+
+                elif alert_type == "price_below":
                     if current_price <= threshold:
                         triggered = True
                         alert_message = _get_alert_message(
-                            'price_below', alert_language,
-                            symbol=symbol, current_price=current_price, threshold=threshold
+                            "price_below",
+                            alert_language,
+                            symbol=symbol,
+                            current_price=current_price,
+                            threshold=threshold,
                         )
-                
-                elif alert_type in ('pnl_above', 'pnl_below'):
-                    entry_price = float(alert.get('entry_price') or 0)
-                    quantity = float(alert.get('quantity') or 0)
-                    side = alert.get('side') or 'long'
-                    
+
+                elif alert_type in ("pnl_above", "pnl_below"):
+                    entry_price = float(alert.get("entry_price") or 0)
+                    quantity = float(alert.get("quantity") or 0)
+                    side = alert.get("side") or "long"
+
                     if entry_price > 0 and quantity > 0:
-                        if side == 'long':
+                        if side == "long":
                             pnl = (current_price - entry_price) * quantity
                         else:
                             pnl = (entry_price - current_price) * quantity
                         pnl_percent = pnl / (entry_price * quantity) * 100
-                        
-                        if alert_type == 'pnl_above' and pnl_percent >= threshold:
+
+                        if alert_type == "pnl_above" and pnl_percent >= threshold:
                             triggered = True
                             alert_message = _get_alert_message(
-                                'pnl_above', alert_language,
-                                symbol=symbol, pnl_percent=pnl_percent, threshold=threshold
+                                "pnl_above", alert_language, symbol=symbol, pnl_percent=pnl_percent, threshold=threshold
                             )
-                        elif alert_type == 'pnl_below' and pnl_percent <= threshold:
+                        elif alert_type == "pnl_below" and pnl_percent <= threshold:
                             triggered = True
                             alert_message = _get_alert_message(
-                                'pnl_below', alert_language,
-                                symbol=symbol, pnl_percent=pnl_percent, threshold=threshold
+                                "pnl_below", alert_language, symbol=symbol, pnl_percent=pnl_percent, threshold=threshold
                             )
-                
+
                 if triggered:
                     logger.info(f"Alert #{alert_id} triggered: {alert_message}")
-                    
+
                     # Update alert status
                     with get_db_connection() as db:
                         cur = db.cursor()
@@ -1544,21 +1607,21 @@ def _check_position_alerts():
                             SET is_triggered = 1, last_triggered_at = NOW(), trigger_count = trigger_count + 1, updated_at = NOW()
                             WHERE id = ?
                             """,
-                            (alert_id,)
+                            (alert_id,),
                         )
                         db.commit()
                         cur.close()
-                    
+
                     # Send notification (merge personal center notification configuration, consistent with asset monitoring tasks)
                     resolved = _resolve_notification_delivery(alert_user_id, notification_config)
-                    channels = resolved.get('channels') or ['browser']
-                    targets = resolved.get('targets', {})
+                    channels = resolved.get("channels") or ["browser"]
+                    targets = resolved.get("targets", {})
                     alert_title = _get_alert_title(alert_language)
-                    
+
                     for channel in channels:
                         try:
                             ch = str(channel).strip().lower()
-                            if ch == 'browser':
+                            if ch == "browser":
                                 with get_db_connection() as db:
                                     cur = db.cursor()
                                     cur.execute(
@@ -1567,40 +1630,58 @@ def _check_position_alerts():
                                         (user_id, strategy_id, symbol, signal_type, channels, title, message, payload_json, created_at)
                                         VALUES (?, NULL, ?, ?, ?, ?, ?, ?, NOW())
                                         """,
-                                        (alert_user_id, symbol, 'price_alert', 'browser', alert_title, alert_message,
-                                         json.dumps({'alert_id': alert_id, 'alert_type': alert_type}, ensure_ascii=False))
+                                        (
+                                            alert_user_id,
+                                            symbol,
+                                            "price_alert",
+                                            "browser",
+                                            alert_title,
+                                            alert_message,
+                                            json.dumps(
+                                                {"alert_id": alert_id, "alert_type": alert_type}, ensure_ascii=False
+                                            ),
+                                        ),
                                     )
                                     db.commit()
                                     cur.close()
-                            elif ch == 'telegram':
-                                chat_id = targets.get('telegram', '')
-                                token_override = targets.get('telegram_bot_token', '')
+                            elif ch == "telegram":
+                                chat_id = targets.get("telegram", "")
+                                token_override = targets.get("telegram_bot_token", "")
                                 if chat_id:
-                                    notifier._notify_telegram(chat_id=chat_id, text=alert_message, token_override=token_override, parse_mode="HTML")
-                            elif ch == 'email':
-                                to_email = targets.get('email', '')
+                                    notifier._notify_telegram(
+                                        chat_id=chat_id,
+                                        text=alert_message,
+                                        token_override=token_override,
+                                        parse_mode="HTML",
+                                    )
+                            elif ch == "email":
+                                to_email = targets.get("email", "")
                                 if to_email:
-                                    notifier._notify_email(to_email=to_email, subject=alert_title, body_text=alert_message)
+                                    notifier._notify_email(
+                                        to_email=to_email, subject=alert_title, body_text=alert_message
+                                    )
                         except Exception as e:
                             logger.warning(f"Failed to send alert notification: {e}")
-                            
+
             except Exception as e:
                 logger.warning(f"Error processing alert: {e}")
-                
+
     except Exception as e:
         logger.error(f"_check_position_alerts failed: {e}")
 
 
-def notify_strategy_signal_for_positions(market: str, symbol: str, signal_type: str, signal_detail: str, user_id: int = None):
+def notify_strategy_signal_for_positions(
+    market: str, symbol: str, signal_type: str, signal_detail: str, user_id: int = None
+):
     """
-    Called when a strategy signal is triggered. 
+    Called when a strategy signal is triggered.
     Check if user has manual positions in this symbol and send notification.
     """
     try:
-        symbol = (symbol or '').strip().upper()
+        symbol = (symbol or "").strip().upper()
         if not symbol:
             return
-        
+
         with get_db_connection() as db:
             cur = db.cursor()
             # Query positions for all users or specific user
@@ -1611,7 +1692,7 @@ def notify_strategy_signal_for_positions(market: str, symbol: str, signal_type: 
                     FROM qd_manual_positions
                     WHERE user_id = ? AND symbol = ?
                     """,
-                    (user_id, symbol)
+                    (user_id, symbol),
                 )
             else:
                 cur.execute(
@@ -1620,25 +1701,23 @@ def notify_strategy_signal_for_positions(market: str, symbol: str, signal_type: 
                     FROM qd_manual_positions
                     WHERE symbol = ?
                     """,
-                    (symbol,)
+                    (symbol,),
                 )
             positions = cur.fetchall() or []
             cur.close()
-        
+
         if not positions:
             return
-        
+
         # User has positions in this symbol - send notification
-        notifier = SignalNotifier()
-        now = _now_ts()
-        
+
         for pos in positions:
-            pos_user_id = int(pos.get('user_id') or 1)
-            pos_name = pos.get('name') or symbol
-            pos_side = pos.get('side') or 'long'
-            quantity = float(pos.get('quantity') or 0)
-            entry_price = float(pos.get('entry_price') or 0)
-            
+            pos_user_id = int(pos.get("user_id") or 1)
+            pos_name = pos.get("name") or symbol
+            pos_side = pos.get("side") or "long"
+            quantity = float(pos.get("quantity") or 0)
+            entry_price = float(pos.get("entry_price") or 0)
+
             title = f"🔗Strategy signal linkage: {pos_name}"
             message = f"""The strategy emits {signal_type} signal!
 
@@ -1649,7 +1728,7 @@ Signal details:
 {signal_detail}
 
 Please check whether your position needs adjustment. """
-            
+
             # Save browser notification
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -1659,14 +1738,21 @@ Please check whether your position needs adjustment. """
                     (user_id, strategy_id, symbol, signal_type, channels, title, message, payload_json, created_at)
                     VALUES (?, NULL, ?, ?, ?, ?, ?, ?, NOW())
                     """,
-                    (pos_user_id, symbol, 'strategy_linkage', 'browser', title, message,
-                     json.dumps({'signal_type': signal_type}, ensure_ascii=False))
+                    (
+                        pos_user_id,
+                        symbol,
+                        "strategy_linkage",
+                        "browser",
+                        title,
+                        message,
+                        json.dumps({"signal_type": signal_type}, ensure_ascii=False),
+                    ),
                 )
                 db.commit()
                 cur.close()
-        
+
         logger.info(f"Strategy signal linkage: notified {len(positions)} position(s) for {symbol}")
-        
+
     except Exception as e:
         logger.error(f"notify_strategy_signal_for_positions failed: {e}")
 
@@ -1701,8 +1787,8 @@ def _monitor_loop():
             for row in rows:
                 if _stop_event.is_set():
                     break
-                monitor_id = row.get('id')
-                monitor_user_id = int(row.get('user_id') or 1)
+                monitor_id = row.get("id")
+                monitor_user_id = int(row.get("user_id") or 1)
                 if not monitor_id:
                     continue
                 logger.info(f"Running due monitor #{monitor_id} for user #{monitor_user_id}")
@@ -1720,15 +1806,15 @@ def _monitor_loop():
             for uid, results in user_results.items():
                 try:
                     if len(results) == 1:
-                        meta = results[0].get('_meta', {})
+                        meta = results[0].get("_meta", {})
                         _send_monitor_notification(
-                            monitor_name=meta.get('monitor_name', '?'),
+                            monitor_name=meta.get("monitor_name", "?"),
                             result=results[0],
-                            notification_config=meta.get('notification_config', {}),
-                            positions=meta.get('positions', []),
-                            position_analyses=meta.get('position_analyses', []),
-                            language=meta.get('language', 'en-US'),
-                            custom_prompt=meta.get('custom_prompt', ''),
+                            notification_config=meta.get("notification_config", {}),
+                            positions=meta.get("positions", []),
+                            position_analyses=meta.get("position_analyses", []),
+                            language=meta.get("language", "en-US"),
+                            custom_prompt=meta.get("custom_prompt", ""),
                             user_id=uid,
                         )
                     else:
@@ -1747,11 +1833,11 @@ def _monitor_loop():
 def start_monitor_service():
     """Start the background monitor service."""
     global _monitor_thread
-    
+
     if _monitor_thread and _monitor_thread.is_alive():
         logger.info("Portfolio monitor service already running")
         return
-    
+
     _stop_event.clear()
     _monitor_thread = threading.Thread(target=_monitor_loop, daemon=True, name="PortfolioMonitor")
     _monitor_thread.start()
@@ -1761,7 +1847,7 @@ def start_monitor_service():
 def stop_monitor_service():
     """Stop the background monitor service."""
     global _monitor_thread
-    
+
     _stop_event.set()
     if _monitor_thread:
         _monitor_thread.join(timeout=5)

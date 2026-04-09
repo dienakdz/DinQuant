@@ -10,8 +10,9 @@ flat keys like `openrouter.api_key` become nested dicts like:
   "openrouter": {"api_key": "..."}
 }
 """
-from typing import Dict, Any, Optional, List, Tuple
+
 import os
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.utils.logger import get_logger
 
@@ -31,15 +32,15 @@ def load_addon_config() -> Dict[str, Any]:
         Nested config dict (PHP-compatible shape)
     """
     global _config_cache
-    
+
     # If the cache exists, return directly
     if _config_cache is not None:
         return _config_cache
-    
+
     config: Dict[str, Any] = {}
 
     def set_nested(cfg: Dict[str, Any], dotted_key: str, value: Any) -> None:
-        keys = dotted_key.split('.')
+        keys = dotted_key.split(".")
         ref = cfg
         for i, k in enumerate(keys):
             if i == len(keys) - 1:
@@ -54,82 +55,66 @@ def load_addon_config() -> Dict[str, Any]:
         if val is None:
             return None
         val = str(val).strip()
-        return val if val != '' else None
+        return val if val != "" else None
 
     # Map env vars to PHP-style dotted keys.
     mappings: List[Tuple[str, str, str]] = [
         # internal
-        ('INTERNAL_API_KEY', 'internal_api.key', 'string'),
-
+        ("INTERNAL_API_KEY", "internal_api.key", "string"),
         # OpenRouter / LLM
-        ('OPENROUTER_API_KEY', 'openrouter.api_key', 'string'),
-        ('OPENROUTER_API_URL', 'openrouter.api_url', 'string'),
-        ('OPENROUTER_MODEL', 'openrouter.model', 'string'),
-        ('OPENROUTER_TEMPERATURE', 'openrouter.temperature', 'float'),
-        ('OPENROUTER_MAX_TOKENS', 'openrouter.max_tokens', 'int'),
-        ('OPENROUTER_TIMEOUT', 'openrouter.timeout', 'int'),
-        ('OPENROUTER_CONNECT_TIMEOUT', 'openrouter.connect_timeout', 'int'),
-        
+        ("OPENROUTER_API_KEY", "openrouter.api_key", "string"),
+        ("OPENROUTER_API_URL", "openrouter.api_url", "string"),
+        ("OPENROUTER_MODEL", "openrouter.model", "string"),
+        ("OPENROUTER_TEMPERATURE", "openrouter.temperature", "float"),
+        ("OPENROUTER_MAX_TOKENS", "openrouter.max_tokens", "int"),
+        ("OPENROUTER_TIMEOUT", "openrouter.timeout", "int"),
+        ("OPENROUTER_CONNECT_TIMEOUT", "openrouter.connect_timeout", "int"),
         # OpenAI Direct
-        ('OPENAI_API_KEY', 'openai.api_key', 'string'),
-        ('OPENAI_BASE_URL', 'openai.base_url', 'string'),
-        ('OPENAI_MODEL', 'openai.model', 'string'),
-        
+        ("OPENAI_API_KEY", "openai.api_key", "string"),
+        ("OPENAI_BASE_URL", "openai.base_url", "string"),
+        ("OPENAI_MODEL", "openai.model", "string"),
         # Google Gemini
-        ('GOOGLE_API_KEY', 'google.api_key', 'string'),
-        ('GOOGLE_MODEL', 'google.model', 'string'),
-        
+        ("GOOGLE_API_KEY", "google.api_key", "string"),
+        ("GOOGLE_MODEL", "google.model", "string"),
         # DeepSeek
-        ('DEEPSEEK_API_KEY', 'deepseek.api_key', 'string'),
-        ('DEEPSEEK_BASE_URL', 'deepseek.base_url', 'string'),
-        ('DEEPSEEK_MODEL', 'deepseek.model', 'string'),
-        
+        ("DEEPSEEK_API_KEY", "deepseek.api_key", "string"),
+        ("DEEPSEEK_BASE_URL", "deepseek.base_url", "string"),
+        ("DEEPSEEK_MODEL", "deepseek.model", "string"),
         # xAI Grok
-        ('GROK_API_KEY', 'grok.api_key', 'string'),
-        ('GROK_BASE_URL', 'grok.base_url', 'string'),
-        ('GROK_MODEL', 'grok.model', 'string'),
-        
+        ("GROK_API_KEY", "grok.api_key", "string"),
+        ("GROK_BASE_URL", "grok.base_url", "string"),
+        ("GROK_MODEL", "grok.model", "string"),
         # LLM Provider Selection
-        ('LLM_PROVIDER', 'llm.provider', 'string'),
-
+        ("LLM_PROVIDER", "llm.provider", "string"),
         # App
-        ('RATE_LIMIT', 'app.rate_limit', 'int'),
-        ('ENABLE_CACHE', 'app.enable_cache', 'bool'),
-        ('ENABLE_REQUEST_LOG', 'app.enable_request_log', 'bool'),
-
+        ("RATE_LIMIT", "app.rate_limit", "int"),
+        ("ENABLE_CACHE", "app.enable_cache", "bool"),
+        ("ENABLE_REQUEST_LOG", "app.enable_request_log", "bool"),
         # Data source common
-        ('DATA_SOURCE_TIMEOUT', 'data_source.timeout', 'int'),
-        ('DATA_SOURCE_RETRY', 'data_source.retry_count', 'int'),
-        ('DATA_SOURCE_RETRY_BACKOFF', 'data_source.retry_backoff', 'float'),
-
+        ("DATA_SOURCE_TIMEOUT", "data_source.timeout", "int"),
+        ("DATA_SOURCE_RETRY", "data_source.retry_count", "int"),
+        ("DATA_SOURCE_RETRY_BACKOFF", "data_source.retry_backoff", "float"),
         # Finnhub
-        ('FINNHUB_API_KEY', 'finnhub.api_key', 'string'),
-        ('FINNHUB_TIMEOUT', 'finnhub.timeout', 'int'),
-        ('FINNHUB_RATE_LIMIT', 'finnhub.rate_limit', 'int'),
-
+        ("FINNHUB_API_KEY", "finnhub.api_key", "string"),
+        ("FINNHUB_TIMEOUT", "finnhub.timeout", "int"),
+        ("FINNHUB_RATE_LIMIT", "finnhub.rate_limit", "int"),
         # CCXT
-        ('CCXT_DEFAULT_EXCHANGE', 'ccxt.default_exchange', 'string'),
-        ('CCXT_TIMEOUT', 'ccxt.timeout', 'int'),
-
+        ("CCXT_DEFAULT_EXCHANGE", "ccxt.default_exchange", "string"),
+        ("CCXT_TIMEOUT", "ccxt.timeout", "int"),
         # Other sources
-        ('YFINANCE_TIMEOUT', 'yfinance.timeout', 'int'),
-        ('AKSHARE_TIMEOUT', 'akshare.timeout', 'int'),
-        ('TIINGO_API_KEY', 'tiingo.api_key', 'string'),
-        ('TIINGO_TIMEOUT', 'tiingo.timeout', 'int'),
-        ('TWELVE_DATA_API_KEY', 'twelve_data.api_key', 'string'),
-
+        ("YFINANCE_TIMEOUT", "yfinance.timeout", "int"),
+        ("TIINGO_API_KEY", "tiingo.api_key", "string"),
+        ("TIINGO_TIMEOUT", "tiingo.timeout", "int"),
         # Search (Google CSE / Bing)
-        ('SEARCH_PROVIDER', 'search.provider', 'string'),
-        ('SEARCH_MAX_RESULTS', 'search.max_results', 'int'),
-        ('SEARCH_GOOGLE_API_KEY', 'search.google.api_key', 'string'),
-        ('SEARCH_GOOGLE_CX', 'search.google.cx', 'string'),
-        ('SEARCH_BING_API_KEY', 'search.bing.api_key', 'string'),
-        
+        ("SEARCH_PROVIDER", "search.provider", "string"),
+        ("SEARCH_MAX_RESULTS", "search.max_results", "int"),
+        ("SEARCH_GOOGLE_API_KEY", "search.google.api_key", "string"),
+        ("SEARCH_GOOGLE_CX", "search.google.cx", "string"),
+        ("SEARCH_BING_API_KEY", "search.bing.api_key", "string"),
         # Tavily (AI-optimized search)
-        ('TAVILY_API_KEYS', 'tavily.api_keys', 'string'),
-        
+        ("TAVILY_API_KEYS", "tavily.api_keys", "string"),
         # SerpAPI (Google/Bing scraper)
-        ('SERPAPI_KEYS', 'serpapi.api_keys', 'string'),
+        ("SERPAPI_KEYS", "serpapi.api_keys", "string"),
     ]
 
     for env_name, dotted_key, value_type in mappings:
@@ -149,77 +134,78 @@ def load_addon_config() -> Dict[str, Any]:
 def _convert_config_value(value: str, value_type: str) -> Any:
     """
     Convert configuration values ​​according to type (consistent with the convertConfigValue method on the PHP side)
-    
+
     Args:
         value: configuration value string (may be None)
         value_type: configuration type
-        
+
     Returns:
         Converted configuration value
     """
     # Handling None or null values
-    if value is None or value == '':
-        if value_type == 'int':
+    if value is None or value == "":
+        if value_type == "int":
             return 0
-        elif value_type == 'float':
+        elif value_type == "float":
             return 0.0
-        elif value_type == 'bool':
+        elif value_type == "bool":
             return False
-        elif value_type == 'json':
+        elif value_type == "json":
             return {}
         else:
-            return ''
-    
+            return ""
+
     try:
-        if value_type == 'int':
+        if value_type == "int":
             return int(value)
-        elif value_type == 'float':
+        elif value_type == "float":
             return float(value)
-        elif value_type == 'bool':
-            return bool(value) or value == '1' or value == 'true' or value == 'True'
-        elif value_type == 'json':
+        elif value_type == "bool":
+            return bool(value) or value == "1" or value == "true" or value == "True"
+        elif value_type == "json":
             import json
+
             try:
                 return json.loads(value) if value else {}
             except (json.JSONDecodeError, TypeError):
                 return {}
         else:
-            return str(value) if value is not None else ''
+            return str(value) if value is not None else ""
     except (ValueError, TypeError) as e:
         logger.warning(f"Config value type conversion failed: value={value}, type={value_type}, error={str(e)}")
         # Returns default value if conversion fails
-        if value_type == 'int':
+        if value_type == "int":
             return 0
-        elif value_type == 'float':
+        elif value_type == "float":
             return 0.0
-        elif value_type == 'bool':
+        elif value_type == "bool":
             return False
-        elif value_type == 'json':
+        elif value_type == "json":
             return {}
         else:
-            return str(value) if value is not None else ''
+            return str(value) if value is not None else ""
 
 
 def get_internal_api_key() -> Optional[str]:
     """
     Get the internal API key (preferably read from environment variables)
-    
+
     Returns:
         Internal API key, returns None if not configured
     """
     try:
-        env_val = os.getenv('INTERNAL_API_KEY', '').strip()
+        env_val = os.getenv("INTERNAL_API_KEY", "").strip()
         if env_val:
             return env_val
 
         config = load_addon_config()
-        api_key = config.get('internal_api', {}).get('key')
-        
+        api_key = config.get("internal_api", {}).get("key")
+
         if api_key:
             logger.debug(f"Loaded INTERNAL_API_KEY from env-config shape, length: {len(api_key)}")
         else:
             logger.warning("Missing INTERNAL_API_KEY (env).")
-        
+
         return api_key
     except Exception as e:
         logger.error(f"Failed to load internal API key: {str(e)}")
@@ -233,4 +219,3 @@ def clear_config_cache():
     global _config_cache
     _config_cache = None
     logger.debug("Addon config cache cleared")
-

@@ -19,12 +19,13 @@ import time
 from typing import Any, Dict, Optional
 
 from app.services.live_trading.base import BaseRestClient, LiveOrderResult, LiveTradingError
-from app.services.live_trading.symbols import to_bitfinex_spot_symbol
-from app.services.live_trading.symbols import to_bitfinex_perp_symbol
+from app.services.live_trading.symbols import to_bitfinex_perp_symbol, to_bitfinex_spot_symbol
 
 
 class BitfinexClient(BaseRestClient):
-    def __init__(self, *, api_key: str, secret_key: str, base_url: str = "https://api.bitfinex.com", timeout_sec: float = 15.0):
+    def __init__(
+        self, *, api_key: str, secret_key: str, base_url: str = "https://api.bitfinex.com", timeout_sec: float = 15.0
+    ):
         super().__init__(base_url=base_url, timeout_sec=timeout_sec)
         self.api_key = (api_key or "").strip()
         self.secret_key = (secret_key or "").strip()
@@ -40,14 +41,21 @@ class BitfinexClient(BaseRestClient):
         return hmac.new(self.secret_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha384).hexdigest()
 
     def _headers(self, nonce: str, sign: str) -> Dict[str, str]:
-        return {"bfx-apikey": self.api_key, "bfx-nonce": nonce, "bfx-signature": sign, "content-type": "application/json"}
+        return {
+            "bfx-apikey": self.api_key,
+            "bfx-nonce": nonce,
+            "bfx-signature": sign,
+            "content-type": "application/json",
+        }
 
     def _signed_request(self, method: str, path: str, *, json_body: Optional[Dict[str, Any]] = None) -> Any:
         m = str(method or "POST").upper()
         nonce = self._nonce()
         body_str = self._json_dumps(json_body) if json_body is not None else ""
         sign = self._sign(path, nonce, body_str)
-        code, data, text = self._request(m, path, params=None, data=body_str if body_str else None, headers=self._headers(nonce, sign))
+        code, data, text = self._request(
+            m, path, params=None, data=body_str if body_str else None, headers=self._headers(nonce, sign)
+        )
         if code >= 400:
             raise LiveTradingError(f"Bitfinex HTTP {code}: {text[:500]}")
         return data
@@ -71,77 +79,9 @@ class BitfinexClient(BaseRestClient):
         """
         return self._signed_request("POST", "/v2/auth/r/wallets", json_body={})
 
-
-class BitfinexDerivativesClient(BitfinexClient):
-    """
-    Bitfinex derivatives/perpetual client (best-effort).
-
-    Differences vs spot:
-    - Symbol uses tBASEF0:QUOTEF0 (e.g. tBTCF0:USTF0)
-    - Order type typically uses MARKET/LIMIT (not EXCHANGE MARKET/LIMIT)
-    """
-
-    def place_market_order(self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
-        sd = (side or "").strip().lower()
-        if sd not in ("buy", "sell"):
-            raise LiveTradingError(f"Invalid side: {side}")
-        qty = float(size or 0.0)
-        if qty <= 0:
-            raise LiveTradingError("Invalid size")
-        sym = to_bitfinex_perp_symbol(symbol)
-        amt = qty if sd == "buy" else -qty
-        body: Dict[str, Any] = {"type": "MARKET", "symbol": sym, "amount": str(amt)}
-        if client_order_id:
-            try:
-                cid = int("".join([c for c in str(client_order_id) if c.isdigit()])[:18] or "0")
-                if cid > 0:
-                    body["cid"] = cid
-            except Exception:
-                pass
-        raw = self._signed_request("POST", "/v2/auth/w/order/submit", json_body=body)
-        oid = ""
-        try:
-            if isinstance(raw, list) and len(raw) >= 4 and isinstance(raw[3], list) and raw[3]:
-                order = raw[3][0]
-                if isinstance(order, list) and order:
-                    oid = str(order[0])
-        except Exception:
-            oid = ""
-        return LiveOrderResult(exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw})
-
-    def place_limit_order(self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
-        sd = (side or "").strip().lower()
-        if sd not in ("buy", "sell"):
-            raise LiveTradingError(f"Invalid side: {side}")
-        qty = float(size or 0.0)
-        px = float(price or 0.0)
-        if qty <= 0 or px <= 0:
-            raise LiveTradingError("Invalid size/price")
-        sym = to_bitfinex_perp_symbol(symbol)
-        amt = qty if sd == "buy" else -qty
-        body: Dict[str, Any] = {"type": "LIMIT", "symbol": sym, "amount": str(amt), "price": str(px)}
-        if client_order_id:
-            try:
-                cid = int("".join([c for c in str(client_order_id) if c.isdigit()])[:18] or "0")
-                if cid > 0:
-                    body["cid"] = cid
-            except Exception:
-                pass
-        raw = self._signed_request("POST", "/v2/auth/w/order/submit", json_body=body)
-        oid = ""
-        try:
-            if isinstance(raw, list) and len(raw) >= 4 and isinstance(raw[3], list) and raw[3]:
-                order = raw[3][0]
-                if isinstance(order, list) and order:
-                    oid = str(order[0])
-        except Exception:
-            oid = ""
-        return LiveOrderResult(exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw})
-
-    def get_positions(self) -> Any:
-        return self._signed_request("POST", "/v2/auth/r/positions", json_body={})
-
-    def place_market_order(self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_market_order(
+        self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
@@ -169,9 +109,13 @@ class BitfinexDerivativesClient(BitfinexClient):
                     oid = str(order[0])
         except Exception:
             oid = ""
-        return LiveOrderResult(exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw})
+        return LiveOrderResult(
+            exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw}
+        )
 
-    def place_limit_order(self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_limit_order(
+        self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
@@ -198,7 +142,9 @@ class BitfinexDerivativesClient(BitfinexClient):
                     oid = str(order[0])
         except Exception:
             oid = ""
-        return LiveOrderResult(exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw})
+        return LiveOrderResult(
+            exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw}
+        )
 
     def cancel_order(self, *, order_id: str = "", client_order_id: str = "") -> Any:
         if order_id:
@@ -224,7 +170,9 @@ class BitfinexDerivativesClient(BitfinexClient):
         # Bitfinex v2 order status endpoint
         return self._signed_request("POST", f"/v2/auth/r/order/{oid}")
 
-    def wait_for_fill(self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5) -> Dict[str, Any]:
+    def wait_for_fill(
+        self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5
+    ) -> Dict[str, Any]:
         end_ts = time.time() + float(max_wait_sec or 0.0)
         last: Any = None
         while True:
@@ -251,11 +199,108 @@ class BitfinexDerivativesClient(BitfinexClient):
             # Note: Bitfinex order response doesn't include fee; fee is typically in trades.
             # We return 0.0 here; actual fee can be fetched via trades endpoint if needed.
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if isinstance(status, str) and ("EXECUTED" in status.upper() or "CANCELED" in status.upper()):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
 
 
+class BitfinexDerivativesClient(BitfinexClient):
+    """
+    Bitfinex derivatives/perpetual client (best-effort).
+
+    Differences vs spot:
+    - Symbol uses tBASEF0:QUOTEF0 (e.g. tBTCF0:USTF0)
+    - Order type typically uses MARKET/LIMIT (not EXCHANGE MARKET/LIMIT)
+    """
+
+    def place_market_order(
+        self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
+        sd = (side or "").strip().lower()
+        if sd not in ("buy", "sell"):
+            raise LiveTradingError(f"Invalid side: {side}")
+        qty = float(size or 0.0)
+        if qty <= 0:
+            raise LiveTradingError("Invalid size")
+        sym = to_bitfinex_perp_symbol(symbol)
+        amt = qty if sd == "buy" else -qty
+        body: Dict[str, Any] = {"type": "MARKET", "symbol": sym, "amount": str(amt)}
+        if client_order_id:
+            try:
+                cid = int("".join([c for c in str(client_order_id) if c.isdigit()])[:18] or "0")
+                if cid > 0:
+                    body["cid"] = cid
+            except Exception:
+                pass
+        raw = self._signed_request("POST", "/v2/auth/w/order/submit", json_body=body)
+        oid = ""
+        try:
+            if isinstance(raw, list) and len(raw) >= 4 and isinstance(raw[3], list) and raw[3]:
+                order = raw[3][0]
+                if isinstance(order, list) and order:
+                    oid = str(order[0])
+        except Exception:
+            oid = ""
+        return LiveOrderResult(
+            exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw}
+        )
+
+    def place_limit_order(
+        self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
+        sd = (side or "").strip().lower()
+        if sd not in ("buy", "sell"):
+            raise LiveTradingError(f"Invalid side: {side}")
+        qty = float(size or 0.0)
+        px = float(price or 0.0)
+        if qty <= 0 or px <= 0:
+            raise LiveTradingError("Invalid size/price")
+        sym = to_bitfinex_perp_symbol(symbol)
+        amt = qty if sd == "buy" else -qty
+        body: Dict[str, Any] = {"type": "LIMIT", "symbol": sym, "amount": str(amt), "price": str(px)}
+        if client_order_id:
+            try:
+                cid = int("".join([c for c in str(client_order_id) if c.isdigit()])[:18] or "0")
+                if cid > 0:
+                    body["cid"] = cid
+            except Exception:
+                pass
+        raw = self._signed_request("POST", "/v2/auth/w/order/submit", json_body=body)
+        oid = ""
+        try:
+            if isinstance(raw, list) and len(raw) >= 4 and isinstance(raw[3], list) and raw[3]:
+                order = raw[3][0]
+                if isinstance(order, list) and order:
+                    oid = str(order[0])
+        except Exception:
+            oid = ""
+        return LiveOrderResult(
+            exchange_id="bitfinex", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw={"raw": raw}
+        )
+
+    def get_positions(self) -> Any:
+        return self._signed_request("POST", "/v2/auth/r/positions", json_body={})

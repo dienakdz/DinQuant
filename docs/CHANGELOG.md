@@ -4,46 +4,6 @@ This document records version updates, new features, bug fixes, and database mig
 
 ---
 
-## 2026-04-07 — 数据库：`qd_market_symbols` 补充 A股 / H股热门标的
-
-已在 **Docker** 内对运行中的 PostgreSQL 执行完毕（`INSERT 0 20`）。**新库**若使用当前仓库中的 `migrations/init.sql` 初始化，已包含同批种子数据，无需重复执行。
-
-**在已有库上手动执行（等价 SQL，可重复执行，`ON CONFLICT DO NOTHING`）：**
-
-```sql
-INSERT INTO qd_market_symbols (market, symbol, name, exchange, currency, is_active, is_hot, sort_order) VALUES
-('CNStock', '600519', '贵州茅台', 'SSE', 'CNY', 1, 1, 100),
-('CNStock', '600036', '招商银行', 'SSE', 'CNY', 1, 1, 99),
-('CNStock', '601318', '中国平安', 'SSE', 'CNY', 1, 1, 98),
-('CNStock', '600900', '长江电力', 'SSE', 'CNY', 1, 1, 97),
-('CNStock', '601899', '紫金矿业', 'SSE', 'CNY', 1, 1, 96),
-('CNStock', '000858', '五粮液', 'SZSE', 'CNY', 1, 1, 95),
-('CNStock', '000333', '美的集团', 'SZSE', 'CNY', 1, 1, 94),
-('CNStock', '002594', '比亚迪', 'SZSE', 'CNY', 1, 1, 93),
-('CNStock', '300750', '宁德时代', 'SZSE', 'CNY', 1, 1, 92),
-('CNStock', '000001', '平安银行', 'SZSE', 'CNY', 1, 1, 91),
-('HKStock', '00700', '腾讯控股', 'HKEX', 'HKD', 1, 1, 100),
-('HKStock', '09988', '阿里巴巴-W', 'HKEX', 'HKD', 1, 1, 99),
-('HKStock', '03690', '美团-W', 'HKEX', 'HKD', 1, 1, 98),
-('HKStock', '01810', '小米集团-W', 'HKEX', 'HKD', 1, 1, 97),
-('HKStock', '00939', '建设银行', 'HKEX', 'HKD', 1, 1, 96),
-('HKStock', '01299', '友邦保险', 'HKEX', 'HKD', 1, 1, 95),
-('HKStock', '02318', '中国平安', 'HKEX', 'HKD', 1, 1, 94),
-('HKStock', '00388', '香港交易所', 'HKEX', 'HKD', 1, 1, 93),
-('HKStock', '00883', '中国海洋石油', 'HKEX', 'HKD', 1, 1, 92),
-('HKStock', '01398', '工商银行', 'HKEX', 'HKD', 1, 1, 91)
-ON CONFLICT (market, symbol) DO NOTHING;
-```
-
-**Docker 一行示例（文件需 UTF-8）：**
-
-```bash
-docker cp backend_api_python/migrations/<your>.sql quantdinger-db:/tmp/migrate.sql
-docker compose exec -T postgres psql -U quantdinger -d quantdinger -f /tmp/migrate.sql
-```
-
----
-
 ## V3.0.1 (2026-04-05) — Frontend / docs
 
 - **Front-end version**: `QuantDinger-Vue-src/package.json`, footer display and `frontend/VERSION` are unified to **3.0.1**.
@@ -228,7 +188,7 @@ CREATE TABLE IF NOT EXISTS qd_polymarket_markets (
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_polymarket_markets' AND column_name = 'slug'
     ) THEN
         ALTER TABLE qd_polymarket_markets ADD COLUMN slug VARCHAR(255);
@@ -568,14 +528,14 @@ See `docs/CROSS_SECTIONAL_STRATEGY_GUIDE_CN.md` or `docs/CROSS_SECTIONAL_STRATEG
 -- are stored in the trading_config JSON field, not as separate database columns.
 -- This migration only adds the last_rebalance_at timestamp field which is needed for rebalancing logic.
 
-DO $$ 
+DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'qd_strategies_trading' 
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'qd_strategies_trading'
         AND column_name = 'last_rebalance_at'
     ) THEN
-        ALTER TABLE qd_strategies_trading 
+        ALTER TABLE qd_strategies_trading
         ADD COLUMN last_rebalance_at TIMESTAMP;
         RAISE NOTICE 'Added last_rebalance_at column to qd_strategies_trading';
     ELSE
@@ -761,7 +721,7 @@ CREATE TABLE IF NOT EXISTS qd_analysis_memory (
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_analysis_memory' AND column_name = 'raw_result'
     ) THEN
         ALTER TABLE qd_analysis_memory ADD COLUMN raw_result JSONB;
@@ -772,7 +732,7 @@ END $$;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_analysis_memory' AND column_name = 'user_id'
     ) THEN
         ALTER TABLE qd_analysis_memory ADD COLUMN user_id INT;
@@ -820,64 +780,64 @@ DO $$
 BEGIN
     -- Purchase count
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'purchase_count'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN purchase_count INTEGER DEFAULT 0;
     END IF;
-    
+
     -- Average rating
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'avg_rating'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN avg_rating DECIMAL(3,2) DEFAULT 0;
     END IF;
-    
+
     -- Rating count
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'rating_count'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN rating_count INTEGER DEFAULT 0;
     END IF;
-    
+
     -- View count
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'view_count'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN view_count INTEGER DEFAULT 0;
     END IF;
-    
+
     -- Review status
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'review_status'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN review_status VARCHAR(20) DEFAULT 'approved';
         UPDATE qd_indicator_codes SET review_status = 'approved' WHERE publish_to_community = 1;
     END IF;
-    
+
     -- Review note
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'review_note'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN review_note TEXT DEFAULT '';
     END IF;
-    
+
     -- Reviewed at
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'reviewed_at'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN reviewed_at TIMESTAMP;
     END IF;
-    
+
     -- Reviewed by
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_indicator_codes' AND column_name = 'reviewed_by'
     ) THEN
         ALTER TABLE qd_indicator_codes ADD COLUMN reviewed_by INTEGER;
@@ -891,15 +851,15 @@ DO $$
 BEGIN
     -- Token version (for single-client login)
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_users' AND column_name = 'token_version'
     ) THEN
         ALTER TABLE qd_users ADD COLUMN token_version INTEGER DEFAULT 1;
     END IF;
-    
+
     -- Notification settings
     IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns 
+        SELECT 1 FROM information_schema.columns
         WHERE table_name = 'qd_users' AND column_name = 'notification_settings'
     ) THEN
         ALTER TABLE qd_users ADD COLUMN notification_settings TEXT DEFAULT '{}';

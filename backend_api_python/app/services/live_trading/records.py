@@ -8,7 +8,6 @@ Important:
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict, Optional, Tuple
 
 from app.utils.db import get_db_connection
@@ -22,7 +21,7 @@ def _get_user_id_from_strategy(strategy_id: int) -> int:
             cur.execute("SELECT user_id FROM qd_strategies_trading WHERE id = %s", (strategy_id,))
             row = cur.fetchone()
             cur.close()
-        return int((row or {}).get('user_id') or 1)
+        return int((row or {}).get("user_id") or 1)
     except Exception:
         return 1
 
@@ -121,7 +120,17 @@ def upsert_position(
                 lowest_price = CASE WHEN excluded.lowest_price > 0 THEN excluded.lowest_price ELSE qd_strategy_positions.lowest_price END,
                 updated_at = NOW()
             """,
-            (int(user_id), int(strategy_id), str(symbol), str(side), float(size or 0.0), float(entry_price or 0.0), float(current_price or 0.0), float(highest_price or 0.0), float(lowest_price or 0.0)),
+            (
+                int(user_id),
+                int(strategy_id),
+                str(symbol),
+                str(side),
+                float(size or 0.0),
+                float(entry_price or 0.0),
+                float(current_price or 0.0),
+                float(highest_price or 0.0),
+                float(lowest_price or 0.0),
+            ),
         )
         db.commit()
         cur.close()
@@ -217,5 +226,3 @@ def apply_fill_to_local_position(
         return profit, _fetch_position(strategy_id, symbol, side)
 
     return None, None
-
-

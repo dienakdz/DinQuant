@@ -3,7 +3,7 @@ module.exports = {
   env: {
     node: true
   },
-  'extends': [
+  extends: [
     'plugin:vue/strongly-recommended',
     '@vue/standard'
   ],
@@ -27,12 +27,39 @@ module.exports = {
     'vue/component-name-in-template-casing': 0,
     'vue/html-closing-bracket-spacing': 0,
     'vue/singleline-html-element-content-newline': 0,
-    'vue/no-unused-components': 0,
+    'vue/no-unused-components': 'error',
+    'vue/no-unused-vars': 'error',
     'vue/multiline-html-element-content-newline': 0,
     'vue/no-use-v-if-with-v-for': 0,
     'vue/html-closing-bracket-newline': 0,
     'vue/no-parsing-error': 0,
-    'no-tabs': 0,
+    'no-tabs': 'error',
+    'no-trailing-spaces': 'error',
+    'eol-last': [
+      'error',
+      'always'
+    ],
+    'no-unused-vars': [
+      'error',
+      {
+        'args': 'after-used',
+        'argsIgnorePattern': '^_',
+        'ignoreRestSiblings': true,
+        'varsIgnorePattern': '^_'
+      }
+    ],
+    'import/no-unused-modules': [
+      'error',
+      {
+        'missingExports': false,
+        'src': ['src/**/*.js'],
+        'unusedExports': true
+      }
+    ],
+    'space-before-function-paren': [
+      'error',
+      'always'
+    ],
     'quotes': [
       2,
       'single',

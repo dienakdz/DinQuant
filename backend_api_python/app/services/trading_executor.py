@@ -5,39 +5,40 @@ Strategy thread: Generates candlestick charts/prices, calculates signals, and wr
 
 Live trades are executed via PendingOrderWorker + app.services.live_trading (direct REST connection to each exchange); ccxt is not used for order placement in this module.
 """
-import time
-import threading
-import traceback
+
 import os
+import threading
+import time
+import traceback
+
 try:
     import resource  # Linux/Unix only
 except Exception:
     resource = None
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime
 import json
-from decimal import Decimal, ROUND_DOWN, ROUND_UP
-import pandas as pd
-import numpy as np
+from typing import Any, Dict, List, Optional, Tuple
 
-from app.utils.logger import get_logger
-from app.utils.db import get_db_connection
-from app.utils.strategy_runtime_logs import append_strategy_log
+import numpy as np
+import pandas as pd
+
 from app.data_sources import DataSourceFactory
+from app.services.indicator_params import IndicatorCaller, IndicatorParamsParser
 from app.services.kline import KlineService
-from app.services.indicator_params import IndicatorParamsParser, IndicatorCaller
 from app.services.strategy_script_runtime import (
     ScriptBar,
     StrategyScriptContext,
     compile_strategy_script_handlers,
 )
+from app.utils.db import get_db_connection
+from app.utils.logger import get_logger
+from app.utils.strategy_runtime_logs import append_strategy_log
 
 logger = get_logger(__name__)
 
 
 class TradingExecutor:
     """Real-time transaction executor (Signal Provider Mode)"""
-    
+
     def __init__(self):
         # Instead of using a global connection, obtain it from the connection pool each time it is used.
         self.running_strategies = {}  # {strategy_id: thread}
@@ -53,13 +54,13 @@ class TradingExecutor:
         # Keyed by (strategy_id, symbol, signal_type, signal_timestamp).
         self._signal_dedup = {}  # type: Dict[int, Dict[str, float]]
         self._signal_dedup_lock = threading.Lock()
-        self.kline_service = KlineService()   # K-line service (with cache)
+        self.kline_service = KlineService()  # K-line service (with cache)
         # Throttle writes to qd_strategy_logs (heartbeat), per strategy_id -> monotonic time
         self._strategy_ui_log_last_tick_ts = {}  # type: Dict[int, float]
-        
+
         # The upper limit of single-instance threads to avoid unlimited thread creation causing can't start new thread/OOM
-        self.max_threads = int(os.getenv('STRATEGY_MAX_THREADS', '64'))
-        
+        self.max_threads = int(os.getenv("STRATEGY_MAX_THREADS", "64"))
+
         # Make sure the database field exists
         self._ensure_db_columns()
 
@@ -73,23 +74,27 @@ class TradingExecutor:
                 # PostgreSQL: Query columns using information_schema
                 try:
                     cursor.execute("""
-                        SELECT column_name FROM information_schema.columns 
+                        SELECT column_name FROM information_schema.columns
                         WHERE table_name = 'qd_strategy_positions'
                     """)
                     cols = cursor.fetchall() or []
-                    col_names = {c.get('column_name') or c.get('COLUMN_NAME') for c in cols if isinstance(c, dict)}
+                    col_names = {c.get("column_name") or c.get("COLUMN_NAME") for c in cols if isinstance(c, dict)}
                 except Exception:
                     col_names = set()
 
-                if 'highest_price' not in col_names:
+                if "highest_price" not in col_names:
                     logger.info("Adding highest_price column to qd_strategy_positions...")
-                    cursor.execute("ALTER TABLE qd_strategy_positions ADD COLUMN IF NOT EXISTS highest_price DOUBLE PRECISION DEFAULT 0")
+                    cursor.execute(
+                        "ALTER TABLE qd_strategy_positions ADD COLUMN IF NOT EXISTS highest_price DOUBLE PRECISION DEFAULT 0"
+                    )
                     db.commit()
                     logger.info("highest_price column added")
 
-                if 'lowest_price' not in col_names:
+                if "lowest_price" not in col_names:
                     logger.info("Adding lowest_price column to qd_strategy_positions...")
-                    cursor.execute("ALTER TABLE qd_strategy_positions ADD COLUMN IF NOT EXISTS lowest_price DOUBLE PRECISION DEFAULT 0")
+                    cursor.execute(
+                        "ALTER TABLE qd_strategy_positions ADD COLUMN IF NOT EXISTS lowest_price DOUBLE PRECISION DEFAULT 0"
+                    )
                     db.commit()
                     logger.info("lowest_price column added")
 
@@ -106,36 +111,38 @@ class TradingExecutor:
         """
         try:
             # New system: only supports swap (perpetual contract) / spot (spot)
-            if market_type != 'swap':
+            if market_type != "swap":
                 return symbol
-            if not symbol or ':' in symbol:
+            if not symbol or ":" in symbol:
                 return symbol
-            if not getattr(exchange, 'markets', None):
+            if not getattr(exchange, "markets", None):
                 return symbol
 
             # If symbol itself is a contract market, return it directly
             try:
                 m = exchange.market(symbol)
-                if m and (m.get('swap') or m.get('future') or m.get('contract')):
+                if m and (m.get("swap") or m.get("future") or m.get("contract")):
                     return symbol
             except Exception:
                 pass
 
             # OKX/some exchanges: Perpetual is usually BASE/QUOTE:QUOTE or BASE/QUOTE:USDT
-            if '/' not in symbol:
+            if "/" not in symbol:
                 return symbol
-            base, quote = symbol.split('/', 1)
+            base, quote = symbol.split("/", 1)
             candidates = []
             if quote:
                 candidates.append(f"{base}/{quote}:{quote}")
-                if quote.upper() != 'USDT':
+                if quote.upper() != "USDT":
                     candidates.append(f"{base}/{quote}:USDT")
 
             for cand in candidates:
                 if cand in exchange.markets:
                     cm = exchange.markets[cand]
-                    if cm and (cm.get('swap') or cm.get('future') or cm.get('contract')):
-                        logger.info(f"symbol normalized: {symbol} -> {cand} (exchange={exchange_id}, market_type={market_type})")
+                    if cm and (cm.get("swap") or cm.get("future") or cm.get("contract")):
+                        logger.info(
+                            f"symbol normalized: {symbol} -> {cand} (exchange={exchange_id}, market_type={market_type})"
+                        )
                         return cand
 
             return symbol
@@ -146,27 +153,32 @@ class TradingExecutor:
         """Debug helper: record thread and memory usage to diagnose the root cause of 'can't start new thread'."""
         try:
             import psutil  # Use more precise metrics if installed
+
             p = psutil.Process()
             mem = p.memory_info().rss / 1024 / 1024
             th = p.num_threads()
-            logger.warning(f"{prefix}resource status: memory={mem:.1f}MB, threads={th}, "
-                           f"running_strategies={len(self.running_strategies)}")
+            logger.warning(
+                f"{prefix}resource status: memory={mem:.1f}MB, threads={th}, "
+                f"running_strategies={len(self.running_strategies)}"
+            )
         except Exception:
             try:
                 th = threading.active_count()
                 # Read VmRSS from /proc/self/status (for Linux containers)
                 vmrss = None
                 try:
-                    with open('/proc/self/status') as f:
+                    with open("/proc/self/status") as f:
                         for line in f:
-                            if line.startswith('VmRSS:'):
+                            if line.startswith("VmRSS:"):
                                 vmrss = line.split()[1:3]  # e.g. ['123456', 'kB']
                                 break
                 except Exception:
                     pass
                 vmrss_str = f"{vmrss[0]}{vmrss[1]}" if vmrss else "N/A"
-                logger.warning(f"{prefix}resource status: VmRSS={vmrss_str}, active_threads={th}, "
-                               f"running_strategies={len(self.running_strategies)}")
+                logger.warning(
+                    f"{prefix}resource status: VmRSS={vmrss_str}, active_threads={th}, "
+                    f"running_strategies={len(self.running_strategies)}"
+                )
             except Exception:
                 pass
 
@@ -387,14 +399,14 @@ class TradingExecutor:
                 },
             },
         }
-    
+
     def start_strategy(self, strategy_id: int) -> bool:
         """
         launch strategy
-        
+
         Args:
             strategy_id: Strategy ID
-            
+
         Returns:
             Is it successful?
         """
@@ -416,13 +428,9 @@ class TradingExecutor:
                 if strategy_id in self.running_strategies:
                     logger.warning(f"Strategy {strategy_id} is already running")
                     return False
-                
+
                 # Create and start threads
-                thread = threading.Thread(
-                    target=self._run_strategy_loop,
-                    args=(strategy_id,),
-                    daemon=True
-                )
+                thread = threading.Thread(target=self._run_strategy_loop, args=(strategy_id,), daemon=True)
                 try:
                     thread.start()
                 except Exception as e:
@@ -430,24 +438,24 @@ class TradingExecutor:
                     self._log_resource_status(prefix="startup exception")
                     raise e
                 self.running_strategies[strategy_id] = thread
-                
+
                 logger.info(f"Strategy {strategy_id} started")
                 self._console_print(f"[strategy:{strategy_id}] started")
                 append_strategy_log(strategy_id, "info", "策略执行线程已启动")
                 return True
-                
+
         except Exception as e:
             logger.error(f"Failed to start strategy {strategy_id}: {str(e)}")
             logger.error(traceback.format_exc())
             return False
-    
+
     def stop_strategy(self, strategy_id: int) -> bool:
         """
         stopping strategy
-        
+
         Args:
             strategy_id: Strategy ID
-            
+
         Returns:
             Is it successful?
         """
@@ -456,25 +464,22 @@ class TradingExecutor:
                 if strategy_id not in self.running_strategies:
                     logger.warning(f"Strategy {strategy_id} is not running")
                     return False
-                
+
                 # Mark policy as stopped
                 with get_db_connection() as db:
                     cursor = db.cursor()
-                    cursor.execute(
-                        "UPDATE qd_strategies_trading SET status = 'stopped' WHERE id = %s",
-                        (strategy_id,)
-                    )
+                    cursor.execute("UPDATE qd_strategies_trading SET status = 'stopped' WHERE id = %s", (strategy_id,))
                     db.commit()
                     cursor.close()
-                
+
                 # Removed from the run list (the thread will exit the next time the loop checks status)
                 del self.running_strategies[strategy_id]
-                
+
                 logger.info(f"Strategy {strategy_id} stopped")
                 self._console_print(f"[strategy:{strategy_id}] stopped (requested)")
                 append_strategy_log(strategy_id, "info", "已请求停止策略（运行标志已清除）")
                 return True
-                
+
         except Exception as e:
             logger.error(f"Failed to stop strategy {strategy_id}: {str(e)}")
             logger.error(traceback.format_exc())
@@ -483,13 +488,13 @@ class TradingExecutor:
     def _df_to_script_exec_df(self, df: pd.DataFrame) -> pd.DataFrame:
         out = df.reset_index()
         c0 = out.columns[0]
-        if c0 != 'time':
-            out.rename(columns={c0: 'time'}, inplace=True)
+        if c0 != "time":
+            out.rename(columns={c0: "time"}, inplace=True)
         return out
 
     def _script_default_position_ratio(self, trading_config: Dict[str, Any]) -> float:
         try:
-            ep = (trading_config or {}).get('entry_pct')
+            ep = (trading_config or {}).get("entry_pct")
             if ep is not None:
                 return float(self._to_ratio(ep, default=0.06))
         except Exception:
@@ -502,11 +507,11 @@ class TradingExecutor:
         if not pl:
             return
         p = pl[0]
-        side = (p.get('side') or 'long').strip().lower()
-        if side not in ('long', 'short'):
+        side = (p.get("side") or "long").strip().lower()
+        if side not in ("long", "short"):
             return
-        size = float(p.get('size') or 0)
-        ep = float(p.get('entry_price') or 0)
+        size = float(p.get("size") or 0)
+        ep = float(p.get("entry_price") or 0)
         if size > 0:
             ctx.position.open_position(side, ep, size)
 
@@ -519,19 +524,19 @@ class TradingExecutor:
     ) -> Tuple[StrategyScriptContext, Optional[pd.Timestamp]]:
         df_exec = self._df_to_script_exec_df(df)
         ctx = StrategyScriptContext(df_exec, float(initial_capital or 0))
-        raw = (trading_config or {}).get('script_runtime_state') or {}
-        params = raw.get('params') if isinstance(raw, dict) else {}
+        raw = (trading_config or {}).get("script_runtime_state") or {}
+        params = raw.get("params") if isinstance(raw, dict) else {}
         if isinstance(params, dict):
             ctx._params = dict(params)
         last_ts = None
-        ts_s = raw.get('last_closed_bar_ts') if isinstance(raw, dict) else None
+        ts_s = raw.get("last_closed_bar_ts") if isinstance(raw, dict) else None
         if ts_s:
             try:
                 last_ts = pd.Timestamp(ts_s)
                 if last_ts.tzinfo is None:
-                    last_ts = last_ts.tz_localize('UTC')
+                    last_ts = last_ts.tz_localize("UTC")
                 else:
-                    last_ts = last_ts.tz_convert('UTC')
+                    last_ts = last_ts.tz_convert("UTC")
             except Exception:
                 last_ts = None
         return ctx, last_ts
@@ -541,13 +546,13 @@ class TradingExecutor:
             safe_params = json.loads(json.dumps(params or {}, default=str))
         except Exception:
             safe_params = {}
-        ts_str = ''
+        ts_str = ""
         try:
             if closed_ts is not None:
                 ts_str = pd.Timestamp(closed_ts).isoformat()
         except Exception:
-            ts_str = ''
-        state = {'last_closed_bar_ts': ts_str, 'params': safe_params}
+            ts_str = ""
+        state = {"last_closed_bar_ts": ts_str, "params": safe_params}
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
@@ -556,7 +561,7 @@ class TradingExecutor:
                 if not row:
                     cur.close()
                     return
-                tc = row.get('trading_config')
+                tc = row.get("trading_config")
                 if isinstance(tc, str) and tc.strip():
                     try:
                         tc = json.loads(tc)
@@ -564,7 +569,7 @@ class TradingExecutor:
                         tc = {}
                 elif not isinstance(tc, dict):
                     tc = {}
-                tc['script_runtime_state'] = state
+                tc["script_runtime_state"] = state
                 cur.execute(
                     "UPDATE qd_strategies_trading SET trading_config = %s WHERE id = %s",
                     (json.dumps(tc, ensure_ascii=False), strategy_id),
@@ -582,9 +587,9 @@ class TradingExecutor:
         closed_ts: pd.Timestamp,
         trading_config: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
-        td = str(trade_direction or 'both').lower()
-        if td not in ('long', 'short', 'both'):
-            td = 'both'
+        td = str(trade_direction or "both").lower()
+        if td not in ("long", "short", "both"):
+            td = "both"
         default_ratio = self._script_default_position_ratio(trading_config)
         try:
             ts_i = int(closed_ts.timestamp())
@@ -593,12 +598,12 @@ class TradingExecutor:
         out: List[Dict[str, Any]] = []
         trig = float(bar_close or 0)
         for order in list(ctx._orders or []):
-            action = str(order.get('action') or '').lower()
+            action = str(order.get("action") or "").lower()
             try:
-                order_price = float(order.get('price') or bar_close or 0)
+                order_price = float(order.get("price") or bar_close or 0)
             except Exception:
                 order_price = trig
-            raw_amt = order.get('amount')
+            raw_amt = order.get("amount")
             pos_ratio = default_ratio
             if raw_amt is not None:
                 try:
@@ -607,36 +612,92 @@ class TradingExecutor:
                         pos_ratio = v
                 except Exception:
                     pass
-            if action == 'close':
+            if action == "close":
                 if ctx.position > 0:
-                    out.append({'type': 'close_long', 'trigger_price': order_price or trig, 'position_size': 0, 'timestamp': ts_i})
+                    out.append(
+                        {
+                            "type": "close_long",
+                            "trigger_price": order_price or trig,
+                            "position_size": 0,
+                            "timestamp": ts_i,
+                        }
+                    )
                     ctx.position.clear_position()
                 elif ctx.position < 0:
-                    out.append({'type': 'close_short', 'trigger_price': order_price or trig, 'position_size': 0, 'timestamp': ts_i})
+                    out.append(
+                        {
+                            "type": "close_short",
+                            "trigger_price": order_price or trig,
+                            "position_size": 0,
+                            "timestamp": ts_i,
+                        }
+                    )
                     ctx.position.clear_position()
                 continue
-            if action == 'buy':
+            if action == "buy":
                 if ctx.position < 0:
-                    out.append({'type': 'close_short', 'trigger_price': order_price or trig, 'position_size': 0, 'timestamp': ts_i})
+                    out.append(
+                        {
+                            "type": "close_short",
+                            "trigger_price": order_price or trig,
+                            "position_size": 0,
+                            "timestamp": ts_i,
+                        }
+                    )
                     ctx.position.clear_position()
-                if td in ('long', 'both'):
+                if td in ("long", "both"):
                     if ctx.position == 0:
-                        out.append({'type': 'open_long', 'trigger_price': order_price or trig, 'position_size': pos_ratio, 'timestamp': ts_i})
-                        ctx.position.open_position('long', order_price or trig, pos_ratio)
+                        out.append(
+                            {
+                                "type": "open_long",
+                                "trigger_price": order_price or trig,
+                                "position_size": pos_ratio,
+                                "timestamp": ts_i,
+                            }
+                        )
+                        ctx.position.open_position("long", order_price or trig, pos_ratio)
                     else:
-                        out.append({'type': 'add_long', 'trigger_price': order_price or trig, 'position_size': pos_ratio, 'timestamp': ts_i})
+                        out.append(
+                            {
+                                "type": "add_long",
+                                "trigger_price": order_price or trig,
+                                "position_size": pos_ratio,
+                                "timestamp": ts_i,
+                            }
+                        )
                         ctx.position.add_position(order_price or trig, pos_ratio)
                 continue
-            if action == 'sell':
+            if action == "sell":
                 if ctx.position > 0:
-                    out.append({'type': 'close_long', 'trigger_price': order_price or trig, 'position_size': 0, 'timestamp': ts_i})
+                    out.append(
+                        {
+                            "type": "close_long",
+                            "trigger_price": order_price or trig,
+                            "position_size": 0,
+                            "timestamp": ts_i,
+                        }
+                    )
                     ctx.position.clear_position()
-                if td in ('short', 'both'):
+                if td in ("short", "both"):
                     if ctx.position == 0:
-                        out.append({'type': 'open_short', 'trigger_price': order_price or trig, 'position_size': pos_ratio, 'timestamp': ts_i})
-                        ctx.position.open_position('short', order_price or trig, pos_ratio)
+                        out.append(
+                            {
+                                "type": "open_short",
+                                "trigger_price": order_price or trig,
+                                "position_size": pos_ratio,
+                                "timestamp": ts_i,
+                            }
+                        )
+                        ctx.position.open_position("short", order_price or trig, pos_ratio)
                     else:
-                        out.append({'type': 'add_short', 'trigger_price': order_price or trig, 'position_size': pos_ratio, 'timestamp': ts_i})
+                        out.append(
+                            {
+                                "type": "add_short",
+                                "trigger_price": order_price or trig,
+                                "position_size": pos_ratio,
+                                "timestamp": ts_i,
+                            }
+                        )
                         ctx.position.add_position(order_price or trig, pos_ratio)
         return out
 
@@ -667,12 +728,12 @@ class TradingExecutor:
         self._hydrate_script_ctx_from_positions(ctx, strategy_id, symbol)
         ctx._orders = []
         bar = ScriptBar(
-            open=float(row.get('open') or 0),
-            high=float(row.get('high') or 0),
-            low=float(row.get('low') or 0),
-            close=float(row.get('close') or 0),
-            volume=float(row.get('volume') or 0),
-            timestamp=row.get('time'),
+            open=float(row.get("open") or 0),
+            high=float(row.get("high") or 0),
+            low=float(row.get("low") or 0),
+            close=float(row.get("close") or 0),
+            volume=float(row.get("volume") or 0),
+            timestamp=row.get("time"),
         )
         try:
             on_bar(ctx, bar)
@@ -680,138 +741,136 @@ class TradingExecutor:
             logger.error(f"Strategy {strategy_id} script on_bar error: {e}")
             logger.error(traceback.format_exc())
             return [], last_closed_ts
-        bar_close = float(row.get('close') or 0)
+        bar_close = float(row.get("close") or 0)
         pending = self._script_orders_to_execution_signals(ctx, trade_direction, bar_close, closed_ts, trading_config)
         self._persist_script_runtime_state(strategy_id, closed_ts, ctx._params)
         logger.info(f"Strategy {strategy_id} script closed bar {closed_ts} -> {len(pending)} signal(s)")
         return pending, closed_ts
-    
+
     def _run_strategy_loop(self, strategy_id: int):
         """
         strategy run loop
-        
+
         Args:
             strategy_id: Strategy ID
         """
         logger.info(f"Strategy {strategy_id} loop starting")
         self._console_print(f"[strategy:{strategy_id}] loop initializing")
-        
+
         try:
             # Load policy configuration
             strategy = self._load_strategy(strategy_id)
             if not strategy:
                 logger.error(f"Strategy {strategy_id} not found")
                 return
-            
-            stype = strategy.get('strategy_type') or ''
-            if stype not in ('IndicatorStrategy', 'ScriptStrategy'):
+
+            stype = strategy.get("strategy_type") or ""
+            if stype not in ("IndicatorStrategy", "ScriptStrategy"):
                 logger.error(f"Strategy {strategy_id} has unsupported strategy_type for realtime execution: {stype}")
                 return
-            is_script = stype == 'ScriptStrategy'
+            is_script = stype == "ScriptStrategy"
 
             # Initialize policy state
-            trading_config = strategy['trading_config']
-            indicator_config = strategy.get('indicator_config') or {}
-            ai_model_config = strategy.get('ai_model_config') or {}
-            execution_mode = (strategy.get('execution_mode') or 'signal').strip().lower()
-            if execution_mode not in ['signal', 'live']:
-                execution_mode = 'signal'
-            notification_config = strategy.get('notification_config') or {}
-            strategy_name = strategy.get('strategy_name') or f"strategy_{int(strategy_id)}"
-            symbol = trading_config.get('symbol', '')
-            timeframe = trading_config.get('timeframe', '1H')
-            
+            trading_config = strategy["trading_config"]
+            indicator_config = strategy.get("indicator_config") or {}
+            ai_model_config = strategy.get("ai_model_config") or {}
+            execution_mode = (strategy.get("execution_mode") or "signal").strip().lower()
+            if execution_mode not in ["signal", "live"]:
+                execution_mode = "signal"
+            notification_config = strategy.get("notification_config") or {}
+            strategy_name = strategy.get("strategy_name") or f"strategy_{int(strategy_id)}"
+            symbol = trading_config.get("symbol", "")
+            timeframe = trading_config.get("timeframe", "1H")
+
             # Secure access to leverage and trade_direction
             try:
-                leverage_val = trading_config.get('leverage', 1)
+                leverage_val = trading_config.get("leverage", 1)
                 if isinstance(leverage_val, (list, tuple)):
                     leverage_val = leverage_val[0] if leverage_val else 1
                 leverage = float(leverage_val)
-            except:
-                logger.warning(f"Strategy {strategy_id} invalid leverage format, reset to 1: {trading_config.get('leverage')}")
+            except Exception:
+                logger.warning(
+                    f"Strategy {strategy_id} invalid leverage format, reset to 1: {trading_config.get('leverage')}"
+                )
                 leverage = 1.0
-            
+
             # Get the market type, default is contract
             # Automatic judgment based on leverage: leverage = 1 for spot, leverage > 1 for contract
-            market_type = trading_config.get('market_type', 'swap')
-            if market_type not in ['swap', 'spot']:
-                logger.error(f"Strategy {strategy_id} invalid market_type={market_type} (only swap/spot supported); refusing to start")
+            market_type = trading_config.get("market_type", "swap")
+            if market_type not in ["swap", "spot"]:
+                logger.error(
+                    f"Strategy {strategy_id} invalid market_type={market_type} (only swap/spot supported); refusing to start"
+                )
                 return
-            
+
             # Automatically adjust market type based on leverage
             if leverage == 1.0:
-                market_type = 'spot'  # Spot fixed 1x leverage
+                market_type = "spot"  # Spot fixed 1x leverage
                 logger.info(f"Strategy {strategy_id} leverage=1; auto-switch market_type to spot")
             else:
                 # Contract market: uniformly use swap (perpetual) to avoid futures/delivery confusion that may lead to position/order checking in the wrong market.
-                market_type = 'swap'
+                market_type = "swap"
                 logger.info(f"Strategy {strategy_id} derivatives trading; normalize market_type to: {market_type}")
-            
+
             # Limit leverage based on market type
-            if market_type == 'spot':
+            if market_type == "spot":
                 leverage = 1.0  # Spot fixed 1x leverage
             elif leverage < 1:
                 leverage = 1.0
             elif leverage > 125:
                 leverage = 125.0
                 logger.warning(f"Strategy {strategy_id} leverage > 125; capped to 125")
-            
+
             # Get the trading direction, spot can only go long
-            trade_direction = trading_config.get('trade_direction', 'long')
-            if market_type == 'spot':
-                trade_direction = 'long'  # Spot prices can only be long
+            trade_direction = trading_config.get("trade_direction", "long")
+            if market_type == "spot":
+                trade_direction = "long"  # Spot prices can only be long
                 logger.info(f"Strategy {strategy_id} spot trading; force trade_direction=long")
 
             # Get market category (Crypto, USStock, Forex, Futures)
             # This determines which data source to use to obtain price and K-line data
-            market_category = (strategy.get('market_category') or 'Crypto').strip()
+            market_category = (strategy.get("market_category") or "Crypto").strip()
             logger.info(f"Strategy {strategy_id} market_category: {market_category}")
-
-            # Check if this is a cross-sectional strategy
-            cs_strategy_type = trading_config.get('cs_strategy_type', 'single')
-            if cs_strategy_type == 'cross_sectional':
-                # Run cross-sectional strategy loop
-                self._run_cross_sectional_strategy_loop(
-                    strategy_id, strategy, trading_config, indicator_config, 
-                    ai_model_config, execution_mode, notification_config, 
-                    strategy_name, market_category, market_type, leverage, 
-                    initial_capital, indicator_code, indicator_id
-                )
-                return
 
             # Initialize exchange connection (no real connection required in signal mode)
             exchange = None
-            
+
             # Safely obtain initial_capital
             try:
-                initial_capital_val = strategy.get('initial_capital', 1000)
+                initial_capital_val = strategy.get("initial_capital", 1000)
                 if isinstance(initial_capital_val, (list, tuple)):
                     initial_capital_val = initial_capital_val[0] if initial_capital_val else 1000
                 initial_capital = float(initial_capital_val)
             except Exception:
-                logger.warning(f"Strategy {strategy_id} invalid initial_capital format, reset to 1000: {strategy.get('initial_capital')}")
+                logger.warning(
+                    f"Strategy {strategy_id} invalid initial_capital format, reset to 1000: {strategy.get('initial_capital')}"
+                )
                 initial_capital = 1000.0
 
             indicator_id = None
-            indicator_code = ''
-            strategy_code = ''
+            indicator_code = ""
+            strategy_code = ""
             on_init_script = None
             on_bar_script = None
 
             if is_script:
-                strategy_code = (strategy.get('strategy_code') or '').strip()
+                strategy_code = (strategy.get("strategy_code") or "").strip()
                 if not strategy_code:
                     logger.error(f"Strategy {strategy_id} strategy_code is empty")
                     return
-                if '\\n' in strategy_code and '\n' not in strategy_code:
+                if "\\n" in strategy_code and "\n" not in strategy_code:
                     try:
                         decoded = json.loads(f'"{strategy_code}"')
                         if isinstance(decoded, str):
                             strategy_code = decoded
                     except Exception:
                         strategy_code = (
-                            strategy_code.replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
-                            .replace('\\"', '"').replace("\\'", "'").replace('\\\\', '\\')
+                            strategy_code.replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace("\\r", "\r")
+                            .replace('\\"', '"')
+                            .replace("\\'", "'")
+                            .replace("\\\\", "\\")
                         )
                 try:
                     on_init_script, on_bar_script = compile_strategy_script_handlers(strategy_code)
@@ -820,9 +879,9 @@ class TradingExecutor:
                     logger.error(traceback.format_exc())
                     return
             else:
-                indicator_config = strategy['indicator_config']
-                indicator_id = indicator_config.get('indicator_id')
-                indicator_code = indicator_config.get('indicator_code', '')
+                indicator_config = strategy["indicator_config"]
+                indicator_id = indicator_config.get("indicator_id")
+                indicator_code = indicator_config.get("indicator_code", "")
                 if not indicator_code and indicator_id:
                     indicator_code = self._get_indicator_code_from_db(indicator_id)
                 if not indicator_code:
@@ -830,48 +889,64 @@ class TradingExecutor:
                     return
                 if not isinstance(indicator_code, str):
                     indicator_code = str(indicator_code)
-                if '\\n' in indicator_code and '\n' not in indicator_code:
+                if "\\n" in indicator_code and "\n" not in indicator_code:
                     try:
                         decoded = json.loads(f'"{indicator_code}"')
                         if isinstance(decoded, str):
                             indicator_code = decoded
                             logger.info(f"Strategy {strategy_id} decoded escaped indicator_code")
                     except Exception as e:
-                        logger.warning(f"Strategy {strategy_id} JSON decode failed; falling back to manual unescape: {str(e)}")
+                        logger.warning(
+                            f"Strategy {strategy_id} JSON decode failed; falling back to manual unescape: {str(e)}"
+                        )
                         indicator_code = (
-                            indicator_code.replace('\\n', '\n').replace('\\t', '\t').replace('\\r', '\r')
-                            .replace('\\"', '"').replace("\\'", "'").replace('\\\\', '\\')
+                            indicator_code.replace("\\n", "\n")
+                            .replace("\\t", "\t")
+                            .replace("\\r", "\r")
+                            .replace('\\"', '"')
+                            .replace("\\'", "'")
+                            .replace("\\\\", "\\")
                         )
 
             # Check if this is a cross-sectional strategy
-            cs_strategy_type = trading_config.get('cs_strategy_type', 'single')
-            if (not is_script) and cs_strategy_type == 'cross_sectional':
+            cs_strategy_type = trading_config.get("cs_strategy_type", "single")
+            if (not is_script) and cs_strategy_type == "cross_sectional":
                 self._run_cross_sectional_strategy_loop(
-                    strategy_id, strategy, trading_config, strategy['indicator_config'],
-                    ai_model_config, execution_mode, notification_config,
-                    strategy_name, market_category, market_type, leverage,
-                    initial_capital, indicator_code, indicator_id
+                    strategy_id,
+                    strategy,
+                    trading_config,
+                    strategy["indicator_config"],
+                    ai_model_config,
+                    execution_mode,
+                    notification_config,
+                    strategy_name,
+                    market_category,
+                    market_type,
+                    leverage,
+                    initial_capital,
+                    indicator_code,
+                    indicator_id,
                 )
                 return
 
-            if is_script and cs_strategy_type == 'cross_sectional':
+            if is_script and cs_strategy_type == "cross_sectional":
                 logger.error(f"Strategy {strategy_id} ScriptStrategy does not support cross_sectional mode")
                 return
 
             # Initialize the exchange connection (no real connection is required in signal mode)
             exchange = None
-            
+
             # ============================================
             # Initialization phase: Obtain historical K-lines and calculate indicators
             # ============================================
             # logger.info(f"Strategy {strategy_id} initialization: Get historical K-line data...")
-            history_limit = int(os.getenv('K_LINE_HISTORY_GET_NUMBER', 500))
+            history_limit = int(os.getenv("K_LINE_HISTORY_GET_NUMBER", 500))
             klines = self._fetch_latest_kline(symbol, timeframe, limit=history_limit, market_category=market_category)
             if not klines or len(klines) < 2:
                 logger.error(f"Strategy {strategy_id} failed to fetch K-lines")
                 return
-            logger.info(rf'Strategy {strategy_id} history kline number: {len(klines)}')
-            
+            logger.info(rf"Strategy {strategy_id} history kline number: {len(klines)}")
+
             # Convert to DataFrame
             df = self._klines_to_dataframe(klines)
             if len(df) == 0:
@@ -887,12 +962,15 @@ class TradingExecutor:
                 logger.info(f"Checking position synchronization during startup for strategy {strategy_id}...")
                 # Call position synchronization logic (check even in signal mode)
                 from app import get_pending_order_worker
+
                 worker = get_pending_order_worker()
-                if worker and hasattr(worker, '_sync_positions_best_effort'):
+                if worker and hasattr(worker, "_sync_positions_best_effort"):
                     worker._sync_positions_best_effort(target_strategy_id=strategy_id)
                     logger.info(f"Position synchronization completed during startup for strategy {strategy_id}")
             except Exception as e:
-                logger.warning(f"Position synchronization failed during startup for strategy {strategy_id} (startup continues): {e}")
+                logger.warning(
+                    f"Position synchronization failed during startup for strategy {strategy_id} (startup continues): {e}"
+                )
 
             # Get the current highest position price (read from local database)
             current_pos_list = self._get_current_positions(strategy_id, symbol)
@@ -901,13 +979,13 @@ class TradingExecutor:
             initial_avg_entry_price = 0.0
             initial_position_count = 0
             initial_last_add_price = 0.0
-            
+
             if current_pos_list:
                 pos = current_pos_list[0]  # Take the first position (one-way position mode)
-                initial_highest = float(pos.get('highest_price', 0) or 0)
-                pos_side = pos.get('side', 'long')
-                initial_position = 1 if pos_side == 'long' else -1
-                initial_avg_entry_price = float(pos.get('entry_price', 0) or 0)
+                initial_highest = float(pos.get("highest_price", 0) or 0)
+                pos_side = pos.get("side", "long")
+                initial_position = 1 if pos_side == "long" else -1
+                initial_avg_entry_price = float(pos.get("entry_price", 0) or 0)
                 initial_position_count = 1  # To simplify the process, assume it is a single position
                 initial_last_add_price = initial_avg_entry_price
 
@@ -931,8 +1009,14 @@ class TradingExecutor:
                         logger.error(f"Strategy {strategy_id} on_init error: {e}")
                         logger.error(traceback.format_exc())
                 pending_signals, last_script_closed_ts = self._script_evaluate_new_closed_bar(
-                    df, script_ctx, on_bar_script, trade_direction,
-                    last_script_closed_ts, strategy_id, symbol, trading_config,
+                    df,
+                    script_ctx,
+                    on_bar_script,
+                    trade_direction,
+                    last_script_closed_ts,
+                    strategy_id,
+                    symbol,
+                    trading_config,
                 )
                 try:
                     last_kline_time = int(df.index[-1].timestamp())
@@ -940,18 +1024,20 @@ class TradingExecutor:
                     last_kline_time = int(time.time())
             else:
                 indicator_result = self._execute_indicator_with_prices(
-                    indicator_code, df, trading_config,
+                    indicator_code,
+                    df,
+                    trading_config,
                     initial_highest_price=initial_highest,
                     initial_position=initial_position,
                     initial_avg_entry_price=initial_avg_entry_price,
                     initial_position_count=initial_position_count,
-                    initial_last_add_price=initial_last_add_price
+                    initial_last_add_price=initial_last_add_price,
                 )
                 if indicator_result is None:
                     logger.error(f"Strategy {strategy_id} indicator execution failed")
                     return
-                pending_signals = indicator_result.get('pending_signals', [])
-                last_kline_time = indicator_result.get('last_kline_time', 0)
+                pending_signals = indicator_result.get("pending_signals", [])
+                last_kline_time = indicator_result.get("last_kline_time", 0)
 
             logger.info(f"Strategy {strategy_id} initialized; pending_signals={len(pending_signals)}")
             if pending_signals:
@@ -961,7 +1047,7 @@ class TradingExecutor:
                 "info",
                 f"Live trading cycle ready {symbol} {timeframe}，Signal to be processed {len(pending_signals or [])} strip",
             )
-            
+
             # ============================================
             # Main loop: unified tick cadence (default: 10s)
             # ============================================
@@ -969,7 +1055,7 @@ class TradingExecutor:
             # Note: `pending_orders` scanning stays at 1s (see PendingOrderWorker) to reduce live dispatch latency.
             try:
                 # Global-only (no per-strategy override)
-                tick_interval_sec = int(os.getenv('STRATEGY_TICK_INTERVAL_SEC', '10'))
+                tick_interval_sec = int(os.getenv("STRATEGY_TICK_INTERVAL_SEC", "10"))
             except Exception:
                 tick_interval_sec = 10
             if tick_interval_sec < 1:
@@ -977,19 +1063,20 @@ class TradingExecutor:
 
             last_tick_time = 0.0
             last_kline_update_time = time.time()
-            
+
             # Calculate K-line period (seconds)
             from app.data_sources.base import TIMEFRAME_SECONDS
+
             timeframe_seconds = TIMEFRAME_SECONDS.get(timeframe, 3600)
             kline_update_interval = timeframe_seconds  # Updated once every K-line cycle
-            
+
             while True:
                 try:
                     # Check policy status
                     if not self._is_strategy_running(strategy_id):
                         logger.info(f"Strategy {strategy_id} stopped")
                         break
-                    
+
                     current_time = time.time()
 
                     # Sleep until next tick to avoid CPU spin.
@@ -1004,27 +1091,39 @@ class TradingExecutor:
                     # 0. Virtual position mode, no need to synchronize exchanges
                     # ============================================
                     # pass
-                    
+
                     # ============================================
                     # 1. Fetch current price once per tick
                     # ============================================
-                    current_price = self._fetch_current_price(exchange, symbol, market_type=market_type, market_category=market_category)
+                    current_price = self._fetch_current_price(
+                        exchange, symbol, market_type=market_type, market_category=market_category
+                    )
                     if current_price is None:
-                        logger.warning(f"Strategy {strategy_id} failed to fetch current price for {market_category}:{symbol}")
+                        logger.warning(
+                            f"Strategy {strategy_id} failed to fetch current price for {market_category}:{symbol}"
+                        )
                         continue
 
                     # ============================================
                     # 2. Check whether the K-line needs to be updated (updated once every K-line cycle, pulled from API)
                     # ============================================
                     if current_time - last_kline_update_time >= kline_update_interval:
-                        klines = self._fetch_latest_kline(symbol, timeframe, limit=history_limit, market_category=market_category)
+                        klines = self._fetch_latest_kline(
+                            symbol, timeframe, limit=history_limit, market_category=market_category
+                        )
                         if klines and len(klines) >= 2:
                             df = self._klines_to_dataframe(klines)
                             if len(df) > 0:
                                 if is_script:
                                     new_sig, last_script_closed_ts = self._script_evaluate_new_closed_bar(
-                                        df, script_ctx, on_bar_script, trade_direction,
-                                        last_script_closed_ts, strategy_id, symbol, trading_config,
+                                        df,
+                                        script_ctx,
+                                        on_bar_script,
+                                        trade_direction,
+                                        last_script_closed_ts,
+                                        strategy_id,
+                                        symbol,
+                                        trading_config,
                                     )
                                     pending_signals = new_sig
                                     try:
@@ -1042,46 +1141,53 @@ class TradingExecutor:
 
                                     if current_pos_list:
                                         pos = current_pos_list[0]
-                                        initial_highest = float(pos.get('highest_price', 0) or 0)
-                                        pos_side = pos.get('side', 'long')
-                                        initial_position = 1 if pos_side == 'long' else -1
-                                        initial_avg_entry_price = float(pos.get('entry_price', 0) or 0)
+                                        initial_highest = float(pos.get("highest_price", 0) or 0)
+                                        pos_side = pos.get("side", "long")
+                                        initial_position = 1 if pos_side == "long" else -1
+                                        initial_avg_entry_price = float(pos.get("entry_price", 0) or 0)
                                         initial_position_count = 1
                                         initial_last_add_price = initial_avg_entry_price
 
                                     indicator_result = self._execute_indicator_with_prices(
-                                        indicator_code, df, trading_config,
+                                        indicator_code,
+                                        df,
+                                        trading_config,
                                         initial_highest_price=initial_highest,
                                         initial_position=initial_position,
                                         initial_avg_entry_price=initial_avg_entry_price,
                                         initial_position_count=initial_position_count,
-                                        initial_last_add_price=initial_last_add_price
+                                        initial_last_add_price=initial_last_add_price,
                                     )
                                     if indicator_result:
-                                        pending_signals = indicator_result.get('pending_signals', [])
-                                        last_kline_time = indicator_result.get('last_kline_time', 0)
-                                        new_hp = indicator_result.get('new_highest_price', 0)
+                                        pending_signals = indicator_result.get("pending_signals", [])
+                                        last_kline_time = indicator_result.get("last_kline_time", 0)
+                                        new_hp = indicator_result.get("new_highest_price", 0)
 
                                         last_kline_update_time = current_time
 
                                     # Update highest_price (using latest close as an approximation of current_price)
                                     if new_hp > 0 and current_pos_list:
-                                        current_close = float(df['close'].iloc[-1])
+                                        current_close = float(df["close"].iloc[-1])
                                         for p in current_pos_list:
                                             self._update_position(
-                                                strategy_id, p['symbol'], p['side'],
-                                                float(p['size']), float(p['entry_price']),
+                                                strategy_id,
+                                                p["symbol"],
+                                                p["side"],
+                                                float(p["size"]),
+                                                float(p["entry_price"]),
                                                 current_close,
-                                                highest_price=new_hp
+                                                highest_price=new_hp,
                                             )
                     else:
                         # ============================================
                         # 3. Non-K-line update tick: The script strategy is not recalculated here (only on_bar at the close of a new K-line).
                         # ============================================
-                        if (not is_script) and 'df' in locals() and df is not None and len(df) > 0:
+                        if (not is_script) and "df" in locals() and df is not None and len(df) > 0:
                             try:
                                 realtime_df = df.copy()
-                                realtime_df = self._update_dataframe_with_current_price(realtime_df, current_price, timeframe)
+                                realtime_df = self._update_dataframe_with_current_price(
+                                    realtime_df, current_price, timeframe
+                                )
 
                                 current_pos_list = self._get_current_positions(strategy_id, symbol)
                                 initial_highest = 0.0
@@ -1092,36 +1198,41 @@ class TradingExecutor:
 
                                 if current_pos_list:
                                     pos = current_pos_list[0]
-                                    initial_highest = float(pos.get('highest_price', 0) or 0)
-                                    pos_side = pos.get('side', 'long')
-                                    initial_position = 1 if pos_side == 'long' else -1
-                                    initial_avg_entry_price = float(pos.get('entry_price', 0) or 0)
+                                    initial_highest = float(pos.get("highest_price", 0) or 0)
+                                    pos_side = pos.get("side", "long")
+                                    initial_position = 1 if pos_side == "long" else -1
+                                    initial_avg_entry_price = float(pos.get("entry_price", 0) or 0)
                                     initial_position_count = 1
                                     initial_last_add_price = initial_avg_entry_price
 
                                 indicator_result = self._execute_indicator_with_prices(
-                                    indicator_code, realtime_df, trading_config,
+                                    indicator_code,
+                                    realtime_df,
+                                    trading_config,
                                     initial_highest_price=initial_highest,
                                     initial_position=initial_position,
                                     initial_avg_entry_price=initial_avg_entry_price,
                                     initial_position_count=initial_position_count,
-                                    initial_last_add_price=initial_last_add_price
+                                    initial_last_add_price=initial_last_add_price,
                                 )
                                 if indicator_result:
-                                    pending_signals = indicator_result.get('pending_signals', [])
-                                    new_hp = indicator_result.get('new_highest_price', 0)
+                                    pending_signals = indicator_result.get("pending_signals", [])
+                                    new_hp = indicator_result.get("new_highest_price", 0)
 
                                     if new_hp > 0 and current_pos_list:
                                         for p in current_pos_list:
                                             self._update_position(
-                                                strategy_id, p['symbol'], p['side'],
-                                                float(p['size']), float(p['entry_price']),
+                                                strategy_id,
+                                                p["symbol"],
+                                                p["side"],
+                                                float(p["size"]),
+                                                float(p["entry_price"]),
                                                 current_price,
-                                                highest_price=new_hp
+                                                highest_price=new_hp,
                                             )
                             except Exception as e:
                                 logger.warning(f"Strategy {strategy_id} realtime indicator recompute failed: {str(e)}")
-                    
+
                     # ============================================
                     # 4. Evaluate triggers once per tick
                     # ============================================
@@ -1131,7 +1242,7 @@ class TradingExecutor:
                         expiration_threshold = timeframe_seconds * 2
                         valid_signals = []
                         for s in pending_signals:
-                            signal_time = s.get('timestamp', 0)
+                            signal_time = s.get("timestamp", 0)
                             if signal_time == 0 or (current_ts - signal_time) < expiration_threshold:
                                 valid_signals.append(s)
                             else:
@@ -1141,39 +1252,46 @@ class TradingExecutor:
 
                     # Unified cadence log: at most once per tick.
                     if pending_signals:
-                        logger.info(f"[monitoring] strategy={strategy_id} price={current_price}, pending_signals={len(pending_signals)}")
+                        logger.info(
+                            f"[monitoring] strategy={strategy_id} price={current_price}, pending_signals={len(pending_signals)}"
+                        )
 
                     # Check if there is a signal to be triggered
                     triggered_signals = []
                     signals_to_remove = []
-                        
+
                     for signal_info in pending_signals:
-                        signal_type = signal_info.get('type')  # 'open_long', 'close_long', 'open_short', 'close_short'
-                        trigger_price = signal_info.get('trigger_price', 0)
-                        
+                        signal_type = signal_info.get("type")  # 'open_long', 'close_long', 'open_short', 'close_short'
+                        trigger_price = signal_info.get("trigger_price", 0)
+
                         # Check if price triggers
                         triggered = False
 
                         # [Key Fix] Position closing/stop loss and take profit signals default to "trigger immediately"
-                        exit_trigger_mode = trading_config.get('exit_trigger_mode', 'immediate')  # 'immediate' or 'price'
-                        if signal_type in ['close_long', 'close_short'] and exit_trigger_mode == 'immediate':
+                        exit_trigger_mode = trading_config.get(
+                            "exit_trigger_mode", "immediate"
+                        )  # 'immediate' or 'price'
+                        if signal_type in ["close_long", "close_short"] and exit_trigger_mode == "immediate":
                             triggered = True
-                        
+
                         # [Optional] Whether the signal to open/increase a position is "triggered immediately"
-                        entry_trigger_mode = trading_config.get('entry_trigger_mode', 'price')  # 'price' or 'immediate'
-                        if signal_type in ['open_long', 'open_short', 'add_long', 'add_short'] and entry_trigger_mode == 'immediate':
+                        entry_trigger_mode = trading_config.get("entry_trigger_mode", "price")  # 'price' or 'immediate'
+                        if (
+                            signal_type in ["open_long", "open_short", "add_long", "add_short"]
+                            and entry_trigger_mode == "immediate"
+                        ):
                             triggered = True
 
                         if trigger_price > 0:
-                            if signal_type in ['open_long', 'close_short', 'add_long']:
+                            if signal_type in ["open_long", "close_short", "add_long"]:
                                 if current_price >= trigger_price:
                                     triggered = True
-                            elif signal_type in ['open_short', 'close_long', 'add_short']:
+                            elif signal_type in ["open_short", "close_long", "add_short"]:
                                 if current_price <= trigger_price:
                                     triggered = True
                         else:
                             triggered = True
-                        
+
                         if triggered:
                             triggered_signals.append(signal_info)
                             signals_to_remove.append(signal_info)
@@ -1205,12 +1323,12 @@ class TradingExecutor:
                     )
                     if risk_sl:
                         triggered_signals.append(risk_sl)
-                        
+
                     # Remove a triggered signal from the pending trigger list
                     for signal_info in signals_to_remove:
                         if signal_info in pending_signals:
                             pending_signals.remove(signal_info)
-                        
+
                     # Execution trigger signal
                     if triggered_signals:
                         logger.info(f"Strategy {strategy_id} triggered signals: {triggered_signals}")
@@ -1222,7 +1340,7 @@ class TradingExecutor:
                         # - Only allow signals matching current state (flat/long/short).
                         # - Always prefer close_* over open_*/add_*.
                         # - Execute at most ONE signal per tick to avoid duplicated/re-entrant orders.
-                        candidates = [s for s in triggered_signals if self._is_signal_allowed(state, s.get('type'))]
+                        candidates = [s for s in triggered_signals if self._is_signal_allowed(state, s.get("type"))]
 
                         # If both directions are present while flat, choose by trade_direction (deterministic).
                         if state == "flat" and candidates:
@@ -1259,9 +1377,9 @@ class TradingExecutor:
                             break
 
                         if selected:
-                            signal_type = selected.get('type')
-                            position_size = selected.get('position_size', 0)
-                            trigger_price = selected.get('trigger_price', current_price)
+                            signal_type = selected.get("type")
+                            position_size = selected.get("position_size", 0)
+                            trigger_price = selected.get("trigger_price", current_price)
                             execute_price = trigger_price if trigger_price > 0 else current_price
                             signal_ts = int(selected.get("timestamp") or 0)
 
@@ -1295,11 +1413,12 @@ class TradingExecutor:
                                 # Notify portfolio positions linked to this symbol
                                 try:
                                     from app.services.portfolio_monitor import notify_strategy_signal_for_positions
+
                                     notify_strategy_signal_for_positions(
-                                        market=market_type or 'Crypto',
+                                        market=market_type or "Crypto",
                                         symbol=symbol,
                                         signal_type=signal_type,
-                                        signal_detail=f"Strategy: {strategy_name}\nSignal: {signal_type}\nPrice: {execute_price:.4f}"
+                                        signal_detail=f"Strategy: {strategy_name}\nSignal: {signal_type}\nPrice: {execute_price:.4f}",
                                     )
                                 except Exception as link_e:
                                     logger.warning(f"Strategy signal linkage notification failed: {link_e}")
@@ -1330,7 +1449,7 @@ class TradingExecutor:
                             )
                     except Exception:
                         pass
-                    
+
                 except Exception as e:
                     logger.error(f"Strategy {strategy_id} loop error: {str(e)}")
                     logger.error(traceback.format_exc())
@@ -1340,7 +1459,7 @@ class TradingExecutor:
                     except Exception:
                         pass
                     time.sleep(5)
-                    
+
         except Exception as e:
             logger.error(f"Strategy {strategy_id} crashed: {str(e)}")
             logger.error(traceback.format_exc())
@@ -1360,7 +1479,7 @@ class TradingExecutor:
                 append_strategy_log(strategy_id, "info", "策略执行循环已退出")
             except Exception:
                 pass
-    
+
     def _sync_positions_with_exchange(self, strategy_id: int, exchange: Any, symbol: str, market_type: str):
         """
         [Depracated] No need to synchronize exchange positions in signal mode
@@ -1373,7 +1492,7 @@ class TradingExecutor:
             with get_db_connection() as db:
                 cursor = db.cursor()
                 query = """
-                    SELECT 
+                    SELECT
                         id, strategy_name, strategy_type, status,
                         initial_capital, leverage, decide_interval,
                         execution_mode, notification_config,
@@ -1385,37 +1504,39 @@ class TradingExecutor:
                 cursor.execute(query, (strategy_id,))
                 strategy = cursor.fetchone()
                 cursor.close()
-            
+
             if strategy:
                 # Parse JSON fields
-                for field in ['indicator_config', 'trading_config', 'notification_config', 'ai_model_config']:
+                for field in ["indicator_config", "trading_config", "notification_config", "ai_model_config"]:
                     if isinstance(strategy.get(field), str):
                         try:
                             strategy[field] = json.loads(strategy[field])
-                        except:
+                        except Exception as e:
+                            logger.debug(f"Failed to parse {field}: {e}")
                             strategy[field] = {}
-                
+
                 # exchange_config: local deployment stores plaintext JSON
-                exchange_config_str = strategy.get('exchange_config', '{}')
+                exchange_config_str = strategy.get("exchange_config", "{}")
                 if isinstance(exchange_config_str, str) and exchange_config_str:
                     try:
-                        strategy['exchange_config'] = json.loads(exchange_config_str)
+                        strategy["exchange_config"] = json.loads(exchange_config_str)
                     except Exception as e:
                         logger.error(f"Strategy {strategy_id} failed to parse exchange_config: {str(e)}")
                         # Try parsing JSON directly (backwards compatible)
                         try:
-                            strategy['exchange_config'] = json.loads(exchange_config_str)
-                        except:
-                            strategy['exchange_config'] = {}
+                            strategy["exchange_config"] = json.loads(exchange_config_str)
+                        except Exception as e:
+                            logger.debug(f"Failed to parse exchange_config: {e}")
+                            strategy["exchange_config"] = {}
                 else:
-                    strategy['exchange_config'] = {}
-            
+                    strategy["exchange_config"] = {}
+
             return strategy
-            
+
         except Exception as e:
             logger.error(f"Failed to load strategy config: {str(e)}")
             return None
-    
+
     def _is_strategy_running(self, strategy_id: int) -> bool:
         """
         Check whether the strategy is running.
@@ -1425,48 +1546,42 @@ class TradingExecutor:
             # 1. Check database status
             with get_db_connection() as db:
                 cursor = db.cursor()
-                cursor.execute(
-                    "SELECT status FROM qd_strategies_trading WHERE id = %s",
-                    (strategy_id,)
-                )
+                cursor.execute("SELECT status FROM qd_strategies_trading WHERE id = %s", (strategy_id,))
                 result = cursor.fetchone()
                 cursor.close()
-                db_status = result and result.get('status') == 'running'
-            
+                db_status = result and result.get("status") == "running"
+
             # 2. Check if the thread is actually running
             with self.lock:
                 thread = self.running_strategies.get(strategy_id)
                 thread_running = thread is not None and thread.is_alive()
-            
+
             # 3. If the database status is running but the thread is not running, it means the status is inconsistent (may be recovery failure after restart)
             if db_status and not thread_running:
-                logger.warning(f"Strategy {strategy_id} status mismatch: DB=running but thread not running. Updating DB status to stopped.")
+                logger.warning(
+                    f"Strategy {strategy_id} status mismatch: DB=running but thread not running. Updating DB status to stopped."
+                )
                 # Update the database status to stopped to avoid the policy "zombie" state
                 try:
                     with get_db_connection() as db:
                         cursor = db.cursor()
                         cursor.execute(
-                            "UPDATE qd_strategies_trading SET status = 'stopped' WHERE id = %s",
-                            (strategy_id,)
+                            "UPDATE qd_strategies_trading SET status = 'stopped' WHERE id = %s", (strategy_id,)
                         )
                         db.commit()
                         cursor.close()
                 except Exception as e:
                     logger.error(f"Failed to update strategy {strategy_id} status to stopped: {e}")
                 return False
-            
+
             # 4. Return True only if the database status and thread status are consistent
             return db_status and thread_running
         except Exception as e:
             logger.error(f"Error checking strategy {strategy_id} running status: {e}")
             return False
-    
+
     def _init_exchange(
-        self,
-        exchange_config: Dict[str, Any],
-        market_type: str = None,
-        leverage: float = None,
-        strategy_id: int = None
+        self, exchange_config: Dict[str, Any], market_type: str = None, leverage: float = None, strategy_id: int = None
     ) -> Any:
         """
         Placeholder: No exchange SDK instance is created within the strategy thread.
@@ -1476,10 +1591,12 @@ class TradingExecutor:
         Candlestick charts/current prices are provided by data layers such as `KlineService` and `DataSourceFactory` (this layer may use ccxt to display market data, decoupled from order placement).
         """
         return None
-    
-    def _fetch_latest_kline(self, symbol: str, timeframe: str, limit: int = 500, market_category: str = 'Crypto') -> List[Dict[str, Any]]:
+
+    def _fetch_latest_kline(
+        self, symbol: str, timeframe: str, limit: int = 500, market_category: str = "Crypto"
+    ) -> List[Dict[str, Any]]:
         """Get the latest K-line data (get it from cache first)
-        
+
         Args:
             symbol: trading pair/symbol
             timeframe: time period
@@ -1489,19 +1606,17 @@ class TradingExecutor:
         try:
             # Use KlineService to obtain K-line data (automatically handle cache)
             return self.kline_service.get_kline(
-                market=market_category,
-                symbol=symbol,
-                timeframe=timeframe,
-                limit=limit,
-                before_time=int(time.time())
+                market=market_category, symbol=symbol, timeframe=timeframe, limit=limit, before_time=int(time.time())
             )
         except Exception as e:
             logger.error(f"Failed to fetch K-lines for {market_category}:{symbol}: {str(e)}")
             return []
-    
-    def _fetch_current_price(self, exchange: Any, symbol: str, market_type: str = None, market_category: str = 'Crypto') -> Optional[float]:
+
+    def _fetch_current_price(
+        self, exchange: Any, symbol: str, market_type: str = None, market_category: str = "Crypto"
+    ) -> Optional[float]:
         """Get the current price (select the correct data source based on market_category)
-        
+
         Args:
             exchange: exchange instance (None in signal mode)
             symbol: trading pair/symbol
@@ -1523,13 +1638,13 @@ class TradingExecutor:
                         del self._price_cache[cache_key]
             except Exception:
                 pass
-            
+
         try:
             # Select the correct data source based on market_category
             # Support: Crypto, USStock, Forex, Futures
             ticker = DataSourceFactory.get_ticker(market_category, symbol)
             if ticker:
-                price = float(ticker.get('last') or ticker.get('close') or 0)
+                price = float(ticker.get("last") or ticker.get("close") or 0)
                 if price > 0:
                     if cache_key and self._price_cache_ttl_sec > 0:
                         try:
@@ -1540,7 +1655,7 @@ class TradingExecutor:
                     return price
         except Exception as e:
             logger.warning(f"Failed to fetch price for {market_category}:{symbol}: {e}")
-            
+
         return None
 
     def _server_side_stop_loss_signal(
@@ -1562,8 +1677,8 @@ class TradingExecutor:
             if trading_config is None:
                 return None
 
-            enabled = trading_config.get('enable_server_side_stop_loss', True)
-            if str(enabled).lower() in ['0', 'false', 'no', 'off']:
+            enabled = trading_config.get("enable_server_side_stop_loss", True)
+            if str(enabled).lower() in ["0", "false", "no", "off"]:
                 return None
 
             # Get the current position (use local database records as risk control basis)
@@ -1572,16 +1687,16 @@ class TradingExecutor:
                 return None
 
             pos = current_positions[0]
-            side = pos.get('side')
-            if side not in ['long', 'short']:
+            side = pos.get("side")
+            if side not in ["long", "short"]:
                 return None
 
-            entry_price = float(pos.get('entry_price', 0) or 0)
+            entry_price = float(pos.get("entry_price", 0) or 0)
             if entry_price <= 0 or current_price <= 0:
                 return None
 
             # Stop-loss is config-driven: if stop_loss_pct is not set or <= 0, do NOT stop-loss.
-            sl_cfg = trading_config.get('stop_loss_pct', 0)
+            sl_cfg = trading_config.get("stop_loss_pct", 0)
             sl = 0.0
             try:
                 sl_cfg = float(sl_cfg or 0)
@@ -1606,28 +1721,28 @@ class TradingExecutor:
             candle_ts = int(now_ts // tf) * tf
 
             # Bulls: Falling below the stop loss line
-            if side == 'long':
+            if side == "long":
                 stop_line = entry_price * (1 - sl)
                 if current_price <= stop_line:
                     return {
-                        'type': 'close_long',
-                        'trigger_price': 0,  # Trigger immediately (controlled by exit_trigger_mode)
-                        'position_size': 0,
-                        'timestamp': candle_ts,
-                        'reason': 'server_stop_loss',
-                        'stop_loss_price': stop_line,
+                        "type": "close_long",
+                        "trigger_price": 0,  # Trigger immediately (controlled by exit_trigger_mode)
+                        "position_size": 0,
+                        "timestamp": candle_ts,
+                        "reason": "server_stop_loss",
+                        "stop_loss_price": stop_line,
                     }
             # Short: Stop loss line broken
-            elif side == 'short':
+            elif side == "short":
                 stop_line = entry_price * (1 + sl)
                 if current_price >= stop_line:
                     return {
-                        'type': 'close_short',
-                        'trigger_price': 0,
-                        'position_size': 0,
-                        'timestamp': candle_ts,
-                        'reason': 'server_stop_loss',
-                        'stop_loss_price': stop_line,
+                        "type": "close_short",
+                        "trigger_price": 0,
+                        "position_size": 0,
+                        "timestamp": candle_ts,
+                        "reason": "server_stop_loss",
+                        "stop_loss_price": stop_line,
                     }
 
             return None
@@ -1663,20 +1778,20 @@ class TradingExecutor:
                 return None
 
             pos = current_positions[0]
-            side = (pos.get('side') or '').strip().lower()
-            if side not in ['long', 'short']:
+            side = (pos.get("side") or "").strip().lower()
+            if side not in ["long", "short"]:
                 return None
 
-            entry_price = float(pos.get('entry_price', 0) or 0)
+            entry_price = float(pos.get("entry_price", 0) or 0)
             if entry_price <= 0 or current_price <= 0:
                 return None
 
             lev = max(1.0, float(leverage or 1.0))
 
-            tp = self._to_ratio(trading_config.get('take_profit_pct'))
-            trailing_enabled = bool(trading_config.get('trailing_enabled'))
-            trailing_pct = self._to_ratio(trading_config.get('trailing_stop_pct'))
-            trailing_act = self._to_ratio(trading_config.get('trailing_activation_pct'))
+            tp = self._to_ratio(trading_config.get("take_profit_pct"))
+            trailing_enabled = bool(trading_config.get("trailing_enabled"))
+            trailing_pct = self._to_ratio(trading_config.get("trailing_stop_pct"))
+            trailing_act = self._to_ratio(trading_config.get("trailing_activation_pct"))
 
             tp_eff = (tp / lev) if tp > 0 else 0.0
             trailing_pct_eff = (trailing_pct / lev) if trailing_pct > 0 else 0.0
@@ -1695,11 +1810,11 @@ class TradingExecutor:
 
             # Highest/lowest tracking (persisted in DB so restart continues trailing correctly)
             try:
-                hp = float(pos.get('highest_price') or 0.0)
+                hp = float(pos.get("highest_price") or 0.0)
             except Exception:
                 hp = 0.0
             try:
-                lp = float(pos.get('lowest_price') or 0.0)
+                lp = float(pos.get("lowest_price") or 0.0)
             except Exception:
                 lp = 0.0
 
@@ -1715,9 +1830,9 @@ class TradingExecutor:
             try:
                 self._update_position(
                     strategy_id=strategy_id,
-                    symbol=pos.get('symbol') or symbol,
+                    symbol=pos.get("symbol") or symbol,
                     side=side,
-                    size=float(pos.get('size') or 0.0),
+                    size=float(pos.get("size") or 0.0),
                     entry_price=entry_price,
                     current_price=float(current_price),
                     highest_price=hp,
@@ -1728,7 +1843,7 @@ class TradingExecutor:
 
             # 1) Trailing stop
             if trailing_enabled and trailing_pct_eff > 0:
-                if side == 'long':
+                if side == "long":
                     active = True
                     if trailing_act_eff > 0:
                         active = hp >= entry_price * (1 + trailing_act_eff)
@@ -1736,13 +1851,13 @@ class TradingExecutor:
                         stop_line = hp * (1 - trailing_pct_eff)
                         if current_price <= stop_line:
                             return {
-                                'type': 'close_long',
-                                'trigger_price': 0,
-                                'position_size': 0,
-                                'timestamp': candle_ts,
-                                'reason': 'server_trailing_stop',
-                                'trailing_stop_price': stop_line,
-                                'highest_price': hp,
+                                "type": "close_long",
+                                "trigger_price": 0,
+                                "position_size": 0,
+                                "timestamp": candle_ts,
+                                "reason": "server_trailing_stop",
+                                "trailing_stop_price": stop_line,
+                                "highest_price": hp,
                             }
                 else:
                     active = True
@@ -1752,140 +1867,149 @@ class TradingExecutor:
                         stop_line = lp * (1 + trailing_pct_eff)
                         if current_price >= stop_line:
                             return {
-                                'type': 'close_short',
-                                'trigger_price': 0,
-                                'position_size': 0,
-                                'timestamp': candle_ts,
-                                'reason': 'server_trailing_stop',
-                                'trailing_stop_price': stop_line,
-                                'lowest_price': lp,
+                                "type": "close_short",
+                                "trigger_price": 0,
+                                "position_size": 0,
+                                "timestamp": candle_ts,
+                                "reason": "server_trailing_stop",
+                                "trailing_stop_price": stop_line,
+                                "lowest_price": lp,
                             }
 
             # 2) Fixed take-profit (only when trailing is disabled)
             if tp_eff > 0:
-                if side == 'long':
+                if side == "long":
                     tp_line = entry_price * (1 + tp_eff)
                     if current_price >= tp_line:
                         return {
-                            'type': 'close_long',
-                            'trigger_price': 0,
-                            'position_size': 0,
-                            'timestamp': candle_ts,
-                            'reason': 'server_take_profit',
-                            'take_profit_price': tp_line,
+                            "type": "close_long",
+                            "trigger_price": 0,
+                            "position_size": 0,
+                            "timestamp": candle_ts,
+                            "reason": "server_take_profit",
+                            "take_profit_price": tp_line,
                         }
                 else:
                     tp_line = entry_price * (1 - tp_eff)
                     if current_price <= tp_line:
                         return {
-                            'type': 'close_short',
-                            'trigger_price': 0,
-                            'position_size': 0,
-                            'timestamp': candle_ts,
-                            'reason': 'server_take_profit',
-                            'take_profit_price': tp_line,
+                            "type": "close_short",
+                            "trigger_price": 0,
+                            "position_size": 0,
+                            "timestamp": candle_ts,
+                            "reason": "server_take_profit",
+                            "take_profit_price": tp_line,
                         }
 
             return None
         except Exception:
             return None
-    
+
     def _klines_to_dataframe(self, klines: List[Dict[str, Any]]) -> pd.DataFrame:
         """Convert K-line data to DataFrame"""
         if not klines:
             # Returns an empty DataFrame with the correct columns
-            return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
-        
+            return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+
         # Create DataFrame
         df = pd.DataFrame(klines)
-        
+
         # Convert time column.
         # IMPORTANT: use UTC tz-aware index to avoid timezone skew when computing candle boundaries.
-        if 'time' in df.columns:
-            df['time'] = pd.to_datetime(df['time'], unit='s', utc=True)
-            df = df.set_index('time')
-        elif 'timestamp' in df.columns:
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s', utc=True)
-            df = df.set_index('timestamp')
-        
+        if "time" in df.columns:
+            df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)
+            df = df.set_index("time")
+        elif "timestamp" in df.columns:
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
+            df = df.set_index("timestamp")
+
         # Make sure to include only the columns you need
-        required_columns = ['open', 'high', 'low', 'close', 'volume']
+        required_columns = ["open", "high", "low", "close", "volume"]
         available_columns = [col for col in required_columns if col in df.columns]
         if not available_columns:
             logger.warning("K-lines are missing required columns")
             return pd.DataFrame(columns=required_columns)
-        
+
         df = df[available_columns]
-        
+
         # Cast all numeric columns to float64 type
-        for col in ['open', 'high', 'low', 'close', 'volume']:
+        for col in ["open", "high", "low", "close", "volume"]:
             if col in df.columns:
                 # Convert to numeric type first, then cast to float64
-                df[col] = pd.to_numeric(df[col], errors='coerce').astype('float64')
-        
+                df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+
         # Delete rows containing NaN
         df = df.dropna()
-        
+
         return df
 
-    def _update_dataframe_with_current_price(self, df: pd.DataFrame, current_price: float, timeframe: str) -> pd.DataFrame:
+    def _update_dataframe_with_current_price(
+        self, df: pd.DataFrame, current_price: float, timeframe: str
+    ) -> pd.DataFrame:
         """
         Update the last bar of the DataFrame using the current price (for real-time calculations)
         """
         if df is None or len(df) == 0:
             return df
-            
+
         try:
             # Get the time of the last K-line
             last_time = df.index[-1]
-            
+
             # Calculate the K-line starting time corresponding to the current time
             from app.data_sources.base import TIMEFRAME_SECONDS
+
             timeframe_key = timeframe
             if timeframe_key not in TIMEFRAME_SECONDS:
                 timeframe_key = str(timeframe_key).upper()
             if timeframe_key not in TIMEFRAME_SECONDS:
                 timeframe_key = str(timeframe_key).lower()
             tf_seconds = TIMEFRAME_SECONDS.get(timeframe_key, 60)
-            
+
             # Use epoch seconds directly to avoid naive datetime timezone conversion issues.
             last_ts = float(last_time.timestamp())
             now_ts = float(time.time())
-            
+
             # Calculate the starting time of the K-line to which the current price belongs
             current_period_start = int(now_ts // tf_seconds) * tf_seconds
-            
+
             # Check whether the last K-line is for the current cycle
             if abs(last_ts - current_period_start) < 2:
                 # Update the last one
-                df.iloc[-1, df.columns.get_loc('close')] = current_price
-                df.iloc[-1, df.columns.get_loc('high')] = max(df.iloc[-1]['high'], current_price)
-                df.iloc[-1, df.columns.get_loc('low')] = min(df.iloc[-1]['low'], current_price)
+                df.iloc[-1, df.columns.get_loc("close")] = current_price
+                df.iloc[-1, df.columns.get_loc("high")] = max(df.iloc[-1]["high"], current_price)
+                df.iloc[-1, df.columns.get_loc("low")] = min(df.iloc[-1]["low"], current_price)
             elif current_period_start > last_ts:
                 # Added new bank
-                new_row = pd.DataFrame({
-                    'open': [current_price],
-                    'high': [current_price],
-                    'low': [current_price],
-                    'close': [current_price],
-                    'volume': [0.0]
-                }, index=[pd.to_datetime(current_period_start, unit='s', utc=True)])
-                
+                new_row = pd.DataFrame(
+                    {
+                        "open": [current_price],
+                        "high": [current_price],
+                        "low": [current_price],
+                        "close": [current_price],
+                        "volume": [0.0],
+                    },
+                    index=[pd.to_datetime(current_period_start, unit="s", utc=True)],
+                )
+
                 df = pd.concat([df, new_row])
-            
+
             return df
-            
+
         except Exception as e:
             logger.error(f"Failed to update realtime candle: {str(e)}")
             return df
-    
+
     def _execute_indicator_with_prices(
-        self, indicator_code: str, df: pd.DataFrame, trading_config: Dict[str, Any], 
+        self,
+        indicator_code: str,
+        df: pd.DataFrame,
+        trading_config: Dict[str, Any],
         initial_highest_price: float = 0.0,
         initial_position: int = 0,
         initial_avg_entry_price: float = 0.0,
         initial_position_count: int = 0,
-        initial_last_add_price: float = 0.0
+        initial_last_add_price: float = 0.0,
     ) -> Optional[Dict[str, Any]]:
         """
         Execute the indicator code and extract the signal and price to be triggered
@@ -1893,371 +2017,453 @@ class TradingExecutor:
         try:
             # Execution indicator code
             executed_df, exec_env = self._execute_indicator_df(
-                indicator_code, df, trading_config, 
+                indicator_code,
+                df,
+                trading_config,
                 initial_highest_price=initial_highest_price,
                 initial_position=initial_position,
                 initial_avg_entry_price=initial_avg_entry_price,
                 initial_position_count=initial_position_count,
-                initial_last_add_price=initial_last_add_price
+                initial_last_add_price=initial_last_add_price,
             )
             if executed_df is None:
                 return None
-            
+
             # Extract the latest highest_price
-            new_highest_price = exec_env.get('highest_price', 0.0)
-            
+            new_highest_price = exec_env.get("highest_price", 0.0)
+
             # Extract the time of the last K-line
-            last_kline_time = int(df.index[-1].timestamp()) if hasattr(df.index[-1], 'timestamp') else int(time.time())
-            
+            last_kline_time = int(df.index[-1].timestamp()) if hasattr(df.index[-1], "timestamp") else int(time.time())
+
             # Extract the signal to be triggered
             pending_signals = []
-            
+
             # Supported indicator signal formats:
             # - Preferred (simple): df['buy'], df['sell'] as boolean
             # - Internal (4-way): df['open_long'], df['close_long'], df['open_short'], df['close_short'] as boolean
-            if all(col in executed_df.columns for col in ['buy', 'sell']) and not all(col in executed_df.columns for col in ['open_long', 'close_long', 'open_short', 'close_short']):
+            if all(col in executed_df.columns for col in ["buy", "sell"]) and not all(
+                col in executed_df.columns for col in ["open_long", "close_long", "open_short", "close_short"]
+            ):
                 # Normalize buy/sell into 4-way columns for execution.
-                td = trading_config.get('trade_direction', trading_config.get('tradeDirection', 'both'))
-                td = str(td or 'both').lower()
-                if td not in ['long', 'short', 'both']:
-                    td = 'both'
+                td = trading_config.get("trade_direction", trading_config.get("tradeDirection", "both"))
+                td = str(td or "both").lower()
+                if td not in ["long", "short", "both"]:
+                    td = "both"
 
-                buy = executed_df['buy'].fillna(False).astype(bool)
-                sell = executed_df['sell'].fillna(False).astype(bool)
+                buy = executed_df["buy"].fillna(False).astype(bool)
+                sell = executed_df["sell"].fillna(False).astype(bool)
 
                 executed_df = executed_df.copy()
-                if td == 'long':
-                    executed_df['open_long'] = buy
-                    executed_df['close_long'] = sell
-                    executed_df['open_short'] = False
-                    executed_df['close_short'] = False
-                elif td == 'short':
-                    executed_df['open_long'] = False
-                    executed_df['close_long'] = False
-                    executed_df['open_short'] = sell
-                    executed_df['close_short'] = buy
+                if td == "long":
+                    executed_df["open_long"] = buy
+                    executed_df["close_long"] = sell
+                    executed_df["open_short"] = False
+                    executed_df["close_short"] = False
+                elif td == "short":
+                    executed_df["open_long"] = False
+                    executed_df["close_long"] = False
+                    executed_df["open_short"] = sell
+                    executed_df["close_short"] = buy
                 else:
-                    executed_df['open_long'] = buy
-                    executed_df['close_short'] = buy
-                    executed_df['open_short'] = sell
-                    executed_df['close_long'] = sell
+                    executed_df["open_long"] = buy
+                    executed_df["close_short"] = buy
+                    executed_df["open_short"] = sell
+                    executed_df["close_long"] = sell
 
             # Check for 4-way columns after normalization
-            if all(col in executed_df.columns for col in ['open_long', 'close_long', 'open_short', 'close_short']):
+            if all(col in executed_df.columns for col in ["open_long", "close_long", "open_short", "close_short"]):
                 # Optimization point 3: Prevent “signal flicker” (Repainting)
-                signal_mode = trading_config.get('signal_mode', 'confirmed') # 'confirmed' or 'aggressive'
-                exit_signal_mode = trading_config.get('exit_signal_mode', 'aggressive') # 'confirmed' or 'aggressive'
-                
+                signal_mode = trading_config.get("signal_mode", "confirmed")  # 'confirmed' or 'aggressive'
+                exit_signal_mode = trading_config.get("exit_signal_mode", "aggressive")  # 'confirmed' or 'aggressive'
+
                 entry_check_set = set()
                 exit_check_set = set()
-                
+
                 if len(executed_df) > 1:
                     # Always check the last completed K-line
                     entry_check_set.add(len(executed_df) - 2)
                     exit_check_set.add(len(executed_df) - 2)
-                
-                if signal_mode == 'aggressive' and len(executed_df) > 0:
+
+                if signal_mode == "aggressive" and len(executed_df) > 0:
                     entry_check_set.add(len(executed_df) - 1)
-                
-                if exit_signal_mode == 'aggressive' and len(executed_df) > 0:
+
+                if exit_signal_mode == "aggressive" and len(executed_df) > 0:
                     exit_check_set.add(len(executed_df) - 1)
-                
+
                 # Traverse the index uniformly (preserving deterministic ordering)
                 check_indices = sorted(entry_check_set.union(exit_check_set), reverse=True)
-                
+
                 for idx in check_indices:
                     # Get the closing price of the K-line (as the default trigger price)
-                    close_price = float(executed_df['close'].iloc[idx])
+                    close_price = float(executed_df["close"].iloc[idx])
                     # The timestamp of the signal
-                    signal_timestamp = int(executed_df.index[idx].timestamp()) if hasattr(executed_df.index[idx], 'timestamp') else last_kline_time
-                    
+                    signal_timestamp = (
+                        int(executed_df.index[idx].timestamp())
+                        if hasattr(executed_df.index[idx], "timestamp")
+                        else last_kline_time
+                    )
+
                     # Open long signal (only checked in entry_check_set)
-                    if idx in entry_check_set and executed_df['open_long'].iloc[idx]:
+                    if idx in entry_check_set and executed_df["open_long"].iloc[idx]:
                         trigger_price = close_price
                         position_size = 0.08
-                        if 'position_size' in executed_df.columns:
-                            pos_size = executed_df['position_size'].iloc[idx]
+                        if "position_size" in executed_df.columns:
+                            pos_size = executed_df["position_size"].iloc[idx]
                             if pos_size > 0:
                                 position_size = float(pos_size)
-                        
-                        if not any(s['type'] == 'open_long' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'open_long',
-                                'trigger_price': trigger_price,
-                                'position_size': position_size,
-                                'timestamp': signal_timestamp
-                            })
-                    
+
+                        if not any(
+                            s["type"] == "open_long" and s.get("timestamp") == signal_timestamp for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "open_long",
+                                    "trigger_price": trigger_price,
+                                    "position_size": position_size,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
+
                     # Hirata signal
-                    if idx in exit_check_set and executed_df['close_long'].iloc[idx]:
+                    if idx in exit_check_set and executed_df["close_long"].iloc[idx]:
                         trigger_price = close_price
-                        if not any(s['type'] == 'close_long' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'close_long',
-                                'trigger_price': trigger_price,
-                                'position_size': 0,
-                                'timestamp': signal_timestamp
-                            })
-                    
+                        if not any(
+                            s["type"] == "close_long" and s.get("timestamp") == signal_timestamp
+                            for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "close_long",
+                                    "trigger_price": trigger_price,
+                                    "position_size": 0,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
+
                     # Open short signal
-                    if idx in entry_check_set and executed_df['open_short'].iloc[idx]:
+                    if idx in entry_check_set and executed_df["open_short"].iloc[idx]:
                         trigger_price = close_price
                         position_size = 0.08
-                        if 'position_size' in executed_df.columns:
-                            pos_size = executed_df['position_size'].iloc[idx]
+                        if "position_size" in executed_df.columns:
+                            pos_size = executed_df["position_size"].iloc[idx]
                             if pos_size > 0:
                                 position_size = float(pos_size)
-                        
-                        if not any(s['type'] == 'open_short' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'open_short',
-                                'trigger_price': trigger_price,
-                                'position_size': position_size,
-                                'timestamp': signal_timestamp
-                            })
-                    
+
+                        if not any(
+                            s["type"] == "open_short" and s.get("timestamp") == signal_timestamp
+                            for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "open_short",
+                                    "trigger_price": trigger_price,
+                                    "position_size": position_size,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
+
                     # flat signal
-                    if idx in exit_check_set and executed_df['close_short'].iloc[idx]:
+                    if idx in exit_check_set and executed_df["close_short"].iloc[idx]:
                         trigger_price = close_price
-                        if not any(s['type'] == 'close_short' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'close_short',
-                                'trigger_price': trigger_price,
-                                'position_size': 0,
-                                'timestamp': signal_timestamp
-                            })
-                            
+                        if not any(
+                            s["type"] == "close_short" and s.get("timestamp") == signal_timestamp
+                            for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "close_short",
+                                    "trigger_price": trigger_price,
+                                    "position_size": 0,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
+
                     # add bull signal
-                    if idx in entry_check_set and 'add_long' in executed_df.columns and executed_df['add_long'].iloc[idx]:
+                    if (
+                        idx in entry_check_set
+                        and "add_long" in executed_df.columns
+                        and executed_df["add_long"].iloc[idx]
+                    ):
                         trigger_price = close_price
                         position_size = 0.06
-                        if 'position_size' in executed_df.columns:
-                            pos_size = executed_df['position_size'].iloc[idx]
+                        if "position_size" in executed_df.columns:
+                            pos_size = executed_df["position_size"].iloc[idx]
                             if pos_size > 0:
                                 position_size = float(pos_size)
 
-                        if not any(s['type'] == 'add_long' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'add_long',
-                                'trigger_price': trigger_price,
-                                'position_size': position_size,
-                                'timestamp': signal_timestamp
-                            })
-                            
+                        if not any(
+                            s["type"] == "add_long" and s.get("timestamp") == signal_timestamp for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "add_long",
+                                    "trigger_price": trigger_price,
+                                    "position_size": position_size,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
+
                     # Air conditioning signal
-                    if idx in entry_check_set and 'add_short' in executed_df.columns and executed_df['add_short'].iloc[idx]:
+                    if (
+                        idx in entry_check_set
+                        and "add_short" in executed_df.columns
+                        and executed_df["add_short"].iloc[idx]
+                    ):
                         trigger_price = close_price
                         position_size = 0.06
-                        if 'position_size' in executed_df.columns:
-                            pos_size = executed_df['position_size'].iloc[idx]
+                        if "position_size" in executed_df.columns:
+                            pos_size = executed_df["position_size"].iloc[idx]
                             if pos_size > 0:
                                 position_size = float(pos_size)
 
-                        if not any(s['type'] == 'add_short' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'add_short',
-                                'trigger_price': trigger_price,
-                                'position_size': position_size,
-                                'timestamp': signal_timestamp
-                            })
+                        if not any(
+                            s["type"] == "add_short" and s.get("timestamp") == signal_timestamp for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "add_short",
+                                    "trigger_price": trigger_price,
+                                    "position_size": position_size,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
 
                     # Reduce / scale-out signals (optional)
                     # These are used by position management rules (trend/adverse reduce) and should be treated as exits.
-                    if idx in exit_check_set and 'reduce_long' in executed_df.columns and executed_df['reduce_long'].iloc[idx]:
+                    if (
+                        idx in exit_check_set
+                        and "reduce_long" in executed_df.columns
+                        and executed_df["reduce_long"].iloc[idx]
+                    ):
                         trigger_price = close_price
                         reduce_pct = 0.1
-                        if 'reduce_size' in executed_df.columns:
+                        if "reduce_size" in executed_df.columns:
                             try:
-                                reduce_pct = float(executed_df['reduce_size'].iloc[idx] or 0)
+                                reduce_pct = float(executed_df["reduce_size"].iloc[idx] or 0)
                             except Exception:
                                 reduce_pct = 0.1
-                        elif 'position_size' in executed_df.columns:
+                        elif "position_size" in executed_df.columns:
                             try:
-                                reduce_pct = float(executed_df['position_size'].iloc[idx] or 0)
+                                reduce_pct = float(executed_df["position_size"].iloc[idx] or 0)
                             except Exception:
                                 reduce_pct = 0.1
                         if reduce_pct <= 0:
                             reduce_pct = 0.1
-                        if not any(s['type'] == 'reduce_long' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'reduce_long',
-                                'trigger_price': trigger_price,
-                                'position_size': reduce_pct,
-                                'timestamp': signal_timestamp
-                            })
+                        if not any(
+                            s["type"] == "reduce_long" and s.get("timestamp") == signal_timestamp
+                            for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "reduce_long",
+                                    "trigger_price": trigger_price,
+                                    "position_size": reduce_pct,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
 
-                    if idx in exit_check_set and 'reduce_short' in executed_df.columns and executed_df['reduce_short'].iloc[idx]:
+                    if (
+                        idx in exit_check_set
+                        and "reduce_short" in executed_df.columns
+                        and executed_df["reduce_short"].iloc[idx]
+                    ):
                         trigger_price = close_price
                         reduce_pct = 0.1
-                        if 'reduce_size' in executed_df.columns:
+                        if "reduce_size" in executed_df.columns:
                             try:
-                                reduce_pct = float(executed_df['reduce_size'].iloc[idx] or 0)
+                                reduce_pct = float(executed_df["reduce_size"].iloc[idx] or 0)
                             except Exception:
                                 reduce_pct = 0.1
-                        elif 'position_size' in executed_df.columns:
+                        elif "position_size" in executed_df.columns:
                             try:
-                                reduce_pct = float(executed_df['position_size'].iloc[idx] or 0)
+                                reduce_pct = float(executed_df["position_size"].iloc[idx] or 0)
                             except Exception:
                                 reduce_pct = 0.1
                         if reduce_pct <= 0:
                             reduce_pct = 0.1
-                        if not any(s['type'] == 'reduce_short' and s.get('timestamp') == signal_timestamp for s in pending_signals):
-                            pending_signals.append({
-                                'type': 'reduce_short',
-                                'trigger_price': trigger_price,
-                                'position_size': reduce_pct,
-                                'timestamp': signal_timestamp
-                            })
-            
+                        if not any(
+                            s["type"] == "reduce_short" and s.get("timestamp") == signal_timestamp
+                            for s in pending_signals
+                        ):
+                            pending_signals.append(
+                                {
+                                    "type": "reduce_short",
+                                    "trigger_price": trigger_price,
+                                    "position_size": reduce_pct,
+                                    "timestamp": signal_timestamp,
+                                }
+                            )
+
             return {
-                'pending_signals': pending_signals,
-                'last_kline_time': last_kline_time,
-                'new_highest_price': new_highest_price
+                "pending_signals": pending_signals,
+                "last_kline_time": last_kline_time,
+                "new_highest_price": new_highest_price,
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to execute indicator and extract prices: {str(e)}")
             logger.error(traceback.format_exc())
             return None
-    
+
     def _execute_indicator_df(
-        self, indicator_code: str, df: pd.DataFrame, trading_config: Dict[str, Any], 
+        self,
+        indicator_code: str,
+        df: pd.DataFrame,
+        trading_config: Dict[str, Any],
         initial_highest_price: float = 0.0,
         initial_position: int = 0,
         initial_avg_entry_price: float = 0.0,
         initial_position_count: int = 0,
-        initial_last_add_price: float = 0.0
+        initial_last_add_price: float = 0.0,
     ) -> tuple[Optional[pd.DataFrame], dict]:
         """Execute the indicator code and return the executed DataFrame and execution environment."""
         try:
             # Ensure that all numeric columns of the DataFrame are of type float64
             df = df.copy()
-            for col in ['open', 'high', 'low', 'close', 'volume']:
+            for col in ["open", "high", "low", "close", "volume"]:
                 if col in df.columns:
                     if not pd.api.types.is_numeric_dtype(df[col]):
-                        df[col] = pd.to_numeric(df[col], errors='coerce').astype('float64')
+                        df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
                     else:
-                        df[col] = df[col].astype('float64')
-            
+                        df[col] = df[col].astype("float64")
+
             # Delete rows containing NaN
             df = df.dropna()
-            
+
             if len(df) == 0:
                 logger.warning("DataFrame is empty; cannot execute indicator script")
                 return None, {}
-            
+
             # Initialize signal Series
-            signals = pd.Series(0, index=df.index, dtype='float64')
-            
+            signals = pd.Series(0, index=df.index, dtype="float64")
+
             # Prepare execution environment
             # Expose the full trading config to indicator scripts so frontend parameters
             # (scale-in/out, position sizing, risk params) can be used directly.
             # Also provide a backtest-modal compatible nested config object: cfg.risk/cfg.scale/cfg.position.
             tc = dict(trading_config or {})
             cfg = self._build_cfg_from_trading_config(tc)
-            
+
             # === Indicator parameter support ===
             # Get user-set indicator parameters from trading_config
-            user_indicator_params = tc.get('indicator_params', {})
+            user_indicator_params = tc.get("indicator_params", {})
             # Parse the parameters declared in the indicator code
             declared_params = IndicatorParamsParser.parse_params(indicator_code)
             # Merge parameters (user values ​​take precedence, otherwise default values ​​are used)
             merged_params = IndicatorParamsParser.merge_params(declared_params, user_indicator_params)
-            
+
             # === Indicator caller support ===
             # Get user ID and indicator ID (for call_indicator permission check)
-            user_id = tc.get('user_id', 1)
-            indicator_id = tc.get('indicator_id')
+            user_id = tc.get("user_id", 1)
+            indicator_id = tc.get("indicator_id")
             indicator_caller = IndicatorCaller(user_id, indicator_id)
-            
+
             local_vars = {
-                'df': df,
-                'open': df['open'].astype('float64'),
-                'high': df['high'].astype('float64'),
-                'low': df['low'].astype('float64'),
-                'close': df['close'].astype('float64'),
-                'volume': df['volume'].astype('float64'),
-                'signals': signals,
-                'np': np,
-                'pd': pd,
-                'trading_config': tc,
-                'config': tc,  # alias
-                'cfg': cfg,    # normalized nested config
-                'params': merged_params,  # Indicator parameters (new)
-                'call_indicator': indicator_caller.call_indicator,  # Call other indicators (new)
-                'leverage': float(trading_config.get('leverage', 1)),
-                'initial_capital': float(trading_config.get('initial_capital', 1000)),
-                'commission': 0.001,
-                'trade_direction': str(trading_config.get('trade_direction', 'long')),
-                'initial_highest_price': float(initial_highest_price),
-                'initial_position': int(initial_position),
-                'initial_avg_entry_price': float(initial_avg_entry_price),
-                'initial_position_count': int(initial_position_count),
-                'initial_last_add_price': float(initial_last_add_price)
+                "df": df,
+                "open": df["open"].astype("float64"),
+                "high": df["high"].astype("float64"),
+                "low": df["low"].astype("float64"),
+                "close": df["close"].astype("float64"),
+                "volume": df["volume"].astype("float64"),
+                "signals": signals,
+                "np": np,
+                "pd": pd,
+                "trading_config": tc,
+                "config": tc,  # alias
+                "cfg": cfg,  # normalized nested config
+                "params": merged_params,  # Indicator parameters (new)
+                "call_indicator": indicator_caller.call_indicator,  # Call other indicators (new)
+                "leverage": float(trading_config.get("leverage", 1)),
+                "initial_capital": float(trading_config.get("initial_capital", 1000)),
+                "commission": 0.001,
+                "trade_direction": str(trading_config.get("trade_direction", "long")),
+                "initial_highest_price": float(initial_highest_price),
+                "initial_position": int(initial_position),
+                "initial_avg_entry_price": float(initial_avg_entry_price),
+                "initial_position_count": int(initial_position_count),
+                "initial_last_add_price": float(initial_last_add_price),
             }
-            
+
             import builtins
+
             def safe_import(name, *args, **kwargs):
-                allowed_modules = ['numpy', 'pandas', 'math', 'json', 'time']
-                if name in allowed_modules or name.split('.')[0] in allowed_modules:
+                allowed_modules = ["numpy", "pandas", "math", "json", "time"]
+                if name in allowed_modules or name.split(".")[0] in allowed_modules:
                     return builtins.__import__(name, *args, **kwargs)
                 raise ImportError(f"Importing modules is not allowed: {name}")
-            
-            safe_builtins = {k: getattr(builtins, k) for k in dir(builtins) 
-                           if not k.startswith('_') and k not in [
-                               'eval', 'exec', 'compile', 'open', 'input',
-                               'help', 'exit', 'quit', '__import__',
-                               'copyright', 'credits', 'license'
-                           ]}
-            safe_builtins['__import__'] = safe_import
-            
+
+            safe_builtins = {
+                k: getattr(builtins, k)
+                for k in dir(builtins)
+                if not k.startswith("_")
+                and k
+                not in [
+                    "eval",
+                    "exec",
+                    "compile",
+                    "open",
+                    "input",
+                    "help",
+                    "exit",
+                    "quit",
+                    "__import__",
+                    "copyright",
+                    "credits",
+                    "license",
+                ]
+            }
+            safe_builtins["__import__"] = safe_import
+
             exec_env = local_vars.copy()
-            exec_env['__builtins__'] = safe_builtins
-            
+            exec_env["__builtins__"] = safe_builtins
+
             pre_import_code = "import numpy as np\nimport pandas as pd\n"
             exec(pre_import_code, exec_env)
-            
+
             # Compatibility fix: Convert the fillna(method=...) syntax of the old version of pandas to the new version of the syntax
             # pandas 2.0+ removes the method parameter of fillna(), you need to use ffill() or bfill()
             # Old syntax: df.fillna(method='ffill') or df.fillna(method="ffill")
             # New syntax: df.ffill()
             import re
+
             compatibility_fixed_code = indicator_code
             # Replace fillna(method='ffill') or fillna(method="ffill") with ffill()
             compatibility_fixed_code = re.sub(
-                r'\.fillna\(\s*method\s*=\s*["\']ffill["\']\s*\)',
-                '.ffill()',
-                compatibility_fixed_code
+                r'\.fillna\(\s*method\s*=\s*["\']ffill["\']\s*\)', ".ffill()", compatibility_fixed_code
             )
             # Replace fillna(method='bfill') or fillna(method="bfill") with bfill()
             compatibility_fixed_code = re.sub(
-                r'\.fillna\(\s*method\s*=\s*["\']bfill["\']\s*\)',
-                '.bfill()',
-                compatibility_fixed_code
+                r'\.fillna\(\s*method\s*=\s*["\']bfill["\']\s*\)', ".bfill()", compatibility_fixed_code
             )
-            
+
             # safe_exec_code here is assumed to already exist
             exec(compatibility_fixed_code, exec_env)
-            
-            executed_df = exec_env.get('df', df)
+
+            executed_df = exec_env.get("df", df)
 
             # Validation: if chart signals are provided, df['buy']/df['sell'] must exist for execution normalization.
-            output_obj = exec_env.get('output')
-            has_output_signals = isinstance(output_obj, dict) and isinstance(output_obj.get('signals'), list) and len(output_obj.get('signals')) > 0
-            if has_output_signals and not all(col in executed_df.columns for col in ['buy', 'sell']):
+            output_obj = exec_env.get("output")
+            has_output_signals = (
+                isinstance(output_obj, dict)
+                and isinstance(output_obj.get("signals"), list)
+                and len(output_obj.get("signals")) > 0
+            )
+            if has_output_signals and not all(col in executed_df.columns for col in ["buy", "sell"]):
                 raise ValueError(
                     "Invalid indicator script: output['signals'] is provided, but df['buy'] and df['sell'] are missing. "
                     "Please set df['buy'] and df['sell'] as boolean columns (len == len(df))."
                 )
-            
+
             return executed_df, exec_env
-            
+
         except Exception as e:
             logger.error(f"Failed to execute indicator script: {str(e)}")
             logger.error(traceback.format_exc())
             return None, {}
-    
-    def _execute_indicator(self, indicator_code: str, df: pd.DataFrame, trading_config: Dict[str, Any]) -> Optional[Any]:
+
+    def _execute_indicator(
+        self, indicator_code: str, df: pd.DataFrame, trading_config: Dict[str, Any]
+    ) -> Optional[Any]:
         """Compatible with older versions"""
         executed_df, _ = self._execute_indicator_df(indicator_code, df, trading_config)
         if executed_df is None:
@@ -2276,13 +2482,13 @@ class TradingExecutor:
                 """
                 cursor.execute(query, (strategy_id,))
                 all_positions = cursor.fetchall()
-                
+
                 matched_positions = []
                 for pos in all_positions:
                     # Simplify matching logic: only match prefixes
-                    if pos['symbol'].split(':')[0] == symbol.split(':')[0]:
+                    if pos["symbol"].split(":")[0] == symbol.split(":")[0]:
                         matched_positions.append(pos)
-                
+
                 cursor.close()
                 return matched_positions
         except Exception as e:
@@ -2292,7 +2498,7 @@ class TradingExecutor:
     def _execute_trading_logic(self, *args, **kwargs):
         """Deprecated."""
         pass
-    
+
     def _execute_signal(
         self,
         strategy_id: int,
@@ -2306,12 +2512,12 @@ class TradingExecutor:
         trade_direction: str,
         leverage: int,
         initial_capital: float,
-        market_type: str = 'swap',
-        market_category: str = 'Crypto',
-        margin_mode: str = 'cross',
+        market_type: str = "swap",
+        market_category: str = "Crypto",
+        margin_mode: str = "cross",
         stop_loss_price: float = None,
         take_profit_price: float = None,
-        execution_mode: str = 'signal',
+        execution_mode: str = "signal",
         notification_config: Optional[Dict[str, Any]] = None,
         trading_config: Optional[Dict[str, Any]] = None,
         ai_model_config: Optional[Dict[str, Any]] = None,
@@ -2325,13 +2531,15 @@ class TradingExecutor:
                 return False
 
             # 1. Check trading direction restrictions
-            if market_type == 'spot' and 'short' in signal_type:
-                 return False
+            if market_type == "spot" and "short" in signal_type:
+                return False
 
             sig = (signal_type or "").strip().lower()
 
             # 1.1 Open position AI filtering (only open_*)
-            if sig in ("open_long", "open_short") and self._is_entry_ai_filter_enabled(ai_model_config=ai_model_config, trading_config=trading_config):
+            if sig in ("open_long", "open_short") and self._is_entry_ai_filter_enabled(
+                ai_model_config=ai_model_config, trading_config=trading_config
+            ):
                 ok_ai, ai_info = self._entry_ai_filter_allows(
                     strategy_id=strategy_id,
                     symbol=symbol,
@@ -2375,7 +2583,7 @@ class TradingExecutor:
                 current_price=current_price,
                 symbol=symbol,
             )
-            
+
             amount = 0.0
 
             # Frontend position sizing alignment:
@@ -2386,21 +2594,21 @@ class TradingExecutor:
                     position_size = self._to_ratio(ep, default=position_size if position_size is not None else 0.0)
 
             # Open / add sizing: position_size is treated as capital ratio in [0,1].
-            if ('open' in sig or 'add' in sig):
-                 if position_size is None or float(position_size) <= 0:
-                     position_size = 0.05
-                 position_ratio = self._to_ratio(position_size, default=0.05)
-                 if market_type == 'spot':
-                     amount = available_capital * position_ratio / current_price
-                 else:
-                     # Futures sizing: treat available_capital as margin budget.
-                     # Notional = margin * leverage, so base quantity = (margin * leverage) / price.
-                     amount = (available_capital * position_ratio * leverage) / current_price
+            if "open" in sig or "add" in sig:
+                if position_size is None or float(position_size) <= 0:
+                    position_size = 0.05
+                position_ratio = self._to_ratio(position_size, default=0.05)
+                if market_type == "spot":
+                    amount = available_capital * position_ratio / current_price
+                else:
+                    # Futures sizing: treat available_capital as margin budget.
+                    # Notional = margin * leverage, so base quantity = (margin * leverage) / price.
+                    amount = (available_capital * position_ratio * leverage) / current_price
 
             # Reduce sizing: position_size is treated as a reduce ratio (close X% of current position).
             if sig in ("reduce_long", "reduce_short"):
                 pos_side = "long" if "long" in sig else "short"
-                pos = next((p for p in current_positions if (p.get('side') or '').strip().lower() == pos_side), None)
+                pos = next((p for p in current_positions if (p.get("side") or "").strip().lower() == pos_side), None)
                 if not pos:
                     return False
                 cur_size = float(pos.get("size") or 0.0)
@@ -2415,23 +2623,23 @@ class TradingExecutor:
                     amount = cur_size
                 else:
                     amount = reduce_amount
-            
+
             # 3. Check reverse positions (one-way position logic)
             # ... (Simplified processing, assuming no reverse or processing by the user) ...
 
             # 4. Execute order enqueue (PendingOrderWorker will dispatch notifications in signal mode)
-            if 'close' in sig:
+            if "close" in sig:
                 # Position closing logic: find the corresponding position size
-                pos = next((p for p in current_positions if p.get('side') and p['side'] in signal_type), None)
+                pos = next((p for p in current_positions if p.get("side") and p["side"] in signal_type), None)
                 if not pos:
                     return False
-                amount = float(pos['size'] or 0.0)
+                amount = float(pos["size"] or 0.0)
                 if amount <= 0:
                     return False
 
-            if amount <= 0 and ('open' in signal_type or 'add' in signal_type):
+            if amount <= 0 and ("open" in signal_type or "add" in signal_type):
                 return False
-            
+
             order_result = self._execute_exchange_order(
                 exchange=exchange,
                 strategy_id=strategy_id,
@@ -2446,98 +2654,120 @@ class TradingExecutor:
                 notification_config=notification_config,
                 signal_ts=int(signal_ts or 0),
             )
-            
-            if order_result and order_result.get('success'):
+
+            if order_result and order_result.get("success"):
                 # For live execution, the order is only enqueued here.
                 # The actual fill/trade/position updates are performed by PendingOrderWorker.
                 if str(execution_mode or "").strip().lower() == "live":
                     return True
 
                 # Update database status (signal mode / local simulation)
-                if 'open' in sig or 'add' in sig:
+                if "open" in sig or "add" in sig:
                     self._record_trade(
-                        strategy_id=strategy_id, symbol=symbol, type=signal_type,
-                        price=current_price, amount=amount, value=amount*current_price
+                        strategy_id=strategy_id,
+                        symbol=symbol,
+                        type=signal_type,
+                        price=current_price,
+                        amount=amount,
+                        value=amount * current_price,
                     )
-                    side = 'short' if 'short' in signal_type else 'long'
-                    
+                    side = "short" if "short" in signal_type else "long"
+
                     # Find existing positions to calculate average price
-                    old_pos = next((p for p in current_positions if p['side'] == side), None)
+                    old_pos = next((p for p in current_positions if p["side"] == side), None)
                     new_size = amount
                     new_entry = current_price
                     if old_pos:
-                        old_size = float(old_pos['size'])
-                        old_entry = float(old_pos['entry_price'])
+                        old_size = float(old_pos["size"])
+                        old_entry = float(old_pos["entry_price"])
                         new_size += old_size
                         new_entry = ((old_size * old_entry) + (amount * current_price)) / new_size
 
                     self._update_position(
-                        strategy_id=strategy_id, symbol=symbol, side=side,
-                        size=new_size, entry_price=new_entry, current_price=current_price
+                        strategy_id=strategy_id,
+                        symbol=symbol,
+                        side=side,
+                        size=new_size,
+                        entry_price=new_entry,
+                        current_price=current_price,
                     )
                 elif sig.startswith("reduce_"):
                     # Partial scale-out: reduce position size, keep entry price unchanged.
                     # Calculate partial closing profit and loss in signal mode
-                    side = 'short' if 'short' in signal_type else 'long'
-                    old_pos = next((p for p in current_positions if p.get('side') == side), None)
+                    side = "short" if "short" in signal_type else "long"
+                    old_pos = next((p for p in current_positions if p.get("side") == side), None)
                     if not old_pos:
                         return True
-                    old_size = float(old_pos.get('size') or 0.0)
-                    old_entry = float(old_pos.get('entry_price') or 0.0)
-                    
+                    old_size = float(old_pos.get("size") or 0.0)
+                    old_entry = float(old_pos.get("entry_price") or 0.0)
+
                     # Calculate the profit and loss of the position reduction part (in signal mode, excluding handling fees)
                     reduce_profit = None
                     if old_entry > 0 and amount > 0:
-                        if side == 'long':
+                        if side == "long":
                             reduce_profit = (current_price - old_entry) * amount
                         else:
                             reduce_profit = (old_entry - current_price) * amount
-                    
+
                     self._record_trade(
-                        strategy_id=strategy_id, symbol=symbol, type=signal_type,
-                        price=current_price, amount=amount, value=amount*current_price,
-                        profit=reduce_profit
+                        strategy_id=strategy_id,
+                        symbol=symbol,
+                        type=signal_type,
+                        price=current_price,
+                        amount=amount,
+                        value=amount * current_price,
+                        profit=reduce_profit,
                     )
-                    
+
                     new_size = max(0.0, old_size - float(amount or 0.0))
                     if new_size <= old_size * 0.001:
                         self._close_position(strategy_id, symbol, side)
                     else:
                         self._update_position(
-                            strategy_id=strategy_id, symbol=symbol, side=side,
-                            size=new_size, entry_price=old_entry, current_price=current_price
+                            strategy_id=strategy_id,
+                            symbol=symbol,
+                            side=side,
+                            size=new_size,
+                            entry_price=old_entry,
+                            current_price=current_price,
                         )
-                elif 'close' in sig:
+                elif "close" in sig:
                     # Calculate closing profit and loss in signal mode
-                    side = 'short' if 'short' in signal_type else 'long'
-                    old_pos = next((p for p in current_positions if p.get('side') == side), None)
-                    
+                    side = "short" if "short" in signal_type else "long"
+                    old_pos = next((p for p in current_positions if p.get("side") == side), None)
+
                     # Calculate profit and loss (in signal mode, excluding handling fees)
                     close_profit = None
                     if old_pos:
-                        entry_price = float(old_pos.get('entry_price') or 0)
+                        entry_price = float(old_pos.get("entry_price") or 0)
                         if entry_price > 0 and amount > 0:
-                            if side == 'long':
+                            if side == "long":
                                 close_profit = (current_price - entry_price) * amount
                             else:
                                 close_profit = (entry_price - current_price) * amount
-                    
+
                     self._record_trade(
-                        strategy_id=strategy_id, symbol=symbol, type=signal_type,
-                        price=current_price, amount=amount, value=amount*current_price,
-                        profit=close_profit
+                        strategy_id=strategy_id,
+                        symbol=symbol,
+                        type=signal_type,
+                        price=current_price,
+                        amount=amount,
+                        value=amount * current_price,
+                        profit=close_profit,
                     )
                     self._close_position(strategy_id, symbol, side)
 
                 return True
 
             return False
-            
+
         except Exception as e:
             logger.error(f"Failed to execute signal: {e}")
             return False
 
-    def _is_entry_ai_filter_enabled(self, *, ai_model_config: Optional[Dict[str, Any]], trading_config: Optional[Dict[str, Any]]) -> bool:
+    def _is_entry_ai_filter_enabled(
+        self, *, ai_model_config: Optional[Dict[str, Any]], trading_config: Optional[Dict[str, Any]]
+    ) -> bool:
         """Detect whether the strategy enabled 'AI filter on entry (open positions only)'."""
         amc = ai_model_config if isinstance(ai_model_config, dict) else {}
         tc = trading_config if isinstance(trading_config, dict) else {}
@@ -2601,6 +2831,7 @@ class TradingExecutor:
         # ── Billing: AI filter uses the same cost as ai_analysis ──
         try:
             from app.services.billing_service import get_billing_service
+
             billing = get_billing_service()
             if billing.is_billing_enabled():
                 user_id = 1
@@ -2610,13 +2841,11 @@ class TradingExecutor:
                         cur.execute("SELECT user_id FROM qd_strategies_trading WHERE id = ?", (strategy_id,))
                         row = cur.fetchone()
                         cur.close()
-                    user_id = int((row or {}).get('user_id') or 1)
+                    user_id = int((row or {}).get("user_id") or 1)
                 except Exception:
                     pass
                 ok, msg = billing.check_and_consume(
-                    user_id=user_id,
-                    feature='ai_analysis',
-                    reference_id=f"ai_filter_{strategy_id}_{symbol}"
+                    user_id=user_id, feature="ai_analysis", reference_id=f"ai_filter_{strategy_id}_{symbol}"
                 )
                 if not ok:
                     logger.warning(f"AI filter billing failed for strategy {strategy_id}: {msg}")
@@ -2631,7 +2860,11 @@ class TradingExecutor:
             result = service.analyze(market, symbol, language, model=model)
 
             if isinstance(result, dict) and result.get("error"):
-                return False, {"ai_decision": "", "reason": "analysis_error", "analysis_error": str(result.get("error") or "")}
+                return False, {
+                    "ai_decision": "",
+                    "reason": "analysis_error",
+                    "analysis_error": str(result.get("error") or ""),
+                }
 
             # FastAnalysisService directly returns the decision field
             ai_dec = str(result.get("decision", "")).strip().upper()
@@ -2641,12 +2874,17 @@ class TradingExecutor:
             expected = "BUY" if signal_type == "open_long" else "SELL"
             confidence = result.get("confidence", 50)
             summary = result.get("summary", "")
-            
+
             if ai_dec == expected:
                 return True, {"ai_decision": ai_dec, "reason": "match", "confidence": confidence, "summary": summary}
             if ai_dec == "HOLD":
                 return False, {"ai_decision": ai_dec, "reason": "ai_hold", "confidence": confidence, "summary": summary}
-            return False, {"ai_decision": ai_dec, "reason": "direction_mismatch", "confidence": confidence, "summary": summary}
+            return False, {
+                "ai_decision": ai_dec,
+                "reason": "direction_mismatch",
+                "confidence": confidence,
+                "summary": summary,
+            }
         except Exception as e:
             return False, {"ai_decision": "", "reason": "analysis_exception", "analysis_error": str(e)}
 
@@ -2700,7 +2938,6 @@ class TradingExecutor:
     ) -> None:
         """Best-effort persistence of a notification row for the frontend notifications panel (browser channel)."""
         try:
-            now = int(time.time())
             # Get user_id from strategy if not provided
             if user_id is None:
                 try:
@@ -2709,7 +2946,7 @@ class TradingExecutor:
                         cur.execute("SELECT user_id FROM qd_strategies_trading WHERE id = ?", (strategy_id,))
                         row = cur.fetchone()
                         cur.close()
-                    user_id = int((row or {}).get('user_id') or 1)
+                    user_id = int((row or {}).get("user_id") or 1)
                 except Exception:
                     user_id = 1
             with get_db_connection() as db:
@@ -2744,10 +2981,10 @@ class TradingExecutor:
         signal_type: str,
         amount: float,
         ref_price: Optional[float] = None,
-        market_type: str = 'swap',
-        market_category: str = 'Crypto',
+        market_type: str = "swap",
+        market_category: str = "Crypto",
         leverage: float = 1.0,
-        margin_mode: str = 'cross',
+        margin_mode: str = "cross",
         stop_loss_price: float = None,
         take_profit_price: float = None,
         # Order execution params (order_mode, maker_wait_sec, maker_offset_bps) are now
@@ -2758,7 +2995,7 @@ class TradingExecutor:
         maker_retries: int = 3,
         close_fallback_to_market: bool = True,
         open_fallback_to_market: bool = True,
-        execution_mode: str = 'signal',
+        execution_mode: str = "signal",
         notification_config: Optional[Dict[str, Any]] = None,
         signal_ts: int = 0,
     ) -> Optional[Dict[str, Any]]:
@@ -2806,19 +3043,21 @@ class TradingExecutor:
 
             # Local "signal provider mode": we keep the local state machine moving forward.
             return {
-                'success': True,
-                'pending': bool(pending_flag),
-                'order_id': f"pending_{pending_id or int(time.time()*1000)}",
-                'filled_amount': 0 if pending_flag else amount,
-                'filled_base_amount': 0 if pending_flag else amount,
-                'filled_price': 0 if pending_flag else ref_price,
-                'total_cost': 0 if pending_flag else (float(amount or 0.0) * float(ref_price or 0.0) if ref_price else 0),
-                'fee': 0,
-                'message': 'Order enqueued to pending_orders'
+                "success": True,
+                "pending": bool(pending_flag),
+                "order_id": f"pending_{pending_id or int(time.time() * 1000)}",
+                "filled_amount": 0 if pending_flag else amount,
+                "filled_base_amount": 0 if pending_flag else amount,
+                "filled_price": 0 if pending_flag else ref_price,
+                "total_cost": 0
+                if pending_flag
+                else (float(amount or 0.0) * float(ref_price or 0.0) if ref_price else 0),
+                "fee": 0,
+                "message": "Order enqueued to pending_orders",
             }
         except Exception as e:
-             logger.error(f"Signal execution failed: {e}")
-             return {'success': False, 'error': str(e)}
+            logger.error(f"Signal execution failed: {e}")
+            return {"success": False, "error": str(e)}
 
     def _enqueue_pending_order(
         self,
@@ -2873,13 +3112,18 @@ class TradingExecutor:
                 try:
                     stsig = int(signal_ts or 0)
                     # Strict "same candle" de-dup applies to open and close signals.
-                    # Rationale: 
+                    # Rationale:
                     # - open_* signals should only trigger once per candle (prevents repeated entries)
                     # - close_* signals should only trigger once per candle (prevents repeated close attempts)
                     # - add_*/reduce_* signals may legitimately trigger multiple times within same candle
                     #   as price evolves for DCA/scaling strategies
                     sig_norm = str(signal_type or "").strip().lower()
-                    strict_candle_dedup = stsig > 0 and sig_norm in ("open_long", "open_short", "close_long", "close_short")
+                    strict_candle_dedup = stsig > 0 and sig_norm in (
+                        "open_long",
+                        "open_short",
+                        "close_long",
+                        "close_short",
+                    )
 
                     if strict_candle_dedup:
                         cur.execute(
@@ -2944,7 +3188,7 @@ class TradingExecutor:
                 try:
                     cur.execute("SELECT user_id FROM qd_strategies_trading WHERE id = %s", (strategy_id,))
                     row = cur.fetchone()
-                    user_id = int((row or {}).get('user_id') or 1)
+                    user_id = int((row or {}).get("user_id") or 1)
                 except Exception:
                     pass
 
@@ -2965,16 +3209,16 @@ class TradingExecutor:
                         symbol,
                         signal_type,
                         int(signal_ts or 0),
-                        market_type or 'swap',
-                        'market',
+                        market_type or "swap",
+                        "market",
                         float(amount or 0.0),
                         float(price or 0.0),
                         mode,
-                        'pending',
+                        "pending",
                         0,
                         0,
                         10,
-                        '',
+                        "",
                         json.dumps(payload, ensure_ascii=False),
                     ),
                 )
@@ -3025,10 +3269,10 @@ class TradingExecutor:
                     FROM qd_strategy_trades
                     WHERE strategy_id = %s
                     """,
-                    (strategy_id,)
+                    (strategy_id,),
                 )
                 row = cursor.fetchone() or {}
-                realized_pnl = float(row.get('realized_pnl') or 0.0)
+                realized_pnl = float(row.get("realized_pnl") or 0.0)
                 cursor.close()
         except Exception as e:
             logger.warning(f"Failed to calculate realized pnl for strategy {strategy_id}: {e}")
@@ -3040,24 +3284,24 @@ class TradingExecutor:
             except Exception:
                 positions = []
 
-        normalized_symbol = (symbol or "").split(':')[0]
+        normalized_symbol = (symbol or "").split(":")[0]
         for pos in positions:
             try:
-                side = str(pos.get('side') or '').strip().lower()
-                size = float(pos.get('size') or 0.0)
-                entry_price = float(pos.get('entry_price') or 0.0)
-                if size <= 0 or entry_price <= 0 or side not in ('long', 'short'):
+                side = str(pos.get("side") or "").strip().lower()
+                size = float(pos.get("size") or 0.0)
+                entry_price = float(pos.get("entry_price") or 0.0)
+                if size <= 0 or entry_price <= 0 or side not in ("long", "short"):
                     continue
 
-                mark_price = pos.get('current_price')
-                pos_symbol = str(pos.get('symbol') or '')
-                if current_price and normalized_symbol and pos_symbol.split(':')[0] == normalized_symbol:
+                mark_price = pos.get("current_price")
+                pos_symbol = str(pos.get("symbol") or "")
+                if current_price and normalized_symbol and pos_symbol.split(":")[0] == normalized_symbol:
                     mark_price = current_price
                 mark_price = float(mark_price or 0.0)
                 if mark_price <= 0:
                     continue
 
-                if side == 'long':
+                if side == "long":
                     unrealized_pnl += (mark_price - entry_price) * size
                 else:
                     unrealized_pnl += (entry_price - mark_price) * size
@@ -3067,7 +3311,17 @@ class TradingExecutor:
         equity = float(initial_capital or 0.0) + realized_pnl + unrealized_pnl
         return max(0.0, equity)
 
-    def _record_trade(self, strategy_id: int, symbol: str, type: str, price: float, amount: float, value: float, profit: float = None, commission: float = None):
+    def _record_trade(
+        self,
+        strategy_id: int,
+        symbol: str,
+        type: str,
+        price: float,
+        amount: float,
+        value: float,
+        profit: float = None,
+        commission: float = None,
+    ):
         """Record transactions to database"""
         try:
             # Get user_id from strategy
@@ -3077,7 +3331,7 @@ class TradingExecutor:
                 try:
                     cursor.execute("SELECT user_id FROM qd_strategies_trading WHERE id = %s", (strategy_id,))
                     row = cursor.fetchone()
-                    user_id = int((row or {}).get('user_id') or 1)
+                    user_id = int((row or {}).get("user_id") or 1)
                 except Exception:
                     pass
                 query = """
@@ -3087,7 +3341,9 @@ class TradingExecutor:
                         %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW()
                     )
                 """
-                cursor.execute(query, (user_id, strategy_id, symbol, type, price, amount, value, commission or 0, profit))
+                cursor.execute(
+                    query, (user_id, strategy_id, symbol, type, price, amount, value, commission or 0, profit)
+                )
                 db.commit()
                 cursor.close()
         except Exception as e:
@@ -3113,7 +3369,7 @@ class TradingExecutor:
                 try:
                     cursor.execute("SELECT user_id FROM qd_strategies_trading WHERE id = %s", (strategy_id,))
                     row = cursor.fetchone()
-                    user_id = int((row or {}).get('user_id') or 1)
+                    user_id = int((row or {}).get("user_id") or 1)
                 except Exception:
                     pass
                 # Simplification: direct Update or Insert
@@ -3130,9 +3386,10 @@ class TradingExecutor:
                         lowest_price = CASE WHEN excluded.lowest_price > 0 THEN excluded.lowest_price ELSE qd_strategy_positions.lowest_price END,
                         updated_at = NOW()
                 """
-                cursor.execute(upsert_query, (
-                    user_id, strategy_id, symbol, side, size, entry_price, current_price, highest_price, lowest_price
-                ))
+                cursor.execute(
+                    upsert_query,
+                    (user_id, strategy_id, symbol, side, size, entry_price, current_price, highest_price, lowest_price),
+                )
                 db.commit()
                 cursor.close()
         except Exception as e:
@@ -3143,82 +3400,96 @@ class TradingExecutor:
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
-                cursor.execute("DELETE FROM qd_strategy_positions WHERE strategy_id = %s AND symbol = %s AND side = %s", (strategy_id, symbol, side))
+                cursor.execute(
+                    "DELETE FROM qd_strategy_positions WHERE strategy_id = %s AND symbol = %s AND side = %s",
+                    (strategy_id, symbol, side),
+                )
                 db.commit()
                 cursor.close()
         except Exception as e:
             logger.error(f"Failed to close position: {e}")
-    
+
     def _delete_position_by_id(self, position_id: int):
-         pass
+        pass
 
     def _update_positions(self, strategy_id: int, symbol: str, current_price: float):
         """Update current prices for all positions"""
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
-                cursor.execute("UPDATE qd_strategy_positions SET current_price = %s WHERE strategy_id = %s AND symbol = %s", (current_price, strategy_id, symbol))
+                cursor.execute(
+                    "UPDATE qd_strategy_positions SET current_price = %s WHERE strategy_id = %s AND symbol = %s",
+                    (current_price, strategy_id, symbol),
+                )
                 db.commit()
                 cursor.close()
         except Exception:
             pass
-            
+
     def _get_indicator_code_from_db(self, indicator_id: int) -> Optional[str]:
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
                 cursor.execute("SELECT code FROM qd_indicator_codes WHERE id = %s", (indicator_id,))
                 result = cursor.fetchone()
-                return result['code'] if result else None
-        except:
+                return result["code"] if result else None
+        except Exception as e:
+            logger.debug(f"Failed to get indicator code: {e}")
             return None
-    
+
     def _get_all_positions(self, strategy_id: int) -> List[Dict[str, Any]]:
         """Get all positions of the strategy (used by cross-section strategy)"""
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT id, symbol, side, size, entry_price, current_price, highest_price, lowest_price
                     FROM qd_strategy_positions
                     WHERE strategy_id = %s
-                """, (strategy_id,))
+                """,
+                    (strategy_id,),
+                )
                 return cursor.fetchall() or []
         except Exception as e:
             logger.error(f"Failed to get all positions: {e}")
             return []
-    
+
     def _should_rebalance(self, strategy_id: int, rebalance_frequency: str) -> bool:
         """Check whether rebalancing should run."""
         try:
             with get_db_connection() as db:
                 cursor = db.cursor()
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT last_rebalance_at FROM qd_strategies_trading WHERE id = %s
-                """, (strategy_id,))
+                """,
+                    (strategy_id,),
+                )
                 result = cursor.fetchone()
-                if not result or not result.get('last_rebalance_at'):
+                if not result or not result.get("last_rebalance_at"):
                     return True
-                
-                last_rebalance = result['last_rebalance_at']
+
+                last_rebalance = result["last_rebalance_at"]
                 if isinstance(last_rebalance, str):
                     from datetime import datetime
-                    last_rebalance = datetime.fromisoformat(last_rebalance.replace('Z', '+00:00'))
-                
+
+                    last_rebalance = datetime.fromisoformat(last_rebalance.replace("Z", "+00:00"))
+
                 now = datetime.now()
                 delta = now - last_rebalance
-                
-                if rebalance_frequency == 'daily':
+
+                if rebalance_frequency == "daily":
                     return delta.days >= 1
-                elif rebalance_frequency == 'weekly':
+                elif rebalance_frequency == "weekly":
                     return delta.days >= 7
-                elif rebalance_frequency == 'monthly':
+                elif rebalance_frequency == "monthly":
                     return delta.days >= 30
                 return True
         except Exception as e:
             logger.error(f"Failed to check rebalance: {e}")
             return True
-    
+
     def _update_last_rebalance(self, strategy_id: int):
         """Update the last rebalance timestamp."""
         try:
@@ -3226,11 +3497,14 @@ class TradingExecutor:
                 cursor = db.cursor()
                 # Try to update, if column doesn't exist, ignore
                 try:
-                    cursor.execute("""
-                        UPDATE qd_strategies_trading 
-                        SET last_rebalance_at = NOW() 
+                    cursor.execute(
+                        """
+                        UPDATE qd_strategies_trading
+                        SET last_rebalance_at = NOW()
                         WHERE id = %s
-                    """, (strategy_id,))
+                    """,
+                        (strategy_id,),
+                    )
                     db.commit()
                 except Exception:
                     # Column may not exist, that's OK
@@ -3238,14 +3512,14 @@ class TradingExecutor:
                 cursor.close()
         except Exception as e:
             logger.warning(f"Failed to update last_rebalance_at: {e}")
-    
+
     def _execute_cross_sectional_indicator(
         self,
         indicator_code: str,
         symbols: List[str],
         trading_config: Dict[str, Any],
         market_category: str,
-        timeframe: str
+        timeframe: str,
     ) -> Optional[Dict[str, Any]]:
         """
         Execute cross-sectional strategy indicators and return scores and ranking for all instruments.
@@ -3263,133 +3537,115 @@ class TradingExecutor:
                 except Exception as e:
                     logger.warning(f"Failed to fetch data for {symbol}: {e}")
                     continue
-            
+
             if not all_data:
                 logger.error("No data available for cross-sectional strategy")
                 return None
-            
+
             # Prepare execution environment
             exec_env = {
-                'symbols': list(all_data.keys()),
-                'data': all_data,  # {symbol: df}
-                'scores': {}, # used to store scores
-                'rankings': [], # used to store rankings
-                'np': np,
-                'pd': pd,
-                'trading_config': trading_config,
-                'config': trading_config,
+                "symbols": list(all_data.keys()),
+                "data": all_data,  # {symbol: df}
+                "scores": {},  # used to store scores
+                "rankings": [],  # used to store rankings
+                "np": np,
+                "pd": pd,
+                "trading_config": trading_config,
+                "config": trading_config,
             }
-            
+
             # Execution indicator code
             import builtins
-            safe_builtins = {k: getattr(builtins, k) for k in dir(builtins) 
-                           if not k.startswith('_') and k not in [
-                               'eval', 'exec', 'compile', 'open', 'input',
-                               'help', 'exit', 'quit', '__import__',
-                           ]}
-            exec_env['__builtins__'] = safe_builtins
-            
+
+            safe_builtins = {
+                k: getattr(builtins, k)
+                for k in dir(builtins)
+                if not k.startswith("_")
+                and k
+                not in [
+                    "eval",
+                    "exec",
+                    "compile",
+                    "open",
+                    "input",
+                    "help",
+                    "exit",
+                    "quit",
+                    "__import__",
+                ]
+            }
+            exec_env["__builtins__"] = safe_builtins
+
             pre_import_code = "import numpy as np\nimport pandas as pd\n"
             exec(pre_import_code, exec_env)
             exec(indicator_code, exec_env)
-            
-            scores = exec_env.get('scores', {})
-            rankings = exec_env.get('rankings', [])
-            
+
+            scores = exec_env.get("scores", {})
+            rankings = exec_env.get("rankings", [])
+
             # If rankings are not provided, sort according to scores
             if not rankings and scores:
                 rankings = sorted(scores.keys(), key=lambda x: scores.get(x, 0), reverse=True)
-            
-            return {
-                'scores': scores,
-                'rankings': rankings
-            }
+
+            return {"scores": scores, "rankings": rankings}
         except Exception as e:
             logger.error(f"Failed to execute cross-sectional indicator: {e}")
             logger.error(traceback.format_exc())
             return None
-    
+
     def _generate_cross_sectional_signals(
-        self,
-        strategy_id: int,
-        rankings: List[str],
-        scores: Dict[str, float],
-        trading_config: Dict[str, Any]
+        self, strategy_id: int, rankings: List[str], scores: Dict[str, float], trading_config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """
         Generate cross-sectional strategy signals from the ranking results.
         """
-        portfolio_size = trading_config.get('portfolio_size', 10)
-        long_ratio = float(trading_config.get('long_ratio', 0.5))
-        
+        portfolio_size = trading_config.get("portfolio_size", 10)
+        long_ratio = float(trading_config.get("long_ratio", 0.5))
+
         # Select the position target
         long_count = int(portfolio_size * long_ratio)
         short_count = portfolio_size - long_count
-        
+
         long_symbols = set(rankings[:long_count]) if long_count > 0 else set()
         short_symbols = set(rankings[-short_count:]) if short_count > 0 and len(rankings) >= short_count else set()
-        
+
         # Get the current position
         current_positions = self._get_all_positions(strategy_id)
-        current_long = {p['symbol'] for p in current_positions if p.get('side') == 'long'}
-        current_short = {p['symbol'] for p in current_positions if p.get('side') == 'short'}
-        
+        current_long = {p["symbol"] for p in current_positions if p.get("side") == "long"}
+        current_short = {p["symbol"] for p in current_positions if p.get("side") == "short"}
+
         signals = []
-        
+
         # Generate long signal
         for symbol in long_symbols:
             if symbol not in current_long:
                 # If there is currently no long position, open a long position
                 if symbol in current_short:
                     # If the current position is a short position, close the short position first and then open a long position
-                    signals.append({
-                        'symbol': symbol,
-                        'type': 'close_short',
-                        'score': scores.get(symbol, 0)
-                    })
-                signals.append({
-                    'symbol': symbol,
-                    'type': 'open_long',
-                    'score': scores.get(symbol, 0)
-                })
-        
+                    signals.append({"symbol": symbol, "type": "close_short", "score": scores.get(symbol, 0)})
+                signals.append({"symbol": symbol, "type": "open_long", "score": scores.get(symbol, 0)})
+
         # Close long positions that are not in the long list
         for symbol in current_long:
             if symbol not in long_symbols:
-                signals.append({
-                    'symbol': symbol,
-                    'type': 'close_long',
-                    'score': scores.get(symbol, 0)
-                })
-        
+                signals.append({"symbol": symbol, "type": "close_long", "score": scores.get(symbol, 0)})
+
         # Generate short signal
         for symbol in short_symbols:
             if symbol not in current_short:
                 # If there is currently no short position, open a short position
                 if symbol in current_long:
                     # If you are currently in a long position, close the long position first and then open a short position.
-                    signals.append({
-                        'symbol': symbol,
-                        'type': 'close_long',
-                        'score': scores.get(symbol, 0)
-                    })
-                signals.append({
-                    'symbol': symbol,
-                    'type': 'open_short',
-                    'score': scores.get(symbol, 0)
-                })
-        
+                    signals.append({"symbol": symbol, "type": "close_long", "score": scores.get(symbol, 0)})
+                signals.append({"symbol": symbol, "type": "open_short", "score": scores.get(symbol, 0)})
+
         # Close short positions that are not in the short list
         for symbol in current_short:
             if symbol not in short_symbols:
-                signals.append({
-                    'symbol': symbol,
-                    'type': 'close_short',
-                    'score': scores.get(symbol, 0)
-                })
-        
+                signals.append({"symbol": symbol, "type": "close_short", "score": scores.get(symbol, 0)})
+
         return signals
-    
+
     def _run_cross_sectional_strategy_loop(
         self,
         strategy_id: int,
@@ -3405,34 +3661,33 @@ class TradingExecutor:
         leverage: float,
         initial_capital: float,
         indicator_code: str,
-        indicator_id: Optional[int]
+        indicator_id: Optional[int],
     ):
         """
         Cross-sectional strategy execution loop.
         """
         logger.info(f"Starting cross-sectional strategy loop for strategy {strategy_id}")
-        
-        symbol_list = trading_config.get('symbol_list', [])
+
+        symbol_list = trading_config.get("symbol_list", [])
         if not symbol_list:
             logger.error(f"Strategy {strategy_id} has no symbol_list for cross-sectional strategy")
             return
-        
-        timeframe = trading_config.get('timeframe', '1H')
-        rebalance_frequency = trading_config.get('rebalance_frequency', 'daily')
-        tick_interval_sec = int(trading_config.get('decide_interval', 300))
-        
+
+        timeframe = trading_config.get("timeframe", "1H")
+        rebalance_frequency = trading_config.get("rebalance_frequency", "daily")
+        tick_interval_sec = int(trading_config.get("decide_interval", 300))
+
         last_tick_time = 0
-        last_rebalance_time = 0
-        
+
         while True:
             try:
                 # Check policy status
                 if not self._is_strategy_running(strategy_id):
                     logger.info(f"Cross-sectional strategy {strategy_id} stopped")
                     break
-                
+
                 current_time = time.time()
-                
+
                 # Sleep until next tick
                 if last_tick_time > 0:
                     sleep_sec = (last_tick_time + tick_interval_sec) - current_time
@@ -3440,36 +3695,37 @@ class TradingExecutor:
                         time.sleep(min(sleep_sec, 1.0))
                         continue
                 last_tick_time = current_time
-                
+
                 # Check whether position adjustment is needed
                 if not self._should_rebalance(strategy_id, rebalance_frequency):
                     continue
-                
+
                 logger.info(f"Cross-sectional strategy {strategy_id} rebalancing...")
-                
-                #Execution cross-section indicators
+
+                # Execution cross-section indicators
                 result = self._execute_cross_sectional_indicator(
                     indicator_code, symbol_list, trading_config, market_category, timeframe
                 )
-                
+
                 if not result:
-                    logger.warning(f"Cross-sectional indicator returned no result")
+                    logger.warning("Cross-sectional indicator returned no result")
                     continue
-                
+
                 # Generate signal
                 signals = self._generate_cross_sectional_signals(
-                    strategy_id, result['rankings'], result['scores'], trading_config
+                    strategy_id, result["rankings"], result["scores"], trading_config
                 )
-                
+
                 if not signals:
                     logger.info(f"No rebalancing needed for strategy {strategy_id}")
                     self._update_last_rebalance(strategy_id)
                     continue
-                
+
                 logger.info(f"Generated {len(signals)} signals for cross-sectional strategy {strategy_id}")
-                
+
                 # Execute transactions in batches
                 from concurrent.futures import ThreadPoolExecutor, as_completed
+
                 with ThreadPoolExecutor(max_workers=min(10, len(signals))) as executor:
                     futures = {}
                     for signal in signals:
@@ -3478,27 +3734,27 @@ class TradingExecutor:
                             strategy_id=strategy_id,
                             strategy_name=strategy_name,
                             exchange=None,  # Signal mode
-                            symbol=signal['symbol'],
+                            symbol=signal["symbol"],
                             current_price=0.0,  # Will be fetched in _execute_signal
-                            signal_type=signal['type'],
+                            signal_type=signal["type"],
                             position_size=None,
                             current_positions=[],
-                            trade_direction='both',
+                            trade_direction="both",
                             leverage=leverage,
                             initial_capital=initial_capital,
                             market_type=market_type,
                             market_category=market_category,
-                            margin_mode='cross',
+                            margin_mode="cross",
                             stop_loss_price=None,
                             take_profit_price=None,
                             execution_mode=execution_mode,
                             notification_config=notification_config,
                             trading_config=trading_config,
                             ai_model_config=ai_model_config,
-                            signal_ts=int(current_time)
+                            signal_ts=int(current_time),
                         )
                         futures[future] = signal
-                    
+
                     # Wait for all transactions to complete
                     for future in as_completed(futures):
                         signal = futures[future]
@@ -3508,11 +3764,10 @@ class TradingExecutor:
                                 logger.info(f"Successfully executed signal: {signal['symbol']} {signal['type']}")
                         except Exception as e:
                             logger.error(f"Failed to execute signal {signal['symbol']} {signal['type']}: {e}")
-                
+
                 # Update position rebalancing time
                 self._update_last_rebalance(strategy_id)
-                last_rebalance_time = current_time
-                
+
             except Exception as e:
                 logger.error(f"Cross-sectional strategy loop error: {e}")
                 logger.error(traceback.format_exc())

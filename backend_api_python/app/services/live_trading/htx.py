@@ -11,15 +11,14 @@ References:
 from __future__ import annotations
 
 import base64
+import datetime
 import hashlib
 import hmac
-from decimal import Decimal, ROUND_DOWN
+import logging
+import time
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode, urlparse
-import datetime
-import time
-
-import logging
 
 from app.services.live_trading.base import BaseRestClient, LiveOrderResult, LiveTradingError
 from app.services.live_trading.symbols import to_htx_contract_code, to_htx_spot_symbol
@@ -125,7 +124,9 @@ class HtxClient(BaseRestClient):
         signed["Signature"] = base64.b64encode(digest).decode("utf-8")
         return signed
 
-    def _spot_public_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _spot_public_request(
+        self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         old_base = self.base_url
         self.base_url = self.spot_base_url
         try:
@@ -138,7 +139,14 @@ class HtxClient(BaseRestClient):
             raise LiveTradingError(f"HTX spot error: {data}")
         return data if isinstance(data, dict) else {"raw": data}
 
-    def _spot_private_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None, json_body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _spot_private_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         signed_params = self._sign_params(method=method, base_url=self.spot_base_url, path=path, params=params or {})
         old_base = self.base_url
         self.base_url = self.spot_base_url
@@ -152,7 +160,14 @@ class HtxClient(BaseRestClient):
             raise LiveTradingError(f"HTX spot error: {data}")
         return data if isinstance(data, dict) else {"raw": data}
 
-    def _swap_private_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None, json_body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _swap_private_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         signed_params = self._sign_params(method=method, base_url=self.futures_base_url, path=path, params=params or {})
         old_base = self.base_url
         self.base_url = self.futures_base_url
@@ -166,7 +181,9 @@ class HtxClient(BaseRestClient):
             raise LiveTradingError(f"HTX swap error: {data}")
         return data if isinstance(data, dict) else {"raw": data}
 
-    def _swap_public_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def _swap_public_request(
+        self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         old_base = self.base_url
         self.base_url = self.futures_base_url
         try:
@@ -198,7 +215,10 @@ class HtxClient(BaseRestClient):
             for item in data:
                 if not isinstance(item, dict):
                     continue
-                if str(item.get("type") or "").lower() == "spot" and str(item.get("state") or "").lower() in ("working", ""):
+                if str(item.get("type") or "").lower() == "spot" and str(item.get("state") or "").lower() in (
+                    "working",
+                    "",
+                ):
                     self._spot_account_id = str(item.get("id") or "")
                     if self._spot_account_id:
                         return self._spot_account_id
@@ -219,7 +239,9 @@ class HtxClient(BaseRestClient):
             return self._spot_private_request("GET", f"/v1/account/accounts/{account_id}/balance")
         # 1) v1 cross
         try:
-            raw = self._swap_private_request("POST", "/linear-swap-api/v1/swap_cross_account_info", json_body={"margin_account": "USDT"})
+            raw = self._swap_private_request(
+                "POST", "/linear-swap-api/v1/swap_cross_account_info", json_body={"margin_account": "USDT"}
+            )
             data = raw.get("data")
             if data:
                 return raw
@@ -262,13 +284,15 @@ class HtxClient(BaseRestClient):
                 bal = self._to_dec(item.get("balance") or "0")
                 if bal <= 0:
                     continue
-                rows.append({
-                    "symbol": f"{ccy}/USDT",
-                    "bal": float(bal),
-                    "availBal": float(self._to_dec(item.get("balance") or "0")),
-                    "cost_open": 0,
-                    "profit_unreal": 0,
-                })
+                rows.append(
+                    {
+                        "symbol": f"{ccy}/USDT",
+                        "bal": float(bal),
+                        "availBal": float(self._to_dec(item.get("balance") or "0")),
+                        "cost_open": 0,
+                        "profit_unreal": 0,
+                    }
+                )
             return {"data": rows}
 
         body = {"contract_code": to_htx_contract_code(symbol)} if symbol else {}
@@ -304,9 +328,13 @@ class HtxClient(BaseRestClient):
 
     def get_ticker(self, *, symbol: str) -> Dict[str, Any]:
         if self.market_type == "spot":
-            raw = self._spot_public_request("GET", "/market/detail/merged", params={"symbol": to_htx_spot_symbol(symbol)})
+            raw = self._spot_public_request(
+                "GET", "/market/detail/merged", params={"symbol": to_htx_spot_symbol(symbol)}
+            )
         else:
-            raw = self._swap_public_request("GET", "/linear-swap-ex/market/detail/merged", params={"contract_code": to_htx_contract_code(symbol)})
+            raw = self._swap_public_request(
+                "GET", "/linear-swap-ex/market/detail/merged", params={"contract_code": to_htx_contract_code(symbol)}
+            )
         tick = raw.get("tick") if isinstance(raw, dict) else {}
         return tick if isinstance(tick, dict) else {}
 
@@ -516,7 +544,11 @@ class HtxClient(BaseRestClient):
             if order_id:
                 return self._spot_private_request("POST", f"/v1/order/orders/{str(order_id)}/submitcancel")
             if client_order_id:
-                return self._spot_private_request("POST", "/v1/order/orders/submitCancelClientOrder", json_body={"client-order-id": str(client_order_id)})
+                return self._spot_private_request(
+                    "POST",
+                    "/v1/order/orders/submitCancelClientOrder",
+                    json_body={"client-order-id": str(client_order_id)},
+                )
             raise LiveTradingError("HTX cancel_order requires order_id or client_order_id")
 
         body: Dict[str, Any] = {"contract_code": to_htx_contract_code(symbol)}
@@ -535,7 +567,9 @@ class HtxClient(BaseRestClient):
                 data = raw.get("data") if isinstance(raw, dict) else {}
                 return data if isinstance(data, dict) else {}
             if client_order_id:
-                raw = self._spot_private_request("GET", "/v1/order/orders/getClientOrder", params={"clientOrderId": str(client_order_id)})
+                raw = self._spot_private_request(
+                    "GET", "/v1/order/orders/getClientOrder", params={"clientOrderId": str(client_order_id)}
+                )
                 data = raw.get("data") if isinstance(raw, dict) else {}
                 return data if isinstance(data, dict) else {}
             raise LiveTradingError("HTX get_order requires order_id or client_order_id")
@@ -566,7 +600,12 @@ class HtxClient(BaseRestClient):
         last: Dict[str, Any] = {}
         while True:
             try:
-                last = self.get_order(symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or "")) or {}
+                last = (
+                    self.get_order(
+                        symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or "")
+                    )
+                    or {}
+                )
             except Exception:
                 last = last or {}
 
@@ -577,22 +616,22 @@ class HtxClient(BaseRestClient):
             status = str(last.get("status") or last.get("state") or "")
             try:
                 filled = float(
-                    last.get("field-amount") or
-                    last.get("filled_amount") or
-                    last.get("trade_volume") or
-                    last.get("trade_volume_avg") or
-                    0.0
+                    last.get("field-amount")
+                    or last.get("filled_amount")
+                    or last.get("trade_volume")
+                    or last.get("trade_volume_avg")
+                    or 0.0
                 )
             except Exception:
                 filled = 0.0
             try:
-                avg_price = float(
-                    last.get("field-cash-amount") or 0.0
-                )
+                avg_price = float(last.get("field-cash-amount") or 0.0)
                 if filled > 0 and avg_price > 0:
                     avg_price = avg_price / filled
                 else:
-                    avg_price = float(last.get("field-avg-price") or last.get("trade_avg_price") or last.get("price") or 0.0)
+                    avg_price = float(
+                        last.get("field-avg-price") or last.get("trade_avg_price") or last.get("price") or 0.0
+                    )
             except Exception:
                 avg_price = 0.0
             try:
@@ -602,9 +641,30 @@ class HtxClient(BaseRestClient):
             fee_ccy = str(last.get("fee_asset") or last.get("fee_currency") or fee_ccy or "").strip() or "USDT"
 
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if str(status).lower() in ("filled", "partial-filled", "submitted", "canceled", "cancelled", "6", "7"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))

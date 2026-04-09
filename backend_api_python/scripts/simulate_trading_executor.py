@@ -19,7 +19,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 def _ensure_backend_on_syspath() -> None:
@@ -70,17 +70,18 @@ def _make_klines_1m(base: float = 3000.0, n: int = 200) -> List[Dict[str, Any]]:
         else:
             price *= 1.008  # +0.8% per bar
 
-        o = price * 0.999
-        c = price
-        h = max(o, c) * 1.0005
-        l = min(o, c) * 0.9995
+        open_price = price * 0.999
+        close_price = price
+        high_price = max(open_price, close_price) * 1.0005
+        low_price = min(open_price, close_price) * 0.9995
+
         klines.append(
             {
                 "time": int(ts),
-                "open": float(o),
-                "high": float(h),
-                "low": float(l),
-                "close": float(c),
+                "open": float(open_price),
+                "high": float(high_price),
+                "low": float(low_price),
+                "close": float(close_price),
                 "volume": 1.0,
             }
         )
@@ -179,20 +180,22 @@ def _find_klines_with_signal(ex: TradingExecutor, indicator_code: str) -> List[D
                 price *= float(down_mult)
             else:
                 price *= float(up_mult)
-            o = price * 0.999
-            c = price
-            h = max(o, c) * 1.0005
-            l = min(o, c) * 0.9995
-            row["open"] = float(o)
-            row["high"] = float(h)
-            row["low"] = float(l)
-            row["close"] = float(c)
+            open_price = price * 0.999
+            close_price = price
+            high_price = max(open_price, close_price) * 1.0005
+            low_price = min(open_price, close_price) * 0.9995
+            row["open"] = float(open_price)
+            row["high"] = float(high_price)
+            row["low"] = float(low_price)
+            row["close"] = float(close_price)
 
         cnt = _count_signals_for_klines(ex, indicator_code, kl, "both", 5, 1000.0)
         if cnt["buy"] > 0 or cnt["sell"] > 0:
             kl2 = _trim_klines_to_last_signal(ex, indicator_code, kl, keep_before=220, keep_after=0)
             cnt2 = _count_signals_for_klines(ex, indicator_code, kl2, "both", 5, 1000.0)
-            print(f"[OK] Found signals with pattern down={down_mult}, up={up_mult}, split={split}: {cnt} -> trimmed={cnt2}, bars={len(kl2)}")
+            print(
+                f"[OK] Found signals with pattern down={down_mult}, up={up_mult}, split={split}: {cnt} -> trimmed={cnt2}, bars={len(kl2)}"
+            )
             return kl2
         print(f"[MISS] Pattern down={down_mult}, up={up_mult}, split={split}: {cnt}")
 
@@ -390,5 +393,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

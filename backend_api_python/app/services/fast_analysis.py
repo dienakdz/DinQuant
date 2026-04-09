@@ -8,16 +8,16 @@ Core improvements:
 3. Multi-dimensional news - using structured API, no need for in-depth reading
 4. Single LLM call - strong constraint prompt, output structured analysis
 """
+
 import json
 import os
 import re
 import time
-from typing import Dict, Any, Optional, List, Tuple
-from decimal import Decimal, ROUND_HALF_UP
+from typing import Any, Dict, List, Optional, Tuple
 
-from app.utils.logger import get_logger
 from app.services.llm import LLMService
 from app.services.market_data_collector import get_market_data_collector
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -102,11 +102,25 @@ _GEO_CONTEXT_MODERATE: List[re.Pattern] = [
     re.compile(r"\b(?:middle\s+east|south\s+china\s+sea|taiwan\s+strait)\s+(?:crisis|tension|conflict)\b", re.I),
 ]
 _GEO_ZH_SEVERE = (
-    "宣战", "战争爆发", "全面战争", "武装冲突", "军事打击", "军事入侵", "空袭", "导弹袭击",
-    "开战", "交火", "战火",
+    "宣战",
+    "战争爆发",
+    "全面战争",
+    "武装冲突",
+    "军事打击",
+    "军事入侵",
+    "空袭",
+    "导弹袭击",
+    "开战",
+    "交火",
+    "战火",
 )
 _GEO_ZH_MODERATE = (
-    "地缘政治危机", "国际制裁升级", "断交", "撤侨", "军事对峙", "地区冲突升级",
+    "地缘政治危机",
+    "国际制裁升级",
+    "断交",
+    "撤侨",
+    "军事对峙",
+    "地区冲突升级",
 )
 
 # Optional: country/region + conflict verb (single pattern, avoids "NYSE" noise)
@@ -186,20 +200,20 @@ def _is_major_geopolitical_news_text(combined_text: str) -> bool:
 class FastAnalysisService:
     """
     Rapid Analysis Service 3.0
-    
+
     Architecture:
     1. Data collection layer - MarketDataCollector (unified data source)
     2. Analysis layer - single LLM call (strong constraint prompt)
     3. Memory layer - analysis history storage and retrieval
     """
-    
+
     def __init__(self):
         self.llm_service = LLMService()
         self.data_collector = get_market_data_collector()
         self._memory_db = None  # Lazy init
-    
+
     # ==================== Data Collection Layer ====================
-    
+
     def _collect_market_data(
         self,
         market: str,
@@ -213,7 +227,7 @@ class FastAnalysisService:
     ) -> Dict[str, Any]:
         """
         Collect market data using a unified data collector
-        
+
         Data level:
         1. Core data: price, K-line, technical indicators
         2. Fundamentals: Company information, financial data
@@ -230,7 +244,7 @@ class FastAnalysisService:
             include_polymarket=include_polymarket,  # Contains prediction market data
             timeout=timeout,  # Increase timeout to ensure data collection is complete
         )
-    
+
     def _calculate_indicators(self, kline_data: List[Dict]) -> Dict[str, Any]:
         """
         Calculate technical indicators using rules (no LLM).
@@ -238,18 +252,18 @@ class FastAnalysisService:
         """
         if not kline_data or len(kline_data) < 5:
             return {"error": "Insufficient data"}
-        
+
         try:
             # Use tools' built-in calculation
             raw_indicators = self.tools.calculate_technical_indicators(kline_data)
-            
+
             # Extract key values
             closes = [float(k.get("close", 0)) for k in kline_data if k.get("close")]
             if not closes:
                 return {"error": "No close prices"}
-            
+
             current_price = closes[-1]
-            
+
             # RSI interpretation
             rsi = raw_indicators.get("RSI", 50)
             if rsi < 30:
@@ -261,12 +275,12 @@ class FastAnalysisService:
             else:
                 rsi_signal = "neutral"
                 rsi_action = "hold"
-            
+
             # MACD interpretation
             macd = raw_indicators.get("MACD", 0)
             macd_signal_line = raw_indicators.get("MACD_Signal", 0)
             macd_hist = raw_indicators.get("MACD_Hist", 0)
-            
+
             if macd > macd_signal_line and macd_hist > 0:
                 macd_signal = "bullish"
                 macd_trend = "golden_cross" if macd_hist > 0 and len(kline_data) > 1 else "bullish"
@@ -276,12 +290,12 @@ class FastAnalysisService:
             else:
                 macd_signal = "neutral"
                 macd_trend = "consolidating"
-            
+
             # Moving averages
             ma5 = sum(closes[-5:]) / 5 if len(closes) >= 5 else current_price
             ma10 = sum(closes[-10:]) / 10 if len(closes) >= 10 else current_price
             ma20 = sum(closes[-20:]) / 20 if len(closes) >= 20 else current_price
-            
+
             if current_price > ma5 > ma10 > ma20:
                 ma_trend = "strong_uptrend"
             elif current_price > ma20:
@@ -292,25 +306,25 @@ class FastAnalysisService:
                 ma_trend = "downtrend"
             else:
                 ma_trend = "sideways"
-            
+
             # Support/Resistance (simple: recent highs/lows)
             recent_highs = [float(k.get("high", 0)) for k in kline_data[-14:] if k.get("high")]
             recent_lows = [float(k.get("low", 0)) for k in kline_data[-14:] if k.get("low")]
-            
+
             resistance = max(recent_highs) if recent_highs else current_price * 1.05
             support = min(recent_lows) if recent_lows else current_price * 0.95
-            
+
             # Volatility (ATR-like)
             if len(kline_data) >= 14:
                 ranges = []
                 for k in kline_data[-14:]:
                     h = float(k.get("high", 0))
-                    l = float(k.get("low", 0))
-                    if h > 0 and l > 0:
-                        ranges.append(h - l)
+                    low_price = float(k.get("low", 0))
+                    if h > 0 and low_price > 0:
+                        ranges.append(h - low_price)
                 atr = sum(ranges) / len(ranges) if ranges else 0
                 volatility_pct = (atr / current_price * 100) if current_price > 0 else 0
-                
+
                 if volatility_pct > 5:
                     volatility = "high"
                 elif volatility_pct > 2:
@@ -320,7 +334,7 @@ class FastAnalysisService:
             else:
                 volatility = "unknown"
                 volatility_pct = 0
-            
+
             return {
                 "current_price": round(current_price, 6),
                 "rsi": {
@@ -354,52 +368,53 @@ class FastAnalysisService:
         except Exception as e:
             logger.error(f"Indicator calculation failed: {e}")
             return {"error": str(e)}
-    
+
     def _format_news_summary(self, news_data: List[Dict], max_items: int = 5) -> str:
         """Format news into a concise summary for the prompt."""
         if not news_data:
             return "No recent news available."
-        
+
         summaries = []
         for item in news_data[:max_items]:
             title = item.get("title", item.get("headline", ""))
             sentiment = item.get("sentiment", "neutral")
             date = item.get("date", item.get("datetime", ""))[:10] if item.get("date") or item.get("datetime") else ""
-            
+
             if title:
                 summaries.append(f"- [{sentiment}] {title} ({date})")
-        
+
         return "\n".join(summaries) if summaries else "No recent news available."
-    
+
     def _format_polymarket_summary(self, polymarket_events: List[Dict], max_items: int = 3) -> str:
         """Format prediction market events into a concise summary for the prompt."""
         if not polymarket_events:
             return "No related prediction market events found."
-        
+
         summaries = []
         for event in polymarket_events[:max_items]:
-            question = event.get('question', '')
-            prob = event.get('current_probability', 50.0)
+            question = event.get("question", "")
+            prob = event.get("current_probability", 50.0)
             summaries.append(f"- {question[:80]}: Market probability {prob:.1f}%")
-        
+
         return "\n".join(summaries) if summaries else "No related prediction market events found."
-    
+
     # ==================== Memory Layer ====================
-    
+
     def _get_memory_context(self, market: str, symbol: str, current_indicators: Dict) -> str:
         """
         Retrieve relevant historical analysis for similar market conditions.
         """
         try:
             from app.services.analysis_memory import get_analysis_memory
+
             memory = get_analysis_memory()
-            
+
             # Get similar patterns
             patterns = memory.get_similar_patterns(market, symbol, current_indicators, limit=3)
-            
+
             if not patterns:
                 return "No similar historical patterns found in memory."
-            
+
             context_lines = ["Historical patterns with similar conditions:"]
             for p in patterns:
                 outcome = ""
@@ -408,19 +423,17 @@ class FastAnalysisService:
                     if p.get("actual_return_pct"):
                         outcome += f", Return: {p['actual_return_pct']:.2f}%"
                     outcome += ")"
-                
-                context_lines.append(
-                    f"- Decision: {p['decision']} at ${p.get('price', 'N/A')}{outcome}"
-                )
-            
+
+                context_lines.append(f"- Decision: {p['decision']} at ${p.get('price', 'N/A')}{outcome}")
+
             return "\n".join(context_lines)
-            
+
         except Exception as e:
             logger.warning(f"Memory retrieval failed: {e}")
             return "Memory retrieval failed."
-    
+
     # ==================== Prompt Engineering ====================
-    
+
     def _build_analysis_prompt(self, data: Dict[str, Any], language: str) -> tuple:
         """
         Build the single, comprehensive analysis prompt.
@@ -429,38 +442,38 @@ class FastAnalysisService:
         price_data = data.get("price") or {}
         current_price = price_data.get("price", 0) if price_data else 0
         change_24h = price_data.get("changePercent", 0) if price_data else 0
-        
+
         # Ensure all data fields have safe defaults (may be None from failed fetches)
         indicators = data.get("indicators") or {}
         fundamental = data.get("fundamental") or {}
         company = data.get("company") or {}
         news_summary = self._format_news_summary(data.get("news") or [])
         polymarket_events = data.get("polymarket") or []
-        
+
         # Language instruction - MUST be enforced strictly
         lang_map = {
-            'zh-CN': '⚠️ 重要：你必须用简体中文回答所有内容，包括summary、key_reasons、risks等所有文本字段。不要使用英文。',
-            'zh-TW': '⚠️ 重要：你必須用繁體中文回答所有內容，包括summary、key_reasons、risks等所有文本字段。不要使用英文。',
-            'en-US': '⚠️ IMPORTANT: You MUST answer ALL content in English, including summary, key_reasons, risks, and all text fields. Do NOT use Chinese.',
-            'ja-JP': '⚠️ 重要：すべての内容を日本語で回答してください。summary、key_reasons、risksなど、すべてのテキストフィールドを日本語で記述してください。',
+            "zh-CN": "⚠️ 重要：你必须用简体中文回答所有内容，包括summary、key_reasons、risks等所有文本字段。不要使用英文。",
+            "zh-TW": "⚠️ 重要：你必須用繁體中文回答所有內容，包括summary、key_reasons、risks等所有文本字段。不要使用英文。",
+            "en-US": "⚠️ IMPORTANT: You MUST answer ALL content in English, including summary, key_reasons, risks, and all text fields. Do NOT use Chinese.",
+            "ja-JP": "⚠️ 重要：すべての内容を日本語で回答してください。summary、key_reasons、risksなど、すべてのテキストフィールドを日本語で記述してください。",
         }
-        lang_instruction = lang_map.get(language, '⚠️ IMPORTANT: Answer ALL content in English.')
-        
+        lang_instruction = lang_map.get(language, "⚠️ IMPORTANT: Answer ALL content in English.")
+
         # Get pre-calculated trading levels from technical analysis
         levels = indicators.get("levels", {})
         trading_levels = indicators.get("trading_levels", {})
         volatility = indicators.get("volatility", {})
-        
+
         support = levels.get("support", current_price * 0.95)
         resistance = levels.get("resistance", current_price * 1.05)
         pivot = levels.get("pivot", current_price)
-        
+
         # Use ATR-based suggestions if available, otherwise use percentage
         atr = volatility.get("atr", current_price * 0.02)
         suggested_stop_loss = trading_levels.get("suggested_stop_loss", current_price - 2 * atr)
         suggested_take_profit = trading_levels.get("suggested_take_profit", current_price + 3 * atr)
         risk_reward_ratio = trading_levels.get("risk_reward_ratio", 1.5)
-        
+
         # Price bounds (still enforce max 10% deviation)
         if current_price > 0:
             price_lower_bound = round(max(suggested_stop_loss, current_price * 0.90), 6)
@@ -469,16 +482,16 @@ class FastAnalysisService:
             entry_range_high = round(current_price * 1.02, 6)
         else:
             price_lower_bound = price_upper_bound = entry_range_low = entry_range_high = 0
-        
+
         # Get technical indicator values for decision constraints
         rsi_value = indicators.get("rsi", {}).get("value", 50)
         macd_signal = indicators.get("macd", {}).get("signal", "neutral")
         ma_trend = indicators.get("moving_averages", {}).get("trend", "sideways")
-        
+
         # Build decision guidance based on technical indicators
         decision_guidance = self._build_decision_guidance(rsi_value, macd_signal, ma_trend, change_24h)
-        
-        system_prompt = f"""You are QuantDinger's Senior Financial Analyst with 20+ years of experience. 
+
+        system_prompt = f"""You are QuantDinger's Senior Financial Analyst with 20+ years of experience.
 You are CONSERVATIVE and OBJECTIVE. Your analysis must be based on DATA, not speculation.
 
 {lang_instruction}
@@ -509,7 +522,7 @@ You are CONSERVATIVE and OBJECTIVE. Your analysis must be based on DATA, not spe
    - When RSI > 60, MACD bearish, downtrend: Consider SELL (short position opportunity)
    - When RSI < 40, MACD bullish, uptrend: Consider BUY (long position opportunity)
    - Do NOT default to HOLD when clear technical signals exist
-7. **Consider Macro Impact**: 
+7. **Consider Macro Impact**:
    - Strong USD (DXY ↑) usually negative for crypto/commodities → Consider SELL
    - High VIX (>30) indicates fear → Consider SELL or HOLD, avoid BUY
    - Rising interest rates usually negative for growth assets → Consider SELL
@@ -519,7 +532,7 @@ You are CONSERVATIVE and OBJECTIVE. Your analysis must be based on DATA, not spe
 
 📐 TECHNICAL LEVELS (Pre-calculated from chart data):
 - Support: ${support} | Resistance: ${resistance} | Pivot: ${pivot}
-- ATR (14-day): ${atr:.4f} ({volatility.get('pct', 0)}% volatility)
+- ATR (14-day): ${atr:.4f} ({volatility.get("pct", 0)}% volatility)
 - Suggested Stop Loss: ${suggested_stop_loss:.4f} (based on 2x ATR below support)
 - Suggested Take Profit: ${suggested_take_profit:.4f} (based on 3x ATR above resistance)
 - Risk/Reward Ratio: {risk_reward_ratio}
@@ -535,11 +548,11 @@ You are CONSERVATIVE and OBJECTIVE. Your analysis must be based on DATA, not spe
 
 📊 YOUR ANALYSIS MUST INCLUDE (ALL factors are important):
 1. **Technical Analysis**: Objectively interpret RSI, MACD, MA, support/resistance. Be honest about conflicting signals.
-2. **Macro Environment Analysis**: 
+2. **Macro Environment Analysis**:
    - Analyze DXY, VIX, interest rates impact on the asset
    - Consider geopolitical events and their potential impact
    - Evaluate how macro trends affect this specific market/symbol
-3. **News & Event Analysis**: 
+3. **News & Event Analysis**:
    - **CRITICAL**: Pay special attention to GEOPOLITICAL EVENTS (wars, conflicts, military actions, sanctions)
    - These events can cause sudden and severe market movements, especially for crypto and global markets
    - Identify BREAKING NEWS or major events that could cause sudden moves
@@ -554,7 +567,7 @@ You are CONSERVATIVE and OBJECTIVE. Your analysis must be based on DATA, not spe
    - If prediction markets show high probability for bearish events, consider this as a risk factor
    - Use prediction market probabilities as a sentiment indicator alongside technical analysis
 5. **Fundamental Analysis**: Evaluate valuation, growth, competitive position if data available. If data is insufficient, say so.
-6. **Risk Assessment**: 
+6. **Risk Assessment**:
    - Explain why the stop loss level is appropriate
    - List ALL significant risks (technical, macro, news, fundamental)
    - Consider tail risks from unexpected events
@@ -591,7 +604,7 @@ Output ONLY valid JSON (do NOT include word counts or format hints in your actua
   "sentiment_score": 0-100
 }}
 
-⚠️ IMPORTANT: 
+⚠️ IMPORTANT:
 - The analysis fields should contain your ACTUAL analysis text, NOT the format description above.
 - Be HONEST and CONSERVATIVE. If you're not confident, choose HOLD with lower confidence.
 - Do NOT make up facts or exaggerate. Base everything on the provided data.
@@ -599,7 +612,7 @@ Output ONLY valid JSON (do NOT include word counts or format hints in your actua
 📊 OBJECTIVE SCORING SYSTEM (Reference):
 The system will calculate an objective score based on technical indicators, fundamentals, sentiment (including geopolitical events), and macro factors.
 - Score >= +20: Bullish signal → BUY recommended
-- Score <= -20: Bearish signal → SELL recommended  
+- Score <= -20: Bearish signal → SELL recommended
 - Score between -20 and +20: Neutral → HOLD recommended (narrow range)
 - Score >= +70: Strong bullish → Strong BUY signal
 - Score <= -70: Strong bearish → Strong SELL signal
@@ -614,12 +627,12 @@ When the score is neutral (-20 to +20), you can use your judgment, but still con
         ma_data = indicators.get("moving_averages") or {}
         vol_data = indicators.get("volatility") or {}
         levels = indicators.get("levels") or {}
-        
+
         # Format macro data
         macro = data.get("macro") or {}
         macro_summary = self._format_macro_summary(macro, data.get("market", ""))
-        
-        user_prompt = f"""Analyze {data['symbol']} in {data['market']} market.
+
+        user_prompt = f"""Analyze {data["symbol"]} in {data["market"]} market.
 
 📊 REAL-TIME DATA:
 - Current Price: ${current_price}
@@ -628,46 +641,46 @@ When the score is neutral (-20 to +20), you can use your judgment, but still con
 - Resistance: ${resistance}
 
 📈 TECHNICAL INDICATORS:
-- RSI(14): {rsi_data.get('value', 'N/A')} ({rsi_data.get('signal', 'N/A')})
-- MACD: {macd_data.get('signal', 'N/A')} ({macd_data.get('trend', 'N/A')})
-- MA Trend: {ma_data.get('trend', 'N/A')}
-- Volatility: {vol_data.get('level', 'N/A')} ({vol_data.get('pct', 0)}%)
-- Trend: {indicators.get('trend', 'N/A')}
-- Price Position (20d): {indicators.get('price_position', 'N/A')}%
+- RSI(14): {rsi_data.get("value", "N/A")} ({rsi_data.get("signal", "N/A")})
+- MACD: {macd_data.get("signal", "N/A")} ({macd_data.get("trend", "N/A")})
+- MA Trend: {ma_data.get("trend", "N/A")}
+- Volatility: {vol_data.get("level", "N/A")} ({vol_data.get("pct", 0)}%)
+- Trend: {indicators.get("trend", "N/A")}
+- Price Position (20d): {indicators.get("price_position", "N/A")}%
 
 🌐 MACRO ENVIRONMENT:
 {macro_summary}
 
-📰 MARKET NEWS ({len(data.get('news') or [])} items):
+📰 MARKET NEWS ({len(data.get("news") or [])} items):
 {news_summary}
 
 🎯 PREDICTION MARKETS ({len(polymarket_events)} related events):
 {self._format_polymarket_summary(polymarket_events)}
 
 💼 FUNDAMENTALS:
-- Company: {company.get('name', data['symbol'])}
-- Industry: {company.get('industry', 'N/A')}
-- P/E Ratio: {fundamental.get('pe_ratio', 'N/A')}
-- P/B Ratio: {fundamental.get('pb_ratio', 'N/A')}
-- Market Cap: {fundamental.get('market_cap', 'N/A')}
-- 52W High/Low: {fundamental.get('52w_high', 'N/A')} / {fundamental.get('52w_low', 'N/A')}
-- ROE: {fundamental.get('roe', 'N/A')}
-- Revenue Growth: {fundamental.get('revenue_growth', 'N/A')}
-- Profit Margin: {fundamental.get('profit_margin', 'N/A')}
-- Debt to Equity: {fundamental.get('debt_to_equity', 'N/A')}
-- Current Ratio: {fundamental.get('current_ratio', 'N/A')}
-- Free Cash Flow: {fundamental.get('free_cash_flow', 'N/A')}
+- Company: {company.get("name", data["symbol"])}
+- Industry: {company.get("industry", "N/A")}
+- P/E Ratio: {fundamental.get("pe_ratio", "N/A")}
+- P/B Ratio: {fundamental.get("pb_ratio", "N/A")}
+- Market Cap: {fundamental.get("market_cap", "N/A")}
+- 52W High/Low: {fundamental.get("52w_high", "N/A")} / {fundamental.get("52w_low", "N/A")}
+- ROE: {fundamental.get("roe", "N/A")}
+- Revenue Growth: {fundamental.get("revenue_growth", "N/A")}
+- Profit Margin: {fundamental.get("profit_margin", "N/A")}
+- Debt to Equity: {fundamental.get("debt_to_equity", "N/A")}
+- Current Ratio: {fundamental.get("current_ratio", "N/A")}
+- Free Cash Flow: {fundamental.get("free_cash_flow", "N/A")}
 
 📊 FINANCIAL STATEMENTS (Latest Quarter):
-{self._format_financial_statements(fundamental.get('financial_statements', {}))}
+{self._format_financial_statements(fundamental.get("financial_statements", {}))}
 
 📈 EARNINGS DATA:
-{self._format_earnings_data(fundamental.get('earnings', {}))}
+{self._format_earnings_data(fundamental.get("earnings", {}))}
 
 📚 HISTORICAL PATTERNS (similar conditions in the past):
-{self._get_memory_context(data.get('market', ''), data.get('symbol', ''), indicators)}
+{self._get_memory_context(data.get("market", ""), data.get("symbol", ""), indicators)}
 
-IMPORTANT: 
+IMPORTANT:
 1. **CRITICAL**: Check for GEOPOLITICAL EVENTS (wars, conflicts, military actions) in the news section. These events have HIGHEST PRIORITY and can override all technical indicators.
 2. Consider the macro environment (especially DXY, VIX, rates, geopolitical events) when making your recommendation.
 3. Pay attention to BREAKING NEWS and international events that could cause sudden market moves. Geopolitical tensions (e.g., US-Iran conflict) can cause severe market volatility.
@@ -676,74 +689,74 @@ IMPORTANT:
 6. Provide your analysis now. Remember: all prices must be within 10% of ${current_price}."""
 
         return system_prompt, user_prompt
-    
+
     def _format_financial_statements(self, statements: Dict[str, Any]) -> str:
         """Formatting financial statement data for prompt words"""
         if not statements:
             return "财务报表数据暂不可用"
-        
+
         lines = []
-        
+
         # balance sheet
-        if 'balance_sheet' in statements:
-            bs = statements['balance_sheet']
+        if "balance_sheet" in statements:
+            bs = statements["balance_sheet"]
             lines.append("资产负债表 (Balance Sheet):")
-            if bs.get('total_assets'):
+            if bs.get("total_assets"):
                 lines.append(f"  - 总资产: ${bs['total_assets']:,.0f}")
-            if bs.get('total_liabilities'):
+            if bs.get("total_liabilities"):
                 lines.append(f"  - 总负债: ${bs['total_liabilities']:,.0f}")
-            if bs.get('total_equity'):
+            if bs.get("total_equity"):
                 lines.append(f"  - 股东权益: ${bs['total_equity']:,.0f}")
-            if bs.get('cash'):
+            if bs.get("cash"):
                 lines.append(f"  - 现金: ${bs['cash']:,.0f}")
-            if bs.get('debt'):
+            if bs.get("debt"):
                 lines.append(f"  - 总债务: ${bs['debt']:,.0f}")
-            if bs.get('current_assets') and bs.get('current_liabilities'):
-                current_ratio = bs['current_assets'] / bs['current_liabilities'] if bs['current_liabilities'] > 0 else 0
+            if bs.get("current_assets") and bs.get("current_liabilities"):
+                current_ratio = bs["current_assets"] / bs["current_liabilities"] if bs["current_liabilities"] > 0 else 0
                 lines.append(f"  - 流动比率: {current_ratio:.2f}")
-        
+
         # income statement
-        if 'income_statement' in statements:
-            is_stmt = statements['income_statement']
+        if "income_statement" in statements:
+            is_stmt = statements["income_statement"]
             lines.append("利润表 (Income Statement):")
-            if is_stmt.get('total_revenue'):
+            if is_stmt.get("total_revenue"):
                 lines.append(f"  - 总收入: ${is_stmt['total_revenue']:,.0f}")
-            if is_stmt.get('gross_profit'):
+            if is_stmt.get("gross_profit"):
                 lines.append(f"  - 毛利润: ${is_stmt['gross_profit']:,.0f}")
-            if is_stmt.get('operating_income'):
+            if is_stmt.get("operating_income"):
                 lines.append(f"  - 营业利润: ${is_stmt['operating_income']:,.0f}")
-            if is_stmt.get('net_income'):
+            if is_stmt.get("net_income"):
                 lines.append(f"  - 净利润: ${is_stmt['net_income']:,.0f}")
-            if is_stmt.get('eps'):
+            if is_stmt.get("eps"):
                 lines.append(f"  - 每股收益: ${is_stmt['eps']:.2f}")
-        
+
         # cash flow statement
-        if 'cash_flow' in statements:
-            cf = statements['cash_flow']
+        if "cash_flow" in statements:
+            cf = statements["cash_flow"]
             lines.append("现金流量表 (Cash Flow):")
-            if cf.get('operating_cash_flow'):
+            if cf.get("operating_cash_flow"):
                 lines.append(f"  - 经营现金流: ${cf['operating_cash_flow']:,.0f}")
-            if cf.get('free_cash_flow'):
+            if cf.get("free_cash_flow"):
                 lines.append(f"  - 自由现金流: ${cf['free_cash_flow']:,.0f}")
-        
+
         return "\n".join(lines) if lines else "财务报表数据暂不可用"
-    
+
     def _format_earnings_data(self, earnings: Dict[str, Any]) -> str:
         """Format profit data for prompt words"""
         if not earnings:
             return "盈利数据暂不可用"
-        
+
         lines = []
-        
+
         # historical profit
-        if 'history' in earnings and earnings['history']:
+        if "history" in earnings and earnings["history"]:
             lines.append("历史盈利 (Earnings History):")
-            for i, hist in enumerate(earnings['history'][:4], 1):
-                date = hist.get('date', 'N/A')
-                eps_actual = hist.get('eps_actual')
-                eps_estimate = hist.get('eps_estimate')
-                surprise = hist.get('surprise')
-                
+            for i, hist in enumerate(earnings["history"][:4], 1):
+                date = hist.get("date", "N/A")
+                eps_actual = hist.get("eps_actual")
+                eps_estimate = hist.get("eps_estimate")
+                surprise = hist.get("surprise")
+
                 if eps_actual is not None:
                     line = f"  {i}. {date}: EPS实际={eps_actual:.2f}"
                     if eps_estimate is not None:
@@ -752,52 +765,54 @@ IMPORTANT:
                         surprise_str = f"{surprise:+.1f}%"
                         line += f", 超预期={surprise_str}"
                     lines.append(line)
-        
+
         # future profit
-        if 'upcoming' in earnings:
-            upcoming = earnings['upcoming']
-            if upcoming.get('next_earnings_date'):
+        if "upcoming" in earnings:
+            upcoming = earnings["upcoming"]
+            if upcoming.get("next_earnings_date"):
                 lines.append(f"下次盈利报告: {upcoming['next_earnings_date']}")
-                if upcoming.get('eps_estimate'):
+                if upcoming.get("eps_estimate"):
                     lines.append(f"  - EPS预期: ${upcoming['eps_estimate']:.2f}")
-                if upcoming.get('revenue_estimate'):
+                if upcoming.get("revenue_estimate"):
                     lines.append(f"  - 收入预期: ${upcoming['revenue_estimate']:,.0f}")
-        
+
         # quarterly profit
-        if 'quarterly' in earnings:
-            q = earnings['quarterly']
-            if q.get('latest_quarter'):
+        if "quarterly" in earnings:
+            q = earnings["quarterly"]
+            if q.get("latest_quarter"):
                 lines.append(f"最新季度 ({q['latest_quarter']}):")
-                if q.get('revenue'):
+                if q.get("revenue"):
                     lines.append(f"  - 收入: ${q['revenue']:,.0f}")
-                if q.get('earnings'):
+                if q.get("earnings"):
                     lines.append(f"  - 盈利: ${q['earnings']:,.0f}")
-        
+
         return "\n".join(lines) if lines else "盈利数据暂不可用"
-    
+
     def _format_macro_summary(self, macro: Dict[str, Any], market: str) -> str:
         """Format macro data summaries"""
         if not macro:
             return "宏观数据暂不可用"
-        
+
         lines = []
-        
+
         # dollar index
-        if 'DXY' in macro:
-            dxy = macro['DXY']
-            direction = "↑" if dxy.get('change', 0) > 0 else "↓"
-            lines.append(f"- {dxy.get('name', 'USD Index')}: {dxy.get('price', 'N/A')} ({direction}{abs(dxy.get('changePercent', 0)):.2f}%)")
+        if "DXY" in macro:
+            dxy = macro["DXY"]
+            direction = "↑" if dxy.get("change", 0) > 0 else "↓"
+            lines.append(
+                f"- {dxy.get('name', 'USD Index')}: {dxy.get('price', 'N/A')} ({direction}{abs(dxy.get('changePercent', 0)):.2f}%)"
+            )
             # The impact of the strength of the U.S. dollar on different assets
-            if market == 'Crypto':
-                impact = "利空加密货币" if dxy.get('change', 0) > 0 else "利好加密货币"
+            if market == "Crypto":
+                impact = "利空加密货币" if dxy.get("change", 0) > 0 else "利好加密货币"
                 lines.append(f"  ⚠️ 美元{direction} {impact}")
-            elif market == 'Forex':
+            elif market == "Forex":
                 lines.append(f"  ⚠️ 美元{direction} 直接影响外汇走势")
-        
+
         # VIX panic index
-        if 'VIX' in macro:
-            vix = macro['VIX']
-            vix_value = vix.get('price', 0)
+        if "VIX" in macro:
+            vix = macro["VIX"]
+            vix_value = vix.get("price", 0)
             if vix_value > 30:
                 level = "极度恐慌 (>30)"
             elif vix_value > 20:
@@ -807,42 +822,55 @@ IMPORTANT:
             else:
                 level = "低波动 (<15)"
             lines.append(f"- {vix.get('name', 'VIX')}: {vix_value:.2f} - {level}")
-        
+
         # U.S. Treasury yields
-        if 'TNX' in macro:
-            tnx = macro['TNX']
-            direction = "↑" if tnx.get('change', 0) > 0 else "↓"
+        if "TNX" in macro:
+            tnx = macro["TNX"]
+            direction = "↑" if tnx.get("change", 0) > 0 else "↓"
             lines.append(f"- {tnx.get('name', '10Y Treasury')}: {tnx.get('price', 'N/A'):.3f}% ({direction})")
-            if tnx.get('price', 0) > 4.5:
+            if tnx.get("price", 0) > 4.5:
                 lines.append("  ⚠️ 高利率环境，对估值不利")
-        
+
         # gold
-        if 'GOLD' in macro:
-            gold = macro['GOLD']
-            direction = "↑" if gold.get('change', 0) > 0 else "↓"
-            lines.append(f"- {gold.get('name', 'Gold')}: ${gold.get('price', 'N/A'):.2f} ({direction}{abs(gold.get('changePercent', 0)):.2f}%)")
-        
+        if "GOLD" in macro:
+            gold = macro["GOLD"]
+            direction = "↑" if gold.get("change", 0) > 0 else "↓"
+            lines.append(
+                f"- {gold.get('name', 'Gold')}: ${gold.get('price', 'N/A'):.2f} ({direction}{abs(gold.get('changePercent', 0)):.2f}%)"
+            )
+
         # S&P 500
-        if 'SPY' in macro:
-            spy = macro['SPY']
-            direction = "↑" if spy.get('change', 0) > 0 else "↓"
-            lines.append(f"- {spy.get('name', 'S&P 500')}: ${spy.get('price', 'N/A'):.2f} ({direction}{abs(spy.get('changePercent', 0)):.2f}%)")
-        
+        if "SPY" in macro:
+            spy = macro["SPY"]
+            direction = "↑" if spy.get("change", 0) > 0 else "↓"
+            lines.append(
+                f"- {spy.get('name', 'S&P 500')}: ${spy.get('price', 'N/A'):.2f} ({direction}{abs(spy.get('changePercent', 0)):.2f}%)"
+            )
+
         # Bitcoin (as a risk indicator)
-        if 'BTC' in macro and market != 'Crypto':
-            btc = macro['BTC']
-            direction = "↑" if btc.get('change', 0) > 0 else "↓"
-            lines.append(f"- {btc.get('name', 'BTC')}: ${btc.get('price', 'N/A'):,.0f} ({direction}{abs(btc.get('changePercent', 0)):.2f}%) [风险偏好指标]")
-        
+        if "BTC" in macro and market != "Crypto":
+            btc = macro["BTC"]
+            direction = "↑" if btc.get("change", 0) > 0 else "↓"
+            lines.append(
+                f"- {btc.get('name', 'BTC')}: ${btc.get('price', 'N/A'):,.0f} ({direction}{abs(btc.get('changePercent', 0)):.2f}%) [风险偏好指标]"
+            )
+
         return "\n".join(lines) if lines else "宏观数据暂不可用"
-    
+
     # ==================== Main Analysis ====================
-    
-    def analyze(self, market: str, symbol: str, language: str = 'en-US', 
-                model: str = None, timeframe: str = "1D", user_id: int = None) -> Dict[str, Any]:
+
+    def analyze(
+        self,
+        market: str,
+        symbol: str,
+        language: str = "en-US",
+        model: str = None,
+        timeframe: str = "1D",
+        user_id: int = None,
+    ) -> Dict[str, Any]:
         """
         Run fast single-call analysis.
-        
+
         Args:
             market: Market type (Crypto, USStock, etc.)
             symbol: Trading pair or stock symbol
@@ -850,17 +878,17 @@ IMPORTANT:
             model: LLM model to use
             timeframe: Analysis timeframe (1D, 4H, etc.)
             user_id: User ID for storing analysis history
-        
+
         Returns:
             Complete analysis result with actionable recommendations.
         """
         start_time = time.time()
-        
+
         # Get default model if not specified
         if not model:
             model = self.llm_service.get_default_model()
             logger.debug(f"Using default model: {model}")
-        
+
         result = {
             "market": market,
             "symbol": symbol,
@@ -870,7 +898,7 @@ IMPORTANT:
             "analysis_time_ms": 0,
             "error": None,
         }
-        
+
         try:
             # Phase 1: Data collection (multi-timeframe for consensus)
             logger.info(f"Fast analysis starting: {market}:{symbol}")
@@ -1039,7 +1067,9 @@ IMPORTANT:
 
             # Agreement factor: how many timeframes support the consensus decision
             tf_count = max(1, len(objective_by_tf))
-            agreement_cnt = sum(1 for x in objective_by_tf.values() if str(x.get("decision") or "").upper() == consensus_decision)
+            agreement_cnt = sum(
+                1 for x in objective_by_tf.values() if str(x.get("decision") or "").upper() == consensus_decision
+            )
             agreement_ratio = agreement_cnt / tf_count
 
             # Data quality degradation: derive from primary_data meta
@@ -1063,14 +1093,14 @@ IMPORTANT:
             )
 
             data = primary_data  # keep original variable usage for prompt/LLM input
-            
+
             # Validate we have essential data - with fallback to indicators
             current_price = None
-            
+
             # Get it from price data first
             if data.get("price") and data["price"].get("price"):
                 current_price = data["price"]["price"]
-            
+
             # Fallback: Get from indicators (if the K-line is calculated successfully)
             if not current_price and data.get("indicators"):
                 current_price = data["indicators"].get("current_price")
@@ -1081,9 +1111,9 @@ IMPORTANT:
                         "price": current_price,
                         "change": 0,
                         "changePercent": 0,
-                        "source": "indicators_fallback"
+                        "source": "indicators_fallback",
                     }
-            
+
             # Fallback: Get from the last kline
             if not current_price and data.get("kline"):
                 klines = data["kline"]
@@ -1098,14 +1128,14 @@ IMPORTANT:
                             "price": current_price,
                             "change": round(change, 6),
                             "changePercent": round(change_pct, 2),
-                            "source": "kline_fallback"
+                            "source": "kline_fallback",
                         }
-            
+
             if not current_price or current_price <= 0:
                 result["error"] = "Failed to fetch current price from all sources"
                 logger.error(f"Price fetch failed for {market}:{symbol}, all sources exhausted")
                 return result
-            
+
             # Phase 2: Build prompt
             system_prompt, user_prompt = self._build_analysis_prompt(data, language)
 
@@ -1143,6 +1173,7 @@ IMPORTANT:
                     analyses_list.append(a)
                 decisions = [str(a.get("decision", "HOLD") or "HOLD").upper() for a in analyses_list]
                 from collections import Counter
+
                 vote = Counter(decisions).most_common(1)[0][0]
                 idx = decisions.index(vote)
                 analysis = analyses_list[idx].copy()
@@ -1156,7 +1187,7 @@ IMPORTANT:
 
             llm_time = int((time.time() - llm_start) * 1000)
             logger.info(f"LLM call completed in {llm_time}ms")
-            
+
             # Phase 4: Objective score (primary tf) + consensus calibration
             objective_score = self._calculate_objective_score(data, current_price)
             logger.info(
@@ -1169,14 +1200,20 @@ IMPORTANT:
             llm_decision = str(analysis.get("decision", "HOLD") or "HOLD").upper()
 
             # Horizon trend outlook for users (short/medium/long decision reference)
-            score_1d = float((objective_by_tf.get("1D") or {}).get("overall_score", objective_score.get("overall_score", 0.0)) or 0.0)
+            score_1d = float(
+                (objective_by_tf.get("1D") or {}).get("overall_score", objective_score.get("overall_score", 0.0)) or 0.0
+            )
             score_4h = float((objective_by_tf.get("4H") or {}).get("overall_score", score_1d) or score_1d)
             score_1h = float((objective_by_tf.get("1H") or {}).get("overall_score", score_4h) or score_4h)
             # ~24h: prefer 1H bar objective; fall back 4H -> 1D
             score_24h = float(score_1h)
             score_1w = float((objective_by_tf.get("1W") or {}).get("overall_score", score_1d) or score_1d)
             score_3d = score_1d * 0.7 + score_4h * 0.3
-            score_1m = score_1w * 0.55 + float(objective_score.get("fundamental_score", 0.0)) * 0.30 + float(objective_score.get("macro_score", 0.0)) * 0.15
+            score_1m = (
+                score_1w * 0.55
+                + float(objective_score.get("fundamental_score", 0.0)) * 0.30
+                + float(objective_score.get("macro_score", 0.0)) * 0.15
+            )
 
             def _trend_strength(score_val: float) -> str:
                 a = abs(float(score_val))
@@ -1253,7 +1290,9 @@ IMPORTANT:
                 analysis["summary"] = f"{original_summary} {consensus_note}".strip()
             else:
                 # Near-neutral: keep LLM but shrink confidence by quality and enforce HOLD if quality is poor
-                analysis["confidence"] = int(max(0, min(100, int(analysis.get("confidence", 50) or 50) * quality_multiplier)))
+                analysis["confidence"] = int(
+                    max(0, min(100, int(analysis.get("confidence", 50) or 50) * quality_multiplier))
+                )
 
                 if quality_multiplier < quality_hold_thr:
                     analysis["decision"] = "HOLD"
@@ -1278,20 +1317,20 @@ IMPORTANT:
                 "quality_multiplier": quality_multiplier,
                 "market_regime": regime,
             }
-            
+
             # Phase 5: Validate and constrain output (pass indicators for decision validation)
             # Check for major news or macro events that could override technical indicators
             news_data = data.get("news") or []
             macro_data = data.get("macro") or {}
             has_major_news = self._has_major_news(news_data)
             has_macro_event = self._has_macro_event(macro_data, data.get("market", ""))
-            
+
             analysis = self._validate_and_constrain(
-                analysis, 
-                current_price, 
+                analysis,
+                current_price,
                 indicators=data.get("indicators"),
                 has_major_news=has_major_news,
-                has_macro_event=has_macro_event
+                has_macro_event=has_macro_event,
             )
 
             # Post-validate: adjust position sizing based on quality + agreement
@@ -1313,96 +1352,101 @@ IMPORTANT:
             if os.getenv("ENABLE_CONFIDENCE_CALIBRATION", "false").lower() == "true":
                 try:
                     from app.services.analysis_memory import get_analysis_memory
+
                     raw_conf = int(analysis.get("confidence", 50) or 50)
                     analysis["confidence"] = get_analysis_memory().get_adjusted_confidence(
                         raw_conf, market=market, symbol=symbol
                     )
                 except Exception as e:
                     logger.debug(f"Confidence calibration skipped: {e}")
-            
+
             # Build final result
             total_time = int((time.time() - start_time) * 1000)
-            
+
             # Extract detailed analysis sections
             detailed_analysis = analysis.get("analysis", {})
             if isinstance(detailed_analysis, str):
                 # If AI returned a string instead of dict, use it as technical analysis
                 detailed_analysis = {"technical": detailed_analysis, "fundamental": "", "sentiment": ""}
-            
-            result.update({
-                "decision": analysis.get("decision", "HOLD"),
-                "confidence": analysis.get("confidence", 50),
-                "summary": analysis.get("summary", ""),
-                "model": model,  # Model is already set in result initialization
-                "language": language,  # Ensure language is included for task record
-                "detailed_analysis": {
-                    "technical": detailed_analysis.get("technical", ""),
-                    "fundamental": detailed_analysis.get("fundamental", ""),
-                    "sentiment": detailed_analysis.get("sentiment", ""),
-                },
-                "trading_plan": {
-                    "entry_price": analysis.get("entry_price"),
-                    "stop_loss": analysis.get("stop_loss"),
-                    "take_profit": analysis.get("take_profit"),
-                    "position_size_pct": analysis.get("position_size_pct", 10),
-                    "timeframe": analysis.get("timeframe", "medium"),
-                    # camelCase + semantic alias: for private front-end/legacy component binding (do not use indicators.trading_levels as a plan)
-                    "entryPrice": analysis.get("entry_price"),
-                    "stopLoss": analysis.get("stop_loss"),
-                    "takeProfit": analysis.get("take_profit"),
-                    "positionSizePct": analysis.get("position_size_pct", 10),
-                    "decision": str(analysis.get("decision", "HOLD") or "HOLD").upper(),
-                    # The same value as stop_loss / take_profit; the naming emphasizes "loss exit / profit target" to avoid confusion with the long order reference line
-                    "loss_exit_price": analysis.get("stop_loss"),
-                    "profit_target_price": analysis.get("take_profit"),
-                },
-                "reasons": analysis.get("key_reasons", []),
-                "risks": analysis.get("risks", []),
-                "scores": {
-                    "technical": analysis.get("technical_score", 50),
-                    "fundamental": analysis.get("fundamental_score", 50),
-                    "sentiment": analysis.get("sentiment_score", 50),
-                    "overall": self._calculate_overall_score(analysis),
-                },
-                "objective_score": analysis.get("objective_score", {}),
-                "score_based_decision": analysis.get("score_based_decision", "HOLD"),
-                "market_data": {
-                    "current_price": current_price,
-                    "change_24h": data["price"].get("changePercent", 0),
-                    "support": data["indicators"].get("levels", {}).get("support"),
-                    "resistance": data["indicators"].get("levels", {}).get("resistance"),
-                },
-                "indicators": data.get("indicators", {}),
-                "consensus": analysis.get("consensus", {}),
-                "trend_outlook": trend_outlook,
-                "trend_outlook_summary": trend_outlook_summary,
-                "trendOutlook": trend_outlook,
-                "trendOutlookSummary": trend_outlook_summary,
-                "analysis_time_ms": total_time,
-                "llm_time_ms": llm_time,
-                "data_collection_time_ms": data.get("collection_time_ms", 0),
-            })
-            
+
+            result.update(
+                {
+                    "decision": analysis.get("decision", "HOLD"),
+                    "confidence": analysis.get("confidence", 50),
+                    "summary": analysis.get("summary", ""),
+                    "model": model,  # Model is already set in result initialization
+                    "language": language,  # Ensure language is included for task record
+                    "detailed_analysis": {
+                        "technical": detailed_analysis.get("technical", ""),
+                        "fundamental": detailed_analysis.get("fundamental", ""),
+                        "sentiment": detailed_analysis.get("sentiment", ""),
+                    },
+                    "trading_plan": {
+                        "entry_price": analysis.get("entry_price"),
+                        "stop_loss": analysis.get("stop_loss"),
+                        "take_profit": analysis.get("take_profit"),
+                        "position_size_pct": analysis.get("position_size_pct", 10),
+                        "timeframe": analysis.get("timeframe", "medium"),
+                        # camelCase + semantic alias: for private front-end/legacy component binding (do not use indicators.trading_levels as a plan)
+                        "entryPrice": analysis.get("entry_price"),
+                        "stopLoss": analysis.get("stop_loss"),
+                        "takeProfit": analysis.get("take_profit"),
+                        "positionSizePct": analysis.get("position_size_pct", 10),
+                        "decision": str(analysis.get("decision", "HOLD") or "HOLD").upper(),
+                        # The same value as stop_loss / take_profit; the naming emphasizes "loss exit / profit target" to avoid confusion with the long order reference line
+                        "loss_exit_price": analysis.get("stop_loss"),
+                        "profit_target_price": analysis.get("take_profit"),
+                    },
+                    "reasons": analysis.get("key_reasons", []),
+                    "risks": analysis.get("risks", []),
+                    "scores": {
+                        "technical": analysis.get("technical_score", 50),
+                        "fundamental": analysis.get("fundamental_score", 50),
+                        "sentiment": analysis.get("sentiment_score", 50),
+                        "overall": self._calculate_overall_score(analysis),
+                    },
+                    "objective_score": analysis.get("objective_score", {}),
+                    "score_based_decision": analysis.get("score_based_decision", "HOLD"),
+                    "market_data": {
+                        "current_price": current_price,
+                        "change_24h": data["price"].get("changePercent", 0),
+                        "support": data["indicators"].get("levels", {}).get("support"),
+                        "resistance": data["indicators"].get("levels", {}).get("resistance"),
+                    },
+                    "indicators": data.get("indicators", {}),
+                    "consensus": analysis.get("consensus", {}),
+                    "trend_outlook": trend_outlook,
+                    "trend_outlook_summary": trend_outlook_summary,
+                    "trendOutlook": trend_outlook,
+                    "trendOutlookSummary": trend_outlook_summary,
+                    "analysis_time_ms": total_time,
+                    "llm_time_ms": llm_time,
+                    "data_collection_time_ms": data.get("collection_time_ms", 0),
+                }
+            )
+
             # Store in memory for future retrieval and get memory_id for feedback
             memory_id = self._store_analysis_memory(result, user_id=user_id)
             if memory_id:
                 result["memory_id"] = memory_id
-            
-            logger.info(f"Fast analysis completed in {total_time}ms: {market}:{symbol} -> {result['decision']} (memory_id={memory_id}, user_id={user_id})")
-            
+
+            logger.info(
+                f"Fast analysis completed in {total_time}ms: {market}:{symbol} -> {result['decision']} (memory_id={memory_id}, user_id={user_id})"
+            )
+
         except Exception as e:
             logger.error(f"Fast analysis failed: {e}", exc_info=True)
             result["error"] = str(e)
-        
+
         return result
-    
+
     def _build_decision_guidance(self, rsi_value: float, macd_signal: str, ma_trend: str, change_24h: float) -> str:
         """
         Build decision guidance based on technical indicators to help AI make more reasonable decisions.
         Emphasize that the SELL signal is an effective short selling opportunity.
         """
         guidance_parts = []
-        
+
         # RSI Guidance - Identify shorting opportunities more aggressively
         if rsi_value > 70:
             guidance_parts.append("🔴 RSI > 70 (超买): 强烈建议SELL做空，避免BUY")
@@ -1414,7 +1458,7 @@ IMPORTANT:
             guidance_parts.append("🟡 RSI < 40 (偏超卖): 可以考虑BUY做多")
         else:
             guidance_parts.append("⚪ RSI 40-60 (中性): 技术面中性，需要结合其他指标判断")
-        
+
         # MACD Guidance - Clear Short Signal
         if macd_signal == "bullish":
             guidance_parts.append("🟢 MACD 看涨: 支持BUY做多")
@@ -1422,7 +1466,7 @@ IMPORTANT:
             guidance_parts.append("🔴 MACD 看跌: 支持SELL做空，这是有效的做空机会")
         else:
             guidance_parts.append("⚪ MACD 中性: 无明显方向")
-        
+
         # MA Trend Guidance - Identify Trend Reversal Opportunities
         if "uptrend" in ma_trend.lower() or "strong_uptrend" in ma_trend.lower():
             if rsi_value > 60:
@@ -1433,36 +1477,26 @@ IMPORTANT:
             guidance_parts.append("🔴 均线趋势向下: 这是SELL做空的良好机会，避免BUY")
         else:
             guidance_parts.append("⚪ 均线横盘: 趋势不明确")
-        
+
         # 24-hour price range guidance - identifying excessive volatility
         if change_24h > 5:
             guidance_parts.append("🔴 24h涨幅 > 5%: 可能已过度上涨，建议SELL做空或获利了结")
         elif change_24h < -5:
             guidance_parts.append("🟢 24h跌幅 > 5%: 可能已过度下跌，可以考虑BUY做多")
-        
+
         # Comprehensive suggestions
-        sell_signals = sum([
-            rsi_value > 60,
-            macd_signal == "bearish",
-            "downtrend" in ma_trend.lower(),
-            change_24h > 5
-        ])
-        buy_signals = sum([
-            rsi_value < 40,
-            macd_signal == "bullish",
-            "uptrend" in ma_trend.lower(),
-            change_24h < -5
-        ])
-        
+        sell_signals = sum([rsi_value > 60, macd_signal == "bearish", "downtrend" in ma_trend.lower(), change_24h > 5])
+        buy_signals = sum([rsi_value < 40, macd_signal == "bullish", "uptrend" in ma_trend.lower(), change_24h < -5])
+
         if sell_signals >= 2:
             guidance_parts.append(f"📊 综合判断: {sell_signals}个做空信号，建议考虑SELL")
         elif buy_signals >= 2:
             guidance_parts.append(f"📊 综合判断: {buy_signals}个做多信号，建议考虑BUY")
         else:
             guidance_parts.append("📊 综合判断: 信号混合，需要结合宏观和新闻判断")
-        
+
         return "\n".join(guidance_parts) if guidance_parts else "技术指标数据不足，请谨慎判断"
-    
+
     def _has_major_news(self, news_data: List[Dict]) -> bool:
         """
         Check for breaking news events.
@@ -1474,12 +1508,38 @@ IMPORTANT:
 
         # Substring keywords (longer words or Chinese to avoid mismatching of too short English)
         major_keywords = [
-            "regulation", "regulatory", "approval", "policy", "government", "central bank",
-            "监管", "禁令", "批准", "政策", "政府", "央行",
-            "partnership", "merger", "acquisition", "scandal", "lawsuit", "investigation",
-            "合作", "合并", "收购", "丑闻", "诉讼", "调查",
-            "sanctions", "embargo", "制裁", "中东", "海湾", "北约",
-            "united states", "middle east",
+            "regulation",
+            "regulatory",
+            "approval",
+            "policy",
+            "government",
+            "central bank",
+            "监管",
+            "禁令",
+            "批准",
+            "政策",
+            "政府",
+            "央行",
+            "partnership",
+            "merger",
+            "acquisition",
+            "scandal",
+            "lawsuit",
+            "investigation",
+            "合作",
+            "合并",
+            "收购",
+            "丑闻",
+            "诉讼",
+            "调查",
+            "sanctions",
+            "embargo",
+            "制裁",
+            "中东",
+            "海湾",
+            "北约",
+            "united states",
+            "middle east",
         ]
         # Use word boundary matching for short English words (without using naked substrings)
         major_short_patterns = [
@@ -1507,7 +1567,7 @@ IMPORTANT:
                 return True
 
         return False
-    
+
     def _has_macro_event(self, macro_data: Dict, market: str) -> bool:
         """
         Check for major macro events.
@@ -1515,30 +1575,30 @@ IMPORTANT:
         """
         if not macro_data:
             return False
-        
+
         # Check the VIX (fear index)
         if "VIX" in macro_data:
             vix = macro_data["VIX"]
             vix_value = vix.get("price", 0)
             if vix_value > 30:  # VIX > 30 indicates extreme panic
                 return True
-        
+
         # Check for large DXY swings (>1%)
         if "DXY" in macro_data:
             dxy = macro_data["DXY"]
             change_pct = abs(dxy.get("changePercent", 0))
             if change_pct > 1.0:  # The U.S. dollar index fluctuates more than 1%
                 return True
-        
+
         # Check for interest rate changes (big impact on stocks and cryptocurrencies)
         if "TNX" in macro_data and market in ["USStock", "Crypto"]:
             tnx = macro_data["TNX"]
             change_pct = abs(tnx.get("changePercent", 0))
             if change_pct > 2.0:  # Interest rates change by more than 2%
                 return True
-        
+
         return False
-    
+
     def _finalize_trading_plan_for_decision(
         self, analysis: Dict, current_price: float, indicators: Optional[Dict] = None
     ) -> Dict:
@@ -1621,20 +1681,26 @@ IMPORTANT:
 
         return analysis
 
-    def _validate_and_constrain(self, analysis: Dict, current_price: float, indicators: Dict = None,
-                                 has_major_news: bool = False, has_macro_event: bool = False) -> Dict:
+    def _validate_and_constrain(
+        self,
+        analysis: Dict,
+        current_price: float,
+        indicators: Dict = None,
+        has_major_news: bool = False,
+        has_macro_event: bool = False,
+    ) -> Dict:
         """
         Validate LLM output and constrain prices to reasonable ranges.
         Also validate decision against technical indicators to prevent absurd recommendations.
         """
         if not current_price or current_price <= 0:
             return analysis
-        
+
         # Price bounds
         min_price = current_price * 0.90
         max_price = current_price * 1.10
         decision = str(analysis.get("decision", "HOLD")).upper()
-        
+
         # Constrain entry price
         entry = _safe_float_price(analysis.get("entry_price"), current_price)
         if entry is not None and (entry < min_price or entry > max_price):
@@ -1642,7 +1708,7 @@ IMPORTANT:
             analysis["entry_price"] = round(current_price, 6)
         elif entry is not None:
             analysis["entry_price"] = round(entry, 6)
-        
+
         # Constrain stop loss / take profit by direction (numeric-safe).
         # BUY: stop_loss < current < take_profit
         # SELL: take_profit < current < stop_loss
@@ -1672,40 +1738,44 @@ IMPORTANT:
                 analysis["take_profit"] = tp_default
             else:
                 analysis["take_profit"] = round(take_profit, 6)
-        
+
         # Constrain confidence
         confidence = analysis.get("confidence", 50)
         analysis["confidence"] = max(0, min(100, int(confidence)))
-        
+
         # Constrain scores
         for score_key in ["technical_score", "fundamental_score", "sentiment_score"]:
             score = analysis.get(score_key, 50)
             analysis[score_key] = max(0, min(100, int(score)))
-        
+
         # Validate decision
         if decision not in ["BUY", "SELL", "HOLD"]:
             analysis["decision"] = "HOLD"
         else:
             analysis["decision"] = decision
-        
+
         # Validate decision-making rationality based on technical indicators (allow macro/news factor coverage)
         if indicators:
             analysis = self._validate_decision_against_indicators(
-                analysis, indicators, confidence, 
-                has_major_news=has_major_news, 
-                has_macro_event=has_macro_event
+                analysis, indicators, confidence, has_major_news=has_major_news, has_macro_event=has_macro_event
             )
 
         # Final geometry after any decision change (e.g. forced HOLD skips finalize in caller — still safe)
         analysis = self._finalize_trading_plan_for_decision(analysis, current_price, indicators)
-        
+
         return analysis
-    
-    def _validate_decision_against_indicators(self, analysis: Dict, indicators: Dict, confidence: int, 
-                                               has_major_news: bool = False, has_macro_event: bool = False) -> Dict:
+
+    def _validate_decision_against_indicators(
+        self,
+        analysis: Dict,
+        indicators: Dict,
+        confidence: int,
+        has_major_news: bool = False,
+        has_macro_event: bool = False,
+    ) -> Dict:
         """
         Justify decisions against technical indicators, but allow macro/news factors to override technical indicators.
-        
+
         Args:
             analysis: AI analysis results
             indicators: technical indicator data
@@ -1717,11 +1787,11 @@ IMPORTANT:
         rsi_data = indicators.get("rsi", {})
         macd_data = indicators.get("macd", {})
         ma_data = indicators.get("moving_averages", {})
-        
+
         rsi_value = rsi_data.get("value", 50)
         macd_signal = macd_data.get("signal", "neutral")
         ma_trend = ma_data.get("trend", "sideways")
-        
+
         # If the confidence level is too low, force it to HOLD
         if confidence < 60:
             if decision != "HOLD":
@@ -1729,46 +1799,52 @@ IMPORTANT:
                 analysis["decision"] = "HOLD"
                 analysis["confidence"] = max(confidence, 45)  # Reduce confidence
             return analysis
-        
+
         # Allows technical indicators to be overridden (but logs warnings) if there is major news or macro events
         allow_override = has_major_news or has_macro_event
-        
+
         # Check whether the BUY decision conflicts with technical indicators
         if decision == "BUY":
             conflicts = []
-            
+
             # You should not buy when RSI > 70 (unless there is a major upside)
             if rsi_value > 70:
                 conflicts.append(f"RSI {rsi_value:.1f} > 70 (超买)")
-            
+
             # You should not BUY when MACD is bearish (unless there is a major upside)
             if macd_signal == "bearish":
                 conflicts.append("MACD bearish")
-            
+
             # You should not buy when the moving average trend is downward (unless there is a major benefit)
             # Only consider a conflict if the trend is very strong (avoid being too sensitive)
             if "strong_downtrend" in ma_trend.lower() or ("downtrend" in ma_trend.lower() and rsi_value > 50):
                 conflicts.append(f"MA trend: {ma_trend}")
-            
+
             if conflicts:
                 if allow_override:
                     # Allow override, but lower confidence and add description
-                    logger.info(f"BUY decision conflicts with indicators but major news/macro event allows override: {', '.join(conflicts)}")
+                    logger.info(
+                        f"BUY decision conflicts with indicators but major news/macro event allows override: {', '.join(conflicts)}"
+                    )
                     analysis["confidence"] = max(confidence - 15, 50)
                     original_summary = analysis.get("summary", "")
-                    analysis["summary"] = f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，但重大事件可能改变趋势]"
+                    analysis["summary"] = (
+                        f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，但重大事件可能改变趋势]"
+                    )
                 else:
                     # If there is no major event, it is forced to be changed to HOLD.
-                    logger.warning(f"BUY decision conflicts with indicators and no major event: {', '.join(conflicts)}. Forcing to HOLD")
+                    logger.warning(
+                        f"BUY decision conflicts with indicators and no major event: {', '.join(conflicts)}. Forcing to HOLD"
+                    )
                     analysis["decision"] = "HOLD"
                     analysis["confidence"] = max(confidence - 20, 40)
                     original_summary = analysis.get("summary", "")
                     analysis["summary"] = f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，建议观望]"
-        
+
         # Check whether SELL decisions contradict technical indicators (relax restrictions because SELL is a valid short opportunity)
         elif decision == "SELL":
             conflicts = []
-            
+
             # Only block SELL (relax conditions) if there is a strong bullish signal
             # It is considered a contradiction when RSI < 30 and MACD is bullish and the moving average is upward.
             if rsi_value < 30 and macd_signal == "bullish" and "uptrend" in ma_trend.lower():
@@ -1776,28 +1852,34 @@ IMPORTANT:
             # Or RSI < 30 and the moving average is strongly upward
             elif rsi_value < 30 and "strong_uptrend" in ma_trend.lower():
                 conflicts.append(f"Very strong uptrend with oversold RSI {rsi_value:.1f}")
-            
+
             if conflicts:
                 if allow_override:
                     # Allow override, but lower confidence and add description
-                    logger.info(f"SELL decision conflicts with strong bullish indicators but major news/macro event allows override: {', '.join(conflicts)}")
+                    logger.info(
+                        f"SELL decision conflicts with strong bullish indicators but major news/macro event allows override: {', '.join(conflicts)}"
+                    )
                     analysis["confidence"] = max(confidence - 15, 50)
                     original_summary = analysis.get("summary", "")
-                    analysis["summary"] = f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，但重大事件可能改变趋势]"
+                    analysis["summary"] = (
+                        f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，但重大事件可能改变趋势]"
+                    )
                 else:
                     # Only change to HOLD if there is a very strong bullish signal
-                    logger.warning(f"SELL decision conflicts with very strong bullish indicators: {', '.join(conflicts)}. Forcing to HOLD")
+                    logger.warning(
+                        f"SELL decision conflicts with very strong bullish indicators: {', '.join(conflicts)}. Forcing to HOLD"
+                    )
                     analysis["decision"] = "HOLD"
                     analysis["confidence"] = max(confidence - 20, 40)
                     original_summary = analysis.get("summary", "")
                     analysis["summary"] = f"{original_summary} [注意：技术指标显示{', '.join(conflicts)}，建议观望]"
-        
+
         return analysis
-    
+
     def _calculate_objective_score(self, data: Dict[str, Any], current_price: float) -> Dict[str, float]:
         """
         Calculates a quantitative scoring system based on objective data
-        
+
         Return a score between -100 and +100:
         - +100: Strong bullish (strong BUY)
         - +70 to +100: Strong bullish (strong BUY)
@@ -1812,19 +1894,19 @@ IMPORTANT:
         news = data.get("news") or []
         macro = data.get("macro") or {}
         price_data = data.get("price") or {}
-        
+
         # 1. Technical indicator score (-100 to +100)
         technical_score = self._calculate_technical_score(indicators, price_data)
-        
+
         # 2. Fundamental score (-100 to +100)
         fundamental_score = self._calculate_fundamental_score(fundamental, data.get("market", ""))
-        
+
         # 3. News sentiment score (-100 to +100)
         sentiment_score = self._calculate_sentiment_score(news)
-        
+
         # 4. Macro environment score (-100 to +100)
         macro_score = self._calculate_macro_score(macro, data.get("market", ""))
-        
+
         # 5. Comprehensive rating (weighted average)
         # Optimization weight: Default technical 35%, fundamentals 20%, sentiment 25% (including geopolitics), macro 20% (increase macro weight)
         # But we need to "reweight the available information": when some modules are missing (such as news/macro is not obtained), do not use 0 points to dilute the overall strength.
@@ -1856,9 +1938,7 @@ IMPORTANT:
                     return True
             return False
 
-        fundamental_present = (
-            market_type in ("USStock", "CNStock", "HKStock") and _fundamental_meaningful(fundamental)
-        )
+        fundamental_present = market_type in ("USStock") and _fundamental_meaningful(fundamental)
         sentiment_present = bool(news)
         macro_present = bool(macro)
         # indicators usually exist once they are successfully calculated, but they are also protected here.
@@ -1887,13 +1967,13 @@ IMPORTANT:
                 + (sentiment_score * weights["sentiment"] if present_flags.get("sentiment") else 0.0)
                 + (macro_score * weights["macro"] if present_flags.get("macro") else 0.0)
             ) / total_w
-        
+
         return {
             "technical_score": technical_score,
             "fundamental_score": fundamental_score,
             "sentiment_score": sentiment_score,
             "macro_score": macro_score,
-            "overall_score": overall_score
+            "overall_score": overall_score,
         }
 
     def _get_ai_calibration(self, market: str = "Crypto") -> Dict[str, Any]:
@@ -1914,6 +1994,7 @@ IMPORTANT:
 
         try:
             from app.services.ai_calibration import AICalibrationService
+
             svc = AICalibrationService()
             cfg = svc.get_latest(key)
         except Exception as e:
@@ -1923,12 +2004,12 @@ IMPORTANT:
         self._calibration_cache[key] = cfg
         self._calibration_cache_ts[key] = now
         return cfg
-    
+
     def _calculate_technical_score(self, indicators: Dict, price_data: Dict) -> float:
         """Calculate technical indicator score (-100 to +100)"""
         score = 0.0
         weight_sum = 0.0
-        
+
         # RSI score (-50 to +50)
         rsi_data = indicators.get("rsi", {})
         rsi_value = rsi_data.get("value", 50)
@@ -1945,7 +2026,7 @@ IMPORTANT:
                 rsi_score = (50 - rsi_value) * 0.6  # Between 40-60, linear mapping
             score += rsi_score * 0.30
             weight_sum += 0.30
-        
+
         # MACD score (-40 to +40)
         macd_data = indicators.get("macd", {})
         macd_signal = macd_data.get("signal", "neutral")
@@ -1957,7 +2038,7 @@ IMPORTANT:
             macd_score = 0
         score += macd_score * 0.25
         weight_sum += 0.25
-        
+
         # Moving average trend score (-40 to +40)
         ma_data = indicators.get("moving_averages", {})
         ma_trend = ma_data.get("trend", "sideways")
@@ -1973,7 +2054,7 @@ IMPORTANT:
             ma_score = 0
         score += ma_score * 0.25
         weight_sum += 0.25
-        
+
         # 24-hour rise and fall score (-20 to +20)
         change_24h = price_data.get("changePercent", 0)
         if change_24h > 10:
@@ -2076,21 +2157,21 @@ IMPORTANT:
             extra_norm = max(-100.0, min(100.0, float(extra_score)))
             score += extra_norm * 0.15
             weight_sum += 0.15
-        
+
         # Normalized to -100 to +100
         if weight_sum > 0:
             score = score / weight_sum * 100
-        
+
         return max(-100, min(100, score))
-    
+
     def _calculate_fundamental_score(self, fundamental: Dict, market: str) -> float:
         """Calculate fundamental score (-100 to +100)"""
-        if market not in ("USStock", "CNStock", "HKStock") or not fundamental:
-            return 0.0  # Non-U.S. stocks or no fundamental data, return neutral
-        
+        if market != "USStock" or not fundamental:
+            return 0.0  # Only U.S. stocks or no fundamental data, return neutral
+
         score = 0.0
         factors = 0
-        
+
         # PE Ratio score
         pe_ratio = fundamental.get("pe_ratio")
         if pe_ratio and pe_ratio > 0:
@@ -2106,7 +2187,7 @@ IMPORTANT:
                 pe_score = 0
             score += pe_score
             factors += 1
-        
+
         # ROE score
         roe = fundamental.get("roe")
         if roe:
@@ -2122,7 +2203,7 @@ IMPORTANT:
                 roe_score = 0
             score += roe_score
             factors += 1
-        
+
         # revenue growth score
         revenue_growth = fundamental.get("revenue_growth")
         if revenue_growth:
@@ -2138,7 +2219,7 @@ IMPORTANT:
                 growth_score = 0
             score += growth_score
             factors += 1
-        
+
         # Profitability score
         profit_margin = fundamental.get("profit_margin")
         if profit_margin:
@@ -2154,7 +2235,7 @@ IMPORTANT:
                 margin_score = 0
             score += margin_score
             factors += 1
-        
+
         # Debt to Equity Ratio Score
         debt_to_equity = fundamental.get("debt_to_equity")
         if debt_to_equity:
@@ -2166,15 +2247,17 @@ IMPORTANT:
                 debt_score = 0
             score += debt_score
             factors += 1
-        
+
         # Normalization (if there are multiple factors)
         if factors > 0:
-            score = score / factors * 100 / 4  # The maximum possible score is 20 points for each of the 4 factors = 80, normalized to 100
+            score = (
+                score / factors * 100 / 4
+            )  # The maximum possible score is 20 points for each of the 4 factors = 80, normalized to 100
         else:
             return 50.0
 
         return max(-100, min(100, score))
-    
+
     def _calculate_sentiment_score(self, news: List[Dict]) -> float:
         """
         Calculate news sentiment score (-100 to +100)
@@ -2237,7 +2320,7 @@ IMPORTANT:
             final_score = base_score
 
         return max(-100, min(100, final_score))
-    
+
     def _calculate_macro_score(self, macro: Dict, market: str) -> float:
         """
         Calculate macro environment score (-100 to +100)
@@ -2245,10 +2328,10 @@ IMPORTANT:
         """
         if not macro:
             return 0.0  # No macro data, neutral
-        
+
         score = 0.0
         factors = 0
-        
+
         # VIX score (fear index) - increased weight
         vix = macro.get("VIX", {})
         vix_value = vix.get("price", 0)
@@ -2269,7 +2352,7 @@ IMPORTANT:
                 vix_score = 0
             score += vix_score
             factors += 1
-        
+
         # DXY Score (USD Index) - Increased weighting
         dxy = macro.get("DXY", {})
         dxy_value = dxy.get("price", 0)
@@ -2297,7 +2380,7 @@ IMPORTANT:
                     dxy_score = 0
             score += dxy_score
             factors += 1
-        
+
         # Interest Rate Score (TNX) - Increased weighting
         tnx = macro.get("TNX", {})
         tnx_change = tnx.get("changePercent", 0)
@@ -2339,7 +2422,7 @@ IMPORTANT:
                     factors += 1
         except Exception:
             pass
-        
+
         # Normalization (considering weights)
         if factors > 0:
             # Maximum possible score: VIX(-50~+20), DXY(-30~+30), TNX(-30~+30) = about -110 to +80
@@ -2347,9 +2430,9 @@ IMPORTANT:
             # Add the amplitude of Fear&Greed (about 15) and give some buffer
             max_possible = 125  # maximum absolute value
             score = score / max_possible * 100
-        
+
         return max(-100, min(100, score))
-    
+
     def _detect_market_regime(self, indicators: Dict) -> str:
         """Detect trending vs ranging from MA trend. trending | ranging"""
         ma = indicators.get("moving_averages") or {}
@@ -2361,12 +2444,12 @@ IMPORTANT:
     def _score_to_decision(self, score: float, *, market: str = "Crypto") -> str:
         """
         Transformed into decisions based on objective scoring
-        
+
         Optimized threshold (significantly narrows the HOLD interval to make decisions clearer):
         - score >= +20: BUY (profit)
         - score <= -20: SELL (bad)
         - -20 < score < +20: HOLD (neutral)
-        
+
         Hierarchical decision-making (for finer-grained judgment):
         - score >= +70: strong BUY
         - +40 <= score < +70: obvious BUY
@@ -2388,7 +2471,7 @@ IMPORTANT:
             return "SELL"
         else:
             return "HOLD"
-    
+
     def _calculate_overall_score(self, analysis: Dict) -> int:
         """Calculate weighted overall score (legacy method, now uses objective score if available)."""
         # Prioritize objective scoring
@@ -2397,72 +2480,74 @@ IMPORTANT:
             overall = objective.get("overall_score", 50)
             # Convert to 0-100 format (used by the original system)
             return max(0, min(100, int(50 + overall * 0.5)))
-        
+
         # Downgraded to LLM rating
         tech = analysis.get("technical_score", 50)
         fund = analysis.get("fundamental_score", 50)
         sent = analysis.get("sentiment_score", 50)
-        
+
         # Weights: technical 40%, fundamental 35%, sentiment 25%
         overall = tech * 0.40 + fund * 0.35 + sent * 0.25
-        
+
         # Adjust based on decision
         decision = analysis.get("decision", "HOLD")
         confidence = analysis.get("confidence", 50)
-        
+
         if decision == "BUY":
             overall = overall * 0.6 + (50 + confidence * 0.5) * 0.4
         elif decision == "SELL":
             overall = overall * 0.6 + (50 - confidence * 0.5) * 0.4
-        
+
         return max(0, min(100, int(overall)))
-    
+
     def _store_analysis_memory(self, result: Dict, user_id: int = None) -> Optional[int]:
         """Store analysis result for future learning. Returns memory_id."""
         try:
             from app.services.analysis_memory import get_analysis_memory
+
             memory = get_analysis_memory()
             memory_id = memory.store(result, user_id=user_id)
-            
+
             # Also save to qd_analysis_tasks for admin statistics
             self._save_analysis_task(result, user_id=user_id)
-            
+
             return memory_id
         except Exception as e:
             logger.warning(f"Memory storage failed: {e}")
             return None
-    
+
     def _save_analysis_task(self, result: Dict, user_id: int = None) -> Optional[int]:
         """
         Save analysis record to qd_analysis_tasks table for admin statistics.
-        
+
         Args:
             result: Analysis result dictionary
             user_id: User ID who created this analysis
-            
+
         Returns:
             Task ID or None if failed
         """
         try:
             from app.utils.db import get_db_connection
-            
+
             market = result.get("market", "")
             symbol = result.get("symbol", "")
             model = result.get("model", "")
             # If model is empty, get default model
             if not model:
                 from app.services.llm import LLMService
+
                 llm_service = LLMService()
                 model = llm_service.get_default_model()
             language = result.get("language", "en-US")
             status = "completed" if not result.get("error") else "failed"
             result_json = json.dumps(result, ensure_ascii=False)
             error_message = result.get("error", "")
-            
+
             if not market or not symbol:
-                logger.warning(f"Cannot save analysis task: missing market or symbol")
+                logger.warning("Cannot save analysis task: missing market or symbol")
                 return None
-            
+
             with get_db_connection() as db:
                 cur = db.cursor()
                 # PostgreSQL: Use RETURNING to get the inserted ID
@@ -2478,35 +2563,36 @@ IMPORTANT:
                         int(user_id) if user_id else 1,  # Default to user 1 if not provided
                         str(market),
                         str(symbol),
-                        str(model) if model else '',
+                        str(model) if model else "",
                         str(language),
                         str(status),
                         str(result_json),
-                        str(error_message) if error_message else ''
-                    )
+                        str(error_message) if error_message else "",
+                    ),
                 )
                 row = cur.fetchone()
-                task_id = row['id'] if row else None
+                task_id = row["id"] if row else None
                 db.commit()
                 cur.close()
-                
+
                 if task_id:
                     logger.debug(f"Saved analysis task {task_id} for user {user_id}: {market}:{symbol}")
                 return task_id
-                
+
         except Exception as e:
             logger.warning(f"Failed to save analysis task: {e}")
             return None
-    
+
     # ==================== Backward Compatibility ====================
-    
-    def analyze_legacy_format(self, market: str, symbol: str, language: str = 'en-US',
-                              model: str = None, timeframe: str = "1D") -> Dict[str, Any]:
+
+    def analyze_legacy_format(
+        self, market: str, symbol: str, language: str = "en-US", model: str = None, timeframe: str = "1D"
+    ) -> Dict[str, Any]:
         """
         Returns analysis in legacy multi-agent format for backward compatibility.
         """
         fast_result = self.analyze(market, symbol, language, model, timeframe)
-        
+
         if fast_result.get("error"):
             return {
                 "overview": {"report": f"Analysis failed: {fast_result['error']}"},
@@ -2517,7 +2603,7 @@ IMPORTANT:
                 "risk": {"report": "N/A"},
                 "error": fast_result["error"],
             }
-        
+
         # Convert to legacy format
         decision = fast_result.get("decision", "HOLD")
         confidence = fast_result.get("confidence", 50)
@@ -2525,7 +2611,9 @@ IMPORTANT:
         to_sum = (fast_result.get("trend_outlook_summary") or "").strip()
         overview_report = fast_result.get("summary", "") or ""
         if to_sum:
-            overview_report = f"{overview_report}\n\n【周期预判】{to_sum}" if overview_report.strip() else f"【周期预判】{to_sum}"
+            overview_report = (
+                f"{overview_report}\n\n【周期预判】{to_sum}" if overview_report.strip() else f"【周期预判】{to_sum}"
+            )
 
         return {
             "overview": {
@@ -2598,6 +2686,7 @@ IMPORTANT:
 # Singleton instance
 _fast_analysis_service = None
 
+
 def get_fast_analysis_service() -> FastAnalysisService:
     """Get singleton FastAnalysisService instance."""
     global _fast_analysis_service
@@ -2606,8 +2695,9 @@ def get_fast_analysis_service() -> FastAnalysisService:
     return _fast_analysis_service
 
 
-def fast_analyze(market: str, symbol: str, language: str = 'en-US', 
-                 model: str = None, timeframe: str = "1D") -> Dict[str, Any]:
+def fast_analyze(
+    market: str, symbol: str, language: str = "en-US", model: str = None, timeframe: str = "1D"
+) -> Dict[str, Any]:
     """Convenience function for fast analysis."""
     service = get_fast_analysis_service()
     return service.analyze(market, symbol, language, model, timeframe)

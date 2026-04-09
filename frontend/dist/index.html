@@ -9,14 +9,14 @@
         position: relative;
         overflow: hidden;
       }
-      
+
       .first-loading-wrp > h2 {
         font-size: 32px;
         margin-bottom: 40px;
         color: #333;
         font-weight: 600;
       }
-      
+
       .first-loading-wrp .loading-wrp {
         padding: 40px;
         display: flex;
@@ -27,7 +27,7 @@
         width: 100%;
         max-width: 600px;
       }
-      
+
       /* 像素风格小猫奔跑动画容器 */
       .pixel-cat-container {
         position: relative;
@@ -36,7 +36,7 @@
         margin: 0 auto 30px;
         overflow: hidden;
       }
-      
+
       /* 像素小猫主体 */
       .pixel-cat {
         position: absolute;
@@ -49,14 +49,14 @@
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
       }
-      
+
       /* 所有像素元素都使用锐利边缘 */
       .pixel-cat * {
         image-rendering: pixelated;
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
       }
-      
+
       /* 猫头 - 像素方块组成 */
       .cat-head {
         position: absolute;
@@ -64,7 +64,7 @@
         top: 0;
         width: 16px;
         height: 14px;
-        background: 
+        background:
           /* 头部主体白色 */
           linear-gradient(#fff, #fff) 2px 4px / 12px 10px no-repeat,
           /* 左半脸黑色斑块 */
@@ -73,7 +73,7 @@
           linear-gradient(#fff, #fff) 4px 2px / 8px 2px no-repeat;
         animation: headBob 0.4s steps(2) infinite;
       }
-      
+
       /* 左耳 - 黑色尖耳朵 */
       .cat-ear-left {
         position: absolute;
@@ -81,12 +81,12 @@
         top: -2px;
         width: 4px;
         height: 6px;
-        background: 
+        background:
           linear-gradient(#000, #000) 0px 4px / 4px 2px no-repeat,
           linear-gradient(#000, #000) 1px 2px / 2px 2px no-repeat,
           linear-gradient(#000, #000) 1px 0px / 2px 2px no-repeat;
       }
-      
+
       /* 右耳 - 白色尖耳朵 */
       .cat-ear-right {
         position: absolute;
@@ -94,13 +94,13 @@
         top: -2px;
         width: 4px;
         height: 6px;
-        background: 
+        background:
           linear-gradient(#fff, #fff) 0px 4px / 4px 2px no-repeat,
           linear-gradient(#fff, #fff) 1px 2px / 2px 2px no-repeat,
           linear-gradient(#fff, #fff) 1px 0px / 2px 2px no-repeat;
         box-shadow: inset 0 0 0 1px #000;
       }
-      
+
       .cat-ear-right::after {
         content: '';
         position: absolute;
@@ -110,7 +110,7 @@
         border-width: 0 1px 0 0;
         box-sizing: border-box;
       }
-      
+
       /* 左眼 - 黑底白眼（在黑色区域） */
       .cat-eye-left {
         position: absolute;
@@ -120,7 +120,7 @@
         height: 4px;
         background: #fff;
       }
-      
+
       .cat-eye-left::after {
         content: '';
         position: absolute;
@@ -130,7 +130,7 @@
         height: 2px;
         background: #000;
       }
-      
+
       /* 右眼 - 白底黑眼（在白色区域） */
       .cat-eye-right {
         position: absolute;
@@ -142,7 +142,7 @@
         border: 1px solid #000;
         box-sizing: border-box;
       }
-      
+
       .cat-eye-right::after {
         content: '';
         position: absolute;
@@ -152,7 +152,7 @@
         height: 2px;
         background: #000;
       }
-      
+
       /* 鼻子 - 小粉色方块 */
       .cat-nose {
         position: absolute;
@@ -162,7 +162,7 @@
         height: 2px;
         background: #000;
       }
-      
+
       /* 胡须 - 像素线条 */
       .cat-whiskers {
         position: absolute;
@@ -171,7 +171,7 @@
         width: 16px;
         height: 4px;
       }
-      
+
       .cat-whiskers::before {
         content: '';
         position: absolute;
@@ -182,7 +182,7 @@
         background: #000;
         box-shadow: 0 2px 0 #000;
       }
-      
+
       .cat-whiskers::after {
         content: '';
         position: absolute;
@@ -193,7 +193,7 @@
         background: #000;
         box-shadow: 0 2px 0 #000;
       }
-      
+
       /* 身体 - 黑白相间像素块 */
       .cat-body {
         position: absolute;
@@ -201,7 +201,7 @@
         top: 14px;
         width: 14px;
         height: 10px;
-        background: 
+        background:
           /* 白色部分 */
           linear-gradient(#fff, #fff) 6px 0 / 8px 10px no-repeat,
           /* 黑色部分 */
@@ -209,7 +209,7 @@
         border: 1px solid #000;
         box-sizing: border-box;
       }
-      
+
       /* 前腿 - 左 (黑色) */
       .cat-leg-front-left {
         position: absolute;
@@ -220,7 +220,7 @@
         background: #000;
         animation: legFront 0.2s steps(2) infinite;
       }
-      
+
       /* 前腿 - 右 (白色带边框) */
       .cat-leg-front-right {
         position: absolute;
@@ -233,7 +233,7 @@
         box-sizing: border-box;
         animation: legFront 0.2s steps(2) infinite 0.1s;
       }
-      
+
       /* 后腿 - 左 (白色带边框) */
       .cat-leg-back-left {
         position: absolute;
@@ -246,7 +246,7 @@
         box-sizing: border-box;
         animation: legBack 0.2s steps(2) infinite 0.1s;
       }
-      
+
       /* 后腿 - 右 (黑色) */
       .cat-leg-back-right {
         position: absolute;
@@ -257,7 +257,7 @@
         background: #000;
         animation: legBack 0.2s steps(2) infinite;
       }
-      
+
       /* 尾巴 - 长且弯曲的像素尾巴 */
       .cat-tail {
         position: absolute;
@@ -265,7 +265,7 @@
         top: 10px;
         width: 12px;
         height: 10px;
-        background: 
+        background:
           /* 尾巴根部 */
           linear-gradient(#000, #000) 0 6px / 3px 3px no-repeat,
           /* 尾巴中部 */
@@ -277,43 +277,43 @@
         animation: tailWag 0.3s steps(2) infinite alternate;
         transform-origin: left bottom;
       }
-      
+
       /* 奔跑动画 - 轻微上下跳动 */
       @keyframes catRun {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-3px); }
       }
-      
+
       /* 移动动画 - 左右移动 */
       @keyframes catMove {
         0% { left: -40px; }
         100% { left: calc(100% + 40px); }
       }
-      
+
       /* 前腿动画 */
       @keyframes legFront {
         0%, 100% { transform: rotate(-15deg); }
         50% { transform: rotate(15deg); }
       }
-      
+
       /* 后腿动画 */
       @keyframes legBack {
         0%, 100% { transform: rotate(15deg); }
         50% { transform: rotate(-15deg); }
       }
-      
+
       /* 尾巴摆动 */
       @keyframes tailWag {
         0% { transform: rotate(-10deg); }
         100% { transform: rotate(10deg); }
       }
-      
+
       /* 头部轻微摆动 */
       @keyframes headBob {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-1px); }
       }
-      
+
       /* 地面效果 - 像素风格 */
       .ground {
         position: absolute;
@@ -331,12 +331,12 @@
         animation: groundMove 0.3s linear infinite;
         image-rendering: pixelated;
       }
-      
+
       @keyframes groundMove {
         0% { background-position: 0 0; }
         100% { background-position: 12px 0; }
       }
-      
+
       /* 品牌文字 */
       .brand-text {
         display: flex;
@@ -348,21 +348,21 @@
         margin-top: 20px;
         letter-spacing: 2px;
       }
-      
+
       /* 暗色主题适配 */
       @media (prefers-color-scheme: dark) {
         .first-loading-wrp {
           background: #141414;
         }
-        
+
         .first-loading-wrp > h2 {
           color: #fff;
         }
-        
+
         .brand-text {
           color: #fff;
         }
-        
+
         .ground {
           background: repeating-linear-gradient(
             90deg,
@@ -372,32 +372,32 @@
             #333 12px
           );
         }
-        
+
         /* 暗色模式下白色部分改成浅灰 */
         .cat-head {
-          background: 
+          background:
             linear-gradient(#ddd, #ddd) 2px 4px / 12px 10px no-repeat,
             linear-gradient(#000, #000) 2px 4px / 6px 10px no-repeat,
             linear-gradient(#ddd, #ddd) 4px 2px / 8px 2px no-repeat;
         }
-        
+
         .cat-body {
-          background: 
+          background:
             linear-gradient(#ddd, #ddd) 6px 0 / 8px 10px no-repeat,
             linear-gradient(#000, #000) 0 0 / 8px 10px no-repeat;
         }
-        
+
         .cat-leg-front-right,
         .cat-leg-back-left {
           background: #ddd;
         }
-        
+
         .cat-eye-left,
         .cat-eye-right {
           background: #ddd;
         }
       }
-      
+
       /* 确保像素风格在所有浏览器中正确显示 */
       .pixel-cat,
       .pixel-cat * {
@@ -406,18 +406,18 @@
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
-      
+
       /* 手机端适配 */
       @media (max-width: 768px) {
         .pixel-cat-container {
           transform: scale(1.5);
         }
-        
+
         .first-loading-wrp > h2 {
           font-size: 24px;
           margin-bottom: 30px;
         }
-        
+
         .brand-text {
           font-size: 20px;
         }

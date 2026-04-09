@@ -98,13 +98,13 @@ For charting, you often want to place the signal icon slightly above or below th
 ```python
 # Place Buy marker 0.5% below the Low
 buy_marks = [
-    df['low'].iloc[i] * 0.995 if df['buy'].iloc[i] else None 
+    df['low'].iloc[i] * 0.995 if df['buy'].iloc[i] else None
     for i in range(len(df))
 ]
 
 # Place Sell marker 0.5% above the High
 sell_marks = [
-    df['high'].iloc[i] * 1.005 if df['sell'].iloc[i] else None 
+    df['high'].iloc[i] * 1.005 if df['sell'].iloc[i] else None
     for i in range(len(df))
 ]
 ```
@@ -166,12 +166,12 @@ df['sell'] = sell
 # -----------------------
 # Calculate marker positions
 buy_marks = [
-    df['low'].iloc[i] * 0.995 if buy.iloc[i] else None 
+    df['low'].iloc[i] * 0.995 if buy.iloc[i] else None
     for i in range(len(df))
 ]
 
 sell_marks = [
-    df['high'].iloc[i] * 1.005 if sell.iloc[i] else None 
+    df['high'].iloc[i] * 1.005 if sell.iloc[i] else None
     for i in range(len(df))
 ]
 

@@ -7,10 +7,11 @@ Usage:
   AI_CALIBRATION_MARKET=Crypto python scripts/run_calibration.py
   AI_CALIBRATION_MARKETS=Crypto,USStock python scripts/run_calibration.py
 """
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.services.ai_calibration import AICalibrationService
 

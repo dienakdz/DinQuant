@@ -11,59 +11,14 @@ This is used as a stable alternative when Yahoo/yfinance gets rate-limited.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import requests
 
-from app.data_sources.rate_limiter import get_request_headers, retry_with_backoff, get_tencent_limiter
+from app.data_sources.rate_limiter import get_request_headers, get_tencent_limiter, retry_with_backoff
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
-
-
-def normalize_cn_code(symbol: str) -> str:
-    """
-    Normalize A-share symbol to Tencent code: sh600519 / sz000001.
-    Accepts:
-    - 600519 / 600519.SH / 600519.SS
-    - 000001 / 000001.SZ
-    """
-    s = (symbol or "").strip().upper()
-    if not s:
-        return s
-    if s.endswith(".SH"):
-        s = s[:-3]
-        return f"SH{s}"
-    if s.endswith(".SS"):
-        s = s[:-3]
-        return f"SH{s}"
-    if s.endswith(".SZ"):
-        s = s[:-3]
-        return f"SZ{s}"
-
-    if s.isdigit() and len(s) == 6:
-        return ("SH" + s) if s.startswith("6") else ("SZ" + s)
-
-    return s
-
-
-def normalize_hk_code(symbol: str) -> str:
-    """
-    Normalize HK stock symbol to Tencent code: hk00700 (5 digits).
-    Accepts:
-    - 700 / 0700 / 00700.HK / 0700.HK
-    """
-    s = (symbol or "").strip().upper()
-    if not s:
-        return s
-    if s.endswith(".HK"):
-        s = s[:-3]
-    if s.isdigit():
-        return "HK" + s.zfill(5)
-    # If user already passed HKxxxxx
-    if s.startswith("HK") and s[2:].isdigit():
-        return "HK" + s[2:].zfill(5)
-    return s
 
 
 def _lower_code(code: str) -> str:
@@ -109,6 +64,7 @@ def parse_quote_to_ticker(parts: List[str]) -> Dict[str, Any]:
     """
     Best-effort conversion to a unified ticker dict.
     """
+
     def _f(i: int, default: float = 0.0) -> float:
         try:
             v = parts[i]
@@ -198,7 +154,7 @@ def fetch_kline(code: str, period: str, count: int = 300, adj: str = "qfq", time
     period examples:
     - day, week, month (supported by Tencent fqkline)
 
-    Note: Minute periods (m1/m5/…) return **bad params** on this endpoint; use AkShare in ``asia_stock_kline``.
+    Note: Minute periods (m1/m5/…) return **bad params** on this endpoint.
     """
     c = _lower_code(code)
     if not c:
@@ -235,4 +191,3 @@ def fetch_kline(code: str, period: str, count: int = 300, adj: str = "qfq", time
         if isinstance(v, list) and v and str(k).lower().endswith(str(period).lower()):
             return v
     return []
-

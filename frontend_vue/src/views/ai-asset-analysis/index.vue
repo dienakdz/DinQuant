@@ -3,7 +3,7 @@
     <div v-if="opportunities.length > 0" class="radar-section">
       <div class="radar-header">
         <div class="radar-header-left">
-          <h2 class="radar-title">{{ $t('aiAssetAnalysis.opportunities.title') }}</h2>
+          <h2 class="radar-title">{{ $t('aiAssetAnalysis.opportunities.title') }} 11111</h2>
           <p class="radar-subtitle">{{ $t('aiAssetAnalysis.opportunities.updateHint') }}</p>
         </div>
         <a-button class="radar-refresh-btn" size="small" :loading="oppLoading" @click="loadOpportunities(true)">

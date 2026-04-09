@@ -2,34 +2,24 @@
 Configuration module
 Export all configurations uniformly
 """
-from app.config.settings import Config
+
 from app.config.api_keys import APIKeys
-from app.config.database import RedisConfig, CacheConfig
-from app.config.data_sources import (
-    DataSourceConfig,
-    FinnhubConfig,
-    TiingoConfig,
-    YFinanceConfig,
-    CCXTConfig,
-    AkshareConfig
-)
+from app.config.data_sources import CCXTConfig, DataSourceConfig, FinnhubConfig, TiingoConfig, YFinanceConfig
+from app.config.database import CacheConfig, RedisConfig
+from app.config.settings import Config
 
 __all__ = [
     # main configuration
-    'Config',
-    
+    "Config",
     # API key
-    'APIKeys',
-    
+    "APIKeys",
     # Database/cache
-    'RedisConfig',
-    'CacheConfig',
-    
+    "RedisConfig",
+    "CacheConfig",
     # data source
-    'DataSourceConfig',
-    'FinnhubConfig',
-    'TiingoConfig',
-    'YFinanceConfig',
-    'CCXTConfig',
-    'AkshareConfig',
+    "DataSourceConfig",
+    "FinnhubConfig",
+    "TiingoConfig",
+    "YFinanceConfig",
+    "CCXTConfig",
 ]

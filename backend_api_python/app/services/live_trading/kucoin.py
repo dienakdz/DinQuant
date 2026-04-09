@@ -13,7 +13,7 @@ import base64
 import hashlib
 import hmac
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -54,7 +54,14 @@ class KucoinSpotClient(BaseRestClient):
             "Content-Type": "application/json",
         }
 
-    def _signed_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None, json_body: Optional[Dict[str, Any]] = None) -> Any:
+    def _signed_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+    ) -> Any:
         m = str(method or "GET").upper()
         ts_ms = str(int(time.time() * 1000))
         body_str = self._json_dumps(json_body) if json_body is not None else ""
@@ -65,7 +72,9 @@ class KucoinSpotClient(BaseRestClient):
         signed_path = f"{path}?{qs}" if qs else path
         prehash = f"{ts_ms}{m}{signed_path}{body_str}"
         sign = self._b64_hmac_sha256(self.secret_key, prehash)
-        code, data, text = self._request(m, path, params=params, data=body_str if body_str else None, headers=self._headers(ts_ms, sign))
+        code, data, text = self._request(
+            m, path, params=params, data=body_str if body_str else None, headers=self._headers(ts_ms, sign)
+        )
         if code >= 400:
             raise LiveTradingError(f"KuCoin HTTP {code}: {text[:500]}")
         return data
@@ -87,11 +96,15 @@ class KucoinSpotClient(BaseRestClient):
         return self._signed_request("GET", "/api/v1/accounts")
 
     def get_ticker(self, *, symbol: str) -> Dict[str, Any]:
-        raw = self._public_request("GET", "/api/v1/market/orderbook/level1", params={"symbol": to_kucoin_symbol(symbol)})
+        raw = self._public_request(
+            "GET", "/api/v1/market/orderbook/level1", params={"symbol": to_kucoin_symbol(symbol)}
+        )
         data = raw.get("data") if isinstance(raw, dict) else None
         return data if isinstance(data, dict) else {}
 
-    def place_limit_order(self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_limit_order(
+        self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
@@ -116,7 +129,13 @@ class KucoinSpotClient(BaseRestClient):
                 oid = str(d.get("orderId") or "")
             elif isinstance(d, str):
                 oid = str(d)
-        return LiveOrderResult(exchange_id="kucoin", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="kucoin",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def place_market_order(
         self,
@@ -156,7 +175,13 @@ class KucoinSpotClient(BaseRestClient):
                 oid = str(d.get("orderId") or "")
             elif isinstance(d, str):
                 oid = str(d)
-        return LiveOrderResult(exchange_id="kucoin", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="kucoin",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def cancel_order(self, *, order_id: str = "", client_order_id: str = "") -> Any:
         if order_id:
@@ -175,7 +200,9 @@ class KucoinSpotClient(BaseRestClient):
     def get_fills(self, *, order_id: str) -> Any:
         return self._signed_request("GET", "/api/v1/fills", params={"orderId": str(order_id)})
 
-    def wait_for_fill(self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5) -> Dict[str, Any]:
+    def wait_for_fill(
+        self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5
+    ) -> Dict[str, Any]:
         end_ts = time.time() + float(max_wait_sec or 0.0)
         last: Dict[str, Any] = {}
         while True:
@@ -207,16 +234,37 @@ class KucoinSpotClient(BaseRestClient):
                 fee = 0.0
             fee_ccy = str(od.get("feeCurrency") or "").strip()
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             # If order is inactive, consider it terminal
             try:
                 is_active = bool(od.get("isActive"))
             except Exception:
                 is_active = False
             if not is_active:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
 
 
@@ -266,7 +314,14 @@ class KucoinFuturesClient(BaseRestClient):
             "Content-Type": "application/json",
         }
 
-    def _signed_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None, json_body: Optional[Dict[str, Any]] = None) -> Any:
+    def _signed_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+    ) -> Any:
         m = str(method or "GET").upper()
         ts_ms = str(int(time.time() * 1000))
         body_str = self._json_dumps(json_body) if json_body is not None else ""
@@ -277,7 +332,9 @@ class KucoinFuturesClient(BaseRestClient):
         signed_path = f"{path}?{qs}" if qs else path
         prehash = f"{ts_ms}{m}{signed_path}{body_str}"
         sign = self._b64_hmac_sha256(self.secret_key, prehash)
-        code, data, text = self._request(m, path, params=params, data=body_str if body_str else None, headers=self._headers(ts_ms, sign))
+        code, data, text = self._request(
+            m, path, params=params, data=body_str if body_str else None, headers=self._headers(ts_ms, sign)
+        )
         if code >= 400:
             raise LiveTradingError(f"KuCoinFutures HTTP {code}: {text[:500]}")
         return data
@@ -406,7 +463,13 @@ class KucoinFuturesClient(BaseRestClient):
                 oid = str(d.get("orderId") or "")
             elif isinstance(d, str):
                 oid = str(d)
-        return LiveOrderResult(exchange_id="kucoin", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="kucoin",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def place_limit_order(
         self,
@@ -451,7 +514,13 @@ class KucoinFuturesClient(BaseRestClient):
                 oid = str(d.get("orderId") or "")
             elif isinstance(d, str):
                 oid = str(d)
-        return LiveOrderResult(exchange_id="kucoin", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="kucoin",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def cancel_order(self, *, order_id: str = "", client_order_id: str = "") -> Any:
         if order_id:
@@ -464,10 +533,12 @@ class KucoinFuturesClient(BaseRestClient):
         if order_id:
             return self._signed_request("GET", f"/api/v1/orders/{str(order_id)}")
         if client_order_id:
-            return self._signed_request("GET", f"/api/v1/orders/byClientOid", params={"clientOid": str(client_order_id)})
+            return self._signed_request("GET", "/api/v1/orders/byClientOid", params={"clientOid": str(client_order_id)})
         raise LiveTradingError("KuCoinFutures get_order requires order_id or client_order_id")
 
-    def wait_for_fill(self, *, order_id: str, max_wait_sec: float = 3.0, poll_interval_sec: float = 0.5) -> Dict[str, Any]:
+    def wait_for_fill(
+        self, *, order_id: str, max_wait_sec: float = 3.0, poll_interval_sec: float = 0.5
+    ) -> Dict[str, Any]:
         end_ts = time.time() + float(max_wait_sec or 0.0)
         last: Dict[str, Any] = {}
         while True:
@@ -513,11 +584,30 @@ class KucoinFuturesClient(BaseRestClient):
             if fee > 0:
                 fee_ccy = "USDT"
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if status.lower() in ("done", "canceled", "cancelled", "filled"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
-
-

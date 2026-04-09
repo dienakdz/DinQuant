@@ -11,7 +11,7 @@ import base64
 import hashlib
 import hmac
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -77,7 +77,7 @@ class BitgetMixClient(BaseRestClient):
         """
         Convert Decimal to string with controlled precision.
         Bitget requires quantities to match sizeStep/sizePlace precision.
-        
+
         Args:
             d: Decimal value to format
             max_decimals: Maximum decimal places (fallback if strict_precision not provided)
@@ -87,7 +87,7 @@ class BitgetMixClient(BaseRestClient):
             if d == 0:
                 return "0"
             normalized = d.normalize()
-            
+
             if strict_precision is not None:
                 try:
                     prec = int(strict_precision)
@@ -95,15 +95,15 @@ class BitgetMixClient(BaseRestClient):
                         q = Decimal("1").scaleb(-prec)
                         quantized = normalized.quantize(q, rounding=ROUND_DOWN)
                         s = format(quantized, f".{prec}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                         return s if s else "0"
                 except Exception:
                     pass
-            
+
             s = format(normalized, f".{max_decimals}f")
-            if '.' in s:
-                s = s.rstrip('0').rstrip('.')
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
             return s if s else "0"
         except Exception:
             try:
@@ -115,18 +115,18 @@ class BitgetMixClient(BaseRestClient):
                         prec = int(strict_precision)
                         if 0 <= prec <= 18:
                             s = format(f, f".{prec}f")
-                            if '.' in s:
-                                s = s.rstrip('0').rstrip('.')
+                            if "." in s:
+                                s = s.rstrip("0").rstrip(".")
                             return s if s else "0"
                     except Exception:
                         pass
                 s = format(f, f".{max_decimals}f")
-                if '.' in s:
-                    s = s.rstrip('0').rstrip('.')
+                if "." in s:
+                    s = s.rstrip("0").rstrip(".")
                 return s if s else "0"
             except Exception:
                 s = str(d)
-                if 'e' in s.lower() or 'E' in s:
+                if "e" in s.lower() or "E" in s:
                     try:
                         f = float(s)
                         if strict_precision is not None:
@@ -134,14 +134,14 @@ class BitgetMixClient(BaseRestClient):
                                 prec = int(strict_precision)
                                 if 0 <= prec <= 18:
                                     s = format(f, f".{prec}f")
-                                    if '.' in s:
-                                        s = s.rstrip('0').rstrip('.')
+                                    if "." in s:
+                                        s = s.rstrip("0").rstrip(".")
                                     return s if s else "0"
                             except Exception:
                                 pass
                         s = format(f, f".{max_decimals}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                     except Exception:
                         pass
                 return s if s else "0"
@@ -379,9 +379,7 @@ class BitgetMixClient(BaseRestClient):
         sd = (side or "").lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
-        pos_mode = self.get_account_pos_mode(
-            symbol=symbol, margin_coin=margin_coin, product_type=product_type
-        )
+        pos_mode = self.get_account_pos_mode(symbol=symbol, margin_coin=margin_coin, product_type=product_type)
         hedge = pos_mode == "hedge_mode"
         if hedge:
             # Mirror CCXT: hedge close flips side; hedge open keeps side + tradeSide open.
@@ -426,7 +424,7 @@ class BitgetMixClient(BaseRestClient):
         This system computes `amount` as base-asset quantity (e.g. BTC amount).
         Bitget mix `size` is typically in contracts; convert using contractSize if available,
         then align to size step / min trade number (best-effort).
-        
+
         Returns:
             Tuple of (normalized_size, precision) where precision is the number of decimal places required.
         """
@@ -447,7 +445,9 @@ class BitgetMixClient(BaseRestClient):
             qty = req_base / ct
 
         # Determine step size.
-        step = self._to_dec(contract.get("sizeMultiplier") or contract.get("sizeStep") or contract.get("lotSize") or "0")
+        step = self._to_dec(
+            contract.get("sizeMultiplier") or contract.get("sizeStep") or contract.get("lotSize") or "0"
+        )
         size_precision = None
         if step <= 0:
             sp = contract.get("sizePlace")
@@ -466,8 +466,8 @@ class BitgetMixClient(BaseRestClient):
                 try:
                     step_normalized = step.normalize()
                     step_str = str(step_normalized)
-                    if '.' in step_str:
-                        decimal_part = step_str.split('.')[1]
+                    if "." in step_str:
+                        decimal_part = step_str.split(".")[1]
                         size_precision = len(decimal_part)
                         if size_precision < 0:
                             size_precision = 0
@@ -492,7 +492,9 @@ class BitgetMixClient(BaseRestClient):
         """
         Private endpoint to validate credentials (best-effort).
         """
-        return self._signed_request("GET", "/api/v2/mix/account/accounts", params={"productType": str(product_type or "USDT-FUTURES")})
+        return self._signed_request(
+            "GET", "/api/v2/mix/account/accounts", params={"productType": str(product_type or "USDT-FUTURES")}
+        )
 
     def get_positions(self, *, product_type: str = "USDT-FUTURES", symbol: str = "") -> Dict[str, Any]:
         """
@@ -515,10 +517,7 @@ class BitgetMixClient(BaseRestClient):
         data = resp.get("data")
         if not isinstance(data, list):
             return resp
-        filtered = [
-            p for p in data
-            if isinstance(p, dict) and str(p.get("symbol") or "").strip().upper() == sym_key
-        ]
+        filtered = [p for p in data if isinstance(p, dict) and str(p.get("symbol") or "").strip().upper() == sym_key]
         out = dict(resp)
         out["data"] = filtered
         return out
@@ -688,9 +687,13 @@ class BitgetMixClient(BaseRestClient):
         raw = self._post_mix_place_order(body, original_side=sd, reduce_only=reduce_only)
         data = raw.get("data") if isinstance(raw, dict) else None
         exchange_order_id = str(data.get("orderId") or data.get("clientOid") or "") if isinstance(data, dict) else ""
-        return LiveOrderResult(exchange_id="bitget", exchange_order_id=exchange_order_id, filled=0.0, avg_price=0.0, raw=raw)
+        return LiveOrderResult(
+            exchange_id="bitget", exchange_order_id=exchange_order_id, filled=0.0, avg_price=0.0, raw=raw
+        )
 
-    def cancel_order(self, *, symbol: str, product_type: str, margin_coin: str = "USDT", order_id: str = "", client_oid: str = "") -> Dict[str, Any]:
+    def cancel_order(
+        self, *, symbol: str, product_type: str, margin_coin: str = "USDT", order_id: str = "", client_oid: str = ""
+    ) -> Dict[str, Any]:
         body: Dict[str, Any] = {
             "symbol": to_bitget_um_symbol(symbol),
             "productType": str(product_type or "USDT-FUTURES"),
@@ -771,7 +774,9 @@ class BitgetMixClient(BaseRestClient):
         ct = Decimal("0")
         try:
             contract = self.get_contract(symbol=symbol, product_type=product_type) or {}
-            ct = self._to_dec(contract.get("contractSize") or contract.get("contractSz") or contract.get("ctVal") or "0")
+            ct = self._to_dec(
+                contract.get("contractSize") or contract.get("contractSz") or contract.get("ctVal") or "0"
+            )
         except Exception:
             ct = Decimal("0")
 
@@ -839,17 +844,47 @@ class BitgetMixClient(BaseRestClient):
                 d = last_detail.get("data") if isinstance(last_detail, dict) else None
                 if isinstance(d, dict):
                     state = str(d.get("state") or d.get("status") or "")
-                    avg = float(d.get("priceAvg") or d.get("fillPrice") or 0.0) if (d.get("priceAvg") or d.get("fillPrice")) else 0.0
-                    filled = float(d.get("baseVolume") or d.get("filledQty") or 0.0) if (d.get("baseVolume") or d.get("filledQty")) else 0.0
+                    avg = (
+                        float(d.get("priceAvg") or d.get("fillPrice") or 0.0)
+                        if (d.get("priceAvg") or d.get("fillPrice"))
+                        else 0.0
+                    )
+                    filled = (
+                        float(d.get("baseVolume") or d.get("filledQty") or 0.0)
+                        if (d.get("baseVolume") or d.get("filledQty"))
+                        else 0.0
+                    )
                     if filled > 0 and avg > 0:
-                        return {"filled": filled, "avg_price": avg, "fee": 0.0, "fee_ccy": "", "state": state, "detail": last_detail, "fills": last_fills}
+                        return {
+                            "filled": filled,
+                            "avg_price": avg,
+                            "fee": 0.0,
+                            "fee_ccy": "",
+                            "state": state,
+                            "detail": last_detail,
+                            "fills": last_fills,
+                        }
                     if state in ("filled", "canceled", "cancelled"):
-                        return {"filled": filled, "avg_price": avg, "fee": 0.0, "fee_ccy": "", "state": state, "detail": last_detail, "fills": last_fills}
+                        return {
+                            "filled": filled,
+                            "avg_price": avg,
+                            "fee": 0.0,
+                            "fee_ccy": "",
+                            "state": state,
+                            "detail": last_detail,
+                            "fills": last_fills,
+                        }
             except Exception:
                 pass
 
             if time.time() >= end_ts:
-                return {"filled": 0.0, "avg_price": 0.0, "fee": 0.0, "fee_ccy": "", "state": state, "detail": last_detail, "fills": last_fills}
+                return {
+                    "filled": 0.0,
+                    "avg_price": 0.0,
+                    "fee": 0.0,
+                    "fee_ccy": "",
+                    "state": state,
+                    "detail": last_detail,
+                    "fills": last_fills,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
-
-

@@ -1,24 +1,23 @@
 """
 HTTP tool module
 """
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 
 def get_retry_session(
-    retries: int = 3,
-    backoff_factor: float = 0.5,
-    status_forcelist: tuple = (500, 502, 503, 504)
+    retries: int = 3, backoff_factor: float = 0.5, status_forcelist: tuple = (500, 502, 503, 504)
 ) -> requests.Session:
     """
     Get HTTP Session with retry mechanism
-    
+
     Args:
         retries: number of retries
         backoff_factor: retry interval factor
         status_forcelist: HTTP status codes that need to be retried
-        
+
     Returns:
         Configured Session instance
     """
@@ -31,11 +30,10 @@ def get_retry_session(
         status_forcelist=status_forcelist,
     )
     adapter = HTTPAdapter(max_retries=retry)
-    session.mount('http://', adapter)
-    session.mount('https://', adapter)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
     return session
 
 
 # Global shared session
 global_session = get_retry_session()
-

@@ -9,16 +9,15 @@ MVP:
 
 import os
 import threading
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 
+from app.services.billing_service import get_billing_service
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
-from app.services.billing_service import get_billing_service
 
 logger = get_logger(__name__)
 
@@ -36,7 +35,9 @@ class UsdtPaymentService:
             "xpub_trc20": (os.getenv("USDT_TRC20_XPUB", "") or "").strip(),
             "trongrid_base": (os.getenv("TRONGRID_BASE_URL", "https://api.trongrid.io") or "").strip().rstrip("/"),
             "trongrid_key": (os.getenv("TRONGRID_API_KEY", "") or "").strip(),
-            "usdt_trc20_contract": (os.getenv("USDT_TRC20_CONTRACT", "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj") or "").strip(),
+            "usdt_trc20_contract": (
+                os.getenv("USDT_TRC20_CONTRACT", "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj") or ""
+            ).strip(),
             "confirm_seconds": int(float(os.getenv("USDT_PAY_CONFIRM_SECONDS", "30") or 30)),
             "order_expire_minutes": int(float(os.getenv("USDT_PAY_EXPIRE_MINUTES", "30") or 30)),
         }
@@ -66,7 +67,9 @@ class UsdtPaymentService:
                 )
                 """
             )
-            cur.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_usdt_orders_address_unique ON qd_usdt_orders(chain, address)")
+            cur.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_usdt_orders_address_unique ON qd_usdt_orders(chain, address)"
+            )
             cur.execute("CREATE INDEX IF NOT EXISTS idx_usdt_orders_user_id ON qd_usdt_orders(user_id)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_usdt_orders_status ON qd_usdt_orders(status)")
         except Exception:
@@ -85,7 +88,7 @@ class UsdtPaymentService:
         This function supports both by normalizing to change-level before AddressIndex().
         """
         try:
-            from bip_utils import Bip44, Bip44Coins, Bip44Changes
+            from bip_utils import Bip44, Bip44Changes, Bip44Coins
         except Exception as e:
             raise RuntimeError(f"bip_utils_missing:{e}")
 
@@ -162,14 +165,18 @@ class UsdtPaymentService:
                 db.commit()
                 cur.close()
 
-            return True, "success", {
-                "order_id": order_id,
-                "plan": plan,
-                "chain": "TRC20",
-                "amount_usdt": str(amount),
-                "address": address,
-                "expires_at": expires_at.isoformat(),
-            }
+            return (
+                True,
+                "success",
+                {
+                    "order_id": order_id,
+                    "plan": plan,
+                    "chain": "TRC20",
+                    "amount_usdt": str(amount),
+                    "address": address,
+                    "expires_at": expires_at.isoformat(),
+                },
+            )
         except Exception as e:
             logger.error(f"create_order failed: {e}", exc_info=True)
             return False, f"error:{str(e)}", {}
@@ -248,7 +255,9 @@ class UsdtPaymentService:
             if exp.tzinfo is None:
                 exp = exp.replace(tzinfo=timezone.utc)
             if status == "pending" and exp <= now:
-                cur.execute("UPDATE qd_usdt_orders SET status = 'expired', updated_at = NOW() WHERE id = ?", (order_id,))
+                cur.execute(
+                    "UPDATE qd_usdt_orders SET status = 'expired', updated_at = NOW() WHERE id = ?", (order_id,)
+                )
                 return
 
         if chain != "TRC20":
@@ -304,11 +313,15 @@ class UsdtPaymentService:
             if paid_at and paid_at.tzinfo is None:
                 paid_at = paid_at.replace(tzinfo=timezone.utc)
             if paid_at and (now - paid_at).total_seconds() >= confirm_sec:
-                self._confirm_and_activate_in_tx(cur, row["id"], row.get("user_id"), row.get("plan"), row.get("tx_hash") or "")
+                self._confirm_and_activate_in_tx(
+                    cur, row["id"], row.get("user_id"), row.get("plan"), row.get("tx_hash") or ""
+                )
                 return
         # Fallback: if paid_at missing but confirm_sec <= 0, confirm now
         if confirm_sec <= 0:
-            self._confirm_and_activate_in_tx(cur, row["id"], row.get("user_id"), row.get("plan"), row.get("tx_hash") or "")
+            self._confirm_and_activate_in_tx(
+                cur, row["id"], row.get("user_id"), row.get("plan"), row.get("tx_hash") or ""
+            )
 
     def _confirm_and_activate_in_tx(self, cur, order_id: int, user_id: int, plan: str, tx_hash: str) -> None:
         """Mark order as confirmed and activate membership. Idempotent: skips if already confirmed."""
@@ -334,7 +347,9 @@ class UsdtPaymentService:
         except Exception as e:
             logger.error(f"USDT activate membership failed: order={order_id} err={e}", exc_info=True)
 
-    def _find_trc20_usdt_incoming(self, address: str, amount_usdt: Decimal, created_at: Optional[datetime]) -> Optional[Dict[str, Any]]:
+    def _find_trc20_usdt_incoming(
+        self, address: str, amount_usdt: Decimal, created_at: Optional[datetime]
+    ) -> Optional[Dict[str, Any]]:
         cfg = self._get_cfg()
         base = cfg["trongrid_base"]
         contract = cfg["usdt_trc20_contract"]
@@ -437,6 +452,7 @@ class UsdtPaymentService:
 
 
 # ==================== Background Worker ====================
+
 
 class UsdtOrderWorker:
     """

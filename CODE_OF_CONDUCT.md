@@ -66,11 +66,11 @@ This Code of Conduct applies to all official QuantDinger spaces, including:
 If you experience or witness behavior that violates this Code of Conduct,
 please report it through one of the following channels:
 
-1. **GitHub**  
-   Open an issue labeled `conduct`.  
+1. **GitHub**
+   Open an issue labeled `conduct`.
    Please avoid including sensitive or private information.
 
-2. **Email**  
+2. **Email**
    Contact the project maintainer via the email listed in `README.md`.
 
 If there is an immediate safety concern, contact your local emergency services.

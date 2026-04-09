@@ -2,6 +2,7 @@
 Python 策略脚本（on_init / on_bar + ctx.buy/sell/close_position）运行时。
 与回测逻辑对齐，供 TradingExecutor 实盘逐根 K 线调用。
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -34,13 +35,13 @@ class ScriptPosition(dict):
             raise AttributeError(name) from exc
 
     def __bool__(self) -> bool:
-        return bool(self.get('side')) and float(self.get('size') or 0) > 0
+        return bool(self.get("side")) and float(self.get("size") or 0) > 0
 
     def __int__(self) -> int:
-        return int(self.get('direction') or 0)
+        return int(self.get("direction") or 0)
 
     def __float__(self) -> float:
-        return float(self.get('direction') or 0)
+        return float(self.get("direction") or 0)
 
     def __eq__(self, other: Any) -> bool:
         try:
@@ -62,40 +63,44 @@ class ScriptPosition(dict):
 
     def clear_position(self) -> None:
         self.clear()
-        self.update({
-            'side': '',
-            'size': 0.0,
-            'entry_price': 0.0,
-            'direction': 0,
-            'amount': 0.0,
-        })
+        self.update(
+            {
+                "side": "",
+                "size": 0.0,
+                "entry_price": 0.0,
+                "direction": 0,
+                "amount": 0.0,
+            }
+        )
 
     def open_position(self, side: str, entry_price: float, amount: float) -> None:
-        direction = 1 if side == 'long' else (-1 if side == 'short' else 0)
+        direction = 1 if side == "long" else (-1 if side == "short" else 0)
         size = float(amount or 0.0)
         price = float(entry_price or 0.0)
         self.clear()
-        self.update({
-            'side': side,
-            'size': size,
-            'entry_price': price,
-            'direction': direction,
-            'amount': size,
-        })
+        self.update(
+            {
+                "side": side,
+                "size": size,
+                "entry_price": price,
+                "direction": direction,
+                "amount": size,
+            }
+        )
 
     def add_position(self, entry_price: float, amount: float) -> None:
         extra = float(amount or 0.0)
         if extra <= 0:
             return
-        current_size = float(self.get('size') or 0.0)
-        current_price = float(self.get('entry_price') or 0.0)
+        current_size = float(self.get("size") or 0.0)
+        current_price = float(self.get("entry_price") or 0.0)
         next_size = current_size + extra
         next_price = float(entry_price or current_price or 0.0)
         if current_size > 0 and current_price > 0 and next_size > 0:
             next_price = ((current_price * current_size) + (float(entry_price or current_price) * extra)) / next_size
-        self['size'] = next_size
-        self['amount'] = next_size
-        self['entry_price'] = next_price
+        self["size"] = next_size
+        self["amount"] = next_size
+        self["entry_price"] = next_price
 
 
 class StrategyScriptContext:
@@ -119,28 +124,30 @@ class StrategyScriptContext:
     def bars(self, n: int = 1):
         start = max(0, self.current_index - int(n) + 1)
         out = []
-        for _, row in self._bars_df.iloc[start:self.current_index + 1].iterrows():
-            out.append(ScriptBar(
-                open=float(row.get('open') or 0),
-                high=float(row.get('high') or 0),
-                low=float(row.get('low') or 0),
-                close=float(row.get('close') or 0),
-                volume=float(row.get('volume') or 0),
-                timestamp=row.get('time')
-            ))
+        for _, row in self._bars_df.iloc[start : self.current_index + 1].iterrows():
+            out.append(
+                ScriptBar(
+                    open=float(row.get("open") or 0),
+                    high=float(row.get("high") or 0),
+                    low=float(row.get("low") or 0),
+                    close=float(row.get("close") or 0),
+                    volume=float(row.get("volume") or 0),
+                    timestamp=row.get("time"),
+                )
+            )
         return out
 
     def log(self, message: Any):
         self._logs.append(str(message))
 
     def buy(self, price: Any = None, amount: Any = None):
-        self._orders.append({'action': 'buy', 'price': price, 'amount': amount})
+        self._orders.append({"action": "buy", "price": price, "amount": amount})
 
     def sell(self, price: Any = None, amount: Any = None):
-        self._orders.append({'action': 'sell', 'price': price, 'amount': amount})
+        self._orders.append({"action": "sell", "price": price, "amount": amount})
 
     def close_position(self):
-        self._orders.append({'action': 'close'})
+        self._orders.append({"action": "close"})
 
 
 def compile_strategy_script_handlers(code: str) -> Tuple[Optional[Callable], Optional[Callable]]:
@@ -154,38 +161,36 @@ def compile_strategy_script_handlers(code: str) -> Tuple[Optional[Callable], Opt
     import builtins
 
     def safe_import(name, *args, **kwargs):
-        allowed_modules = ['numpy', 'pandas', 'math', 'json', 'datetime', 'time']
-        if name in allowed_modules or name.split('.')[0] in allowed_modules:
+        allowed_modules = ["numpy", "pandas", "math", "json", "datetime", "time"]
+        if name in allowed_modules or name.split(".")[0] in allowed_modules:
             return builtins.__import__(name, *args, **kwargs)
         raise ImportError(f"Import not allowed: {name}")
 
-    safe_builtins = {k: getattr(builtins, k) for k in dir(builtins)
-                     if not k.startswith('_') and k not in ['eval', 'exec', 'compile', 'open', 'input', 'help', 'exit', 'quit']}
-    safe_builtins['__import__'] = safe_import
+    safe_builtins = {
+        k: getattr(builtins, k)
+        for k in dir(builtins)
+        if not k.startswith("_") and k not in ["eval", "exec", "compile", "open", "input", "help", "exit", "quit"]
+    }
+    safe_builtins["__import__"] = safe_import
 
     exec_env = {
-        '__builtins__': safe_builtins,
-        'np': np,
-        'pd': pd,
+        "__builtins__": safe_builtins,
+        "np": np,
+        "pd": pd,
     }
 
-    from app.utils.safe_exec import validate_code_safety, safe_exec_code
+    from app.utils.safe_exec import safe_exec_code, validate_code_safety
 
     is_safe, error_msg = validate_code_safety(code)
     if not is_safe:
         raise ValueError(f"Code contains unsafe operations: {error_msg}")
 
-    exec_result = safe_exec_code(
-        code=code,
-        exec_globals=exec_env,
-        exec_locals=exec_env,
-        timeout=60
-    )
-    if not exec_result['success']:
+    exec_result = safe_exec_code(code=code, exec_globals=exec_env, exec_locals=exec_env, timeout=60)
+    if not exec_result["success"]:
         raise RuntimeError(f"Code execution failed: {exec_result.get('error')}")
 
-    on_init = exec_env.get('on_init')
-    on_bar = exec_env.get('on_bar')
+    on_init = exec_env.get("on_init")
+    on_bar = exec_env.get("on_bar")
     if not callable(on_bar):
         raise ValueError("Strategy script must define on_bar(ctx, bar)")
     if on_init is not None and not callable(on_init):

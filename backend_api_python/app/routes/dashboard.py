@@ -13,13 +13,13 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, g, jsonify, request
 
+from app.utils.auth import login_required
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
-from app.utils.auth import login_required
 
 logger = get_logger(__name__)
 
@@ -44,7 +44,7 @@ def _format_datetime(dt: Any) -> Any:
     """Convert datetime object to ISO format string for JSON serialization."""
     if dt is None:
         return None
-    if hasattr(dt, 'isoformat'):
+    if hasattr(dt, "isoformat"):
         return dt.isoformat()
     return dt
 
@@ -96,7 +96,9 @@ def _calc_unrealized_pnl(side: str, entry_price: float, current_price: float, si
         return 0.0
 
 
-def _calc_pnl_percent(entry_price: float, size: float, pnl: float, leverage: float = 1.0, market_type: str = "spot") -> float:
+def _calc_pnl_percent(
+    entry_price: float, size: float, pnl: float, leverage: float = 1.0, market_type: str = "spot"
+) -> float:
     try:
         denom = float(entry_price or 0.0) * float(size or 0.0)
         if denom <= 0:
@@ -189,7 +191,7 @@ def _compute_performance_stats(trades: List[Dict[str, Any]], initial_capital: fl
     # Calculate drawdown percentage: drawdown / peak_equity * 100
     # If peak_equity is 0 or very small, use a fallback calculation
     if peak_equity > 0:
-        max_drawdown_pct = (max_drawdown / peak_equity * 100)
+        max_drawdown_pct = max_drawdown / peak_equity * 100
     elif initial_capital > 0:
         # Fallback: use initial capital as baseline
         max_drawdown_pct = (max_drawdown / initial_capital * 100) if initial_capital > 0 else 0.0
@@ -202,10 +204,10 @@ def _compute_performance_stats(trades: List[Dict[str, Any]], initial_capital: fl
             cumulative.append(acc)
         peak_profit = max(cumulative) if cumulative else 0.0
         if peak_profit > 0:
-            max_drawdown_pct = (max_drawdown / peak_profit * 100)
+            max_drawdown_pct = max_drawdown / peak_profit * 100
         else:
             max_drawdown_pct = 0.0
-    
+
     # Cap drawdown percentage at reasonable maximum (e.g., 10000%) to avoid display issues
     if max_drawdown_pct > 10000:
         max_drawdown_pct = 10000.0
@@ -277,16 +279,18 @@ def _compute_strategy_stats(trades: List[Dict[str, Any]], strategies: List[Dict[
         total_pnl = sum(_safe_float(t.get("profit"), 0.0) for t in strades)
         roi = (total_pnl / capital * 100) if capital > 0 else 0.0
 
-        result.append({
-            "strategy_id": sid,
-            "strategy_name": sid_to_name.get(sid, f"Strategy_{sid}"),
-            "total_trades": stats["total_trades"],
-            "win_rate": stats["win_rate"],
-            "profit_factor": stats["profit_factor"],
-            "total_pnl": round(total_pnl, 2),
-            "roi": round(roi, 2),
-            "max_drawdown": stats["max_drawdown"],
-        })
+        result.append(
+            {
+                "strategy_id": sid,
+                "strategy_name": sid_to_name.get(sid, f"Strategy_{sid}"),
+                "total_trades": stats["total_trades"],
+                "win_rate": stats["win_rate"],
+                "profit_factor": stats["profit_factor"],
+                "total_pnl": round(total_pnl, 2),
+                "roi": round(roi, 2),
+                "max_drawdown": stats["max_drawdown"],
+            }
+        )
 
     # Sort by total PnL descending
     result.sort(key=lambda x: x.get("total_pnl", 0), reverse=True)
@@ -301,7 +305,7 @@ def summary():
     """
     try:
         user_id = g.user_id
-        
+
         # Strategy counts (filtered by user_id)
         with get_db_connection() as db:
             cur = db.cursor()
@@ -311,7 +315,7 @@ def summary():
                 FROM qd_strategies_trading
                 WHERE user_id = ?
                 """,
-                (user_id,)
+                (user_id,),
             )
             strategies = cur.fetchall() or []
             cur.close()
@@ -347,7 +351,7 @@ def summary():
                 WHERE p.user_id = ?
                 ORDER BY p.updated_at DESC
                 """,
-                (user_id,)
+                (user_id,),
             )
             rows = cur.fetchall() or []
             cur.close()
@@ -397,17 +401,17 @@ def summary():
                 ORDER BY t.created_at DESC
                 LIMIT 500
                 """,
-                (user_id,)
+                (user_id,),
             )
             recent_trades_raw = cur.fetchall() or []
             cur.close()
-        
+
         # Convert datetime to timestamp for frontend compatibility
         recent_trades = []
         for t in recent_trades_raw:
             trade = dict(t)
-            if trade.get('created_at') and hasattr(trade['created_at'], 'timestamp'):
-                trade['created_at'] = int(trade['created_at'].timestamp())
+            if trade.get("created_at") and hasattr(trade["created_at"], "timestamp"):
+                trade["created_at"] = int(trade["created_at"].timestamp())
             recent_trades.append(trade)
 
         # Total equity/pnl (best-effort) - calculate before performance stats for drawdown calculation
@@ -487,7 +491,7 @@ def summary():
         # Calendar data: organized by month for monthly calendar view
         # Format: { "2024-01": { "days": { "01": 123.45, "02": -50.0, ... }, "total": 500.0 }, ... }
         import calendar as cal_module
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         calendar_data: Dict[str, Dict[str, Any]] = {}
         for d, p in day_to_profit.items():
@@ -524,10 +528,7 @@ def summary():
         calendar_months = []
         for month_key in sorted(calendar_data.keys(), reverse=True):
             data = calendar_data[month_key]
-            calendar_months.append({
-                "month_key": month_key,
-                **data
-            })
+            calendar_months.append({"month_key": month_key, **data})
 
         return jsonify(
             {
@@ -612,16 +613,32 @@ def pending_orders():
             # Frontend expects these keys:
             # - filled_amount, filled_price, error_message
             filled_amount = float(r.get("filled") or 0.0)
-            filled_price = float(r.get("avg_price") or 0.0) if float(r.get("avg_price") or 0.0) > 0 else float(r.get("price") or 0.0)
+            filled_price = (
+                float(r.get("avg_price") or 0.0)
+                if float(r.get("avg_price") or 0.0) > 0
+                else float(r.get("price") or 0.0)
+            )
 
             # Derive exchange_id + notify channels without leaking secrets to frontend.
             ex_cfg = _safe_json_loads(r.get("strategy_exchange_config"), {}) or {}
             notify_cfg = _safe_json_loads(r.get("strategy_notification_config"), {}) or {}
-            exchange_id = (r.get("exchange_id") or ex_cfg.get("exchange_id") or ex_cfg.get("exchangeId") or "").strip().lower()
+            exchange_id = (
+                (r.get("exchange_id") or ex_cfg.get("exchange_id") or ex_cfg.get("exchangeId") or "").strip().lower()
+            )
             notify_channels = _as_list((notify_cfg or {}).get("channels"))
             if not notify_channels:
                 notify_channels = ["browser"]
-            market_type = (r.get("market_type") or r.get("strategy_market_type") or ex_cfg.get("market_type") or ex_cfg.get("marketType") or "").strip().lower()
+            market_type = (
+                (
+                    r.get("market_type")
+                    or r.get("strategy_market_type")
+                    or ex_cfg.get("market_type")
+                    or ex_cfg.get("marketType")
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
             market_category = str(r.get("strategy_market_category") or "").strip().lower()
             execution_mode = str(r.get("strategy_execution_mode") or r.get("execution_mode") or "").strip().lower()
 

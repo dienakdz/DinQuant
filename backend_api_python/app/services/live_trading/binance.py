@@ -7,10 +7,10 @@ API docs (reference):
 
 from __future__ import annotations
 
-import hmac
 import hashlib
+import hmac
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -19,7 +19,16 @@ from app.services.live_trading.symbols import to_binance_futures_symbol
 
 
 class BinanceFuturesClient(BaseRestClient):
-    def __init__(self, *, api_key: str, secret_key: str, base_url: str = None, enable_demo_trading: bool = False, timeout_sec: float = 15.0, broker_id: str = ""):
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        secret_key: str,
+        base_url: str = None,
+        enable_demo_trading: bool = False,
+        timeout_sec: float = 15.0,
+        broker_id: str = "",
+    ):
         if not base_url:
             base_url = "https://demo-fapi.binance.com" if enable_demo_trading else "https://fapi.binance.com"
 
@@ -57,7 +66,7 @@ class BinanceFuturesClient(BaseRestClient):
         Convert Decimal to string with controlled precision.
         Binance requires quantities/prices to match LOT_SIZE/PRICE_FILTER precision.
         This method ensures the output string doesn't exceed the required precision.
-        
+
         Args:
             d: Decimal value to format
             max_decimals: Maximum decimal places (fallback if strict_precision not provided)
@@ -68,7 +77,7 @@ class BinanceFuturesClient(BaseRestClient):
                 return "0"
             # Normalize to remove unnecessary trailing zeros from internal representation
             normalized = d.normalize()
-            
+
             # If strict_precision is provided, use it and strictly limit decimal places
             # This ensures we match the stepSize requirement exactly
             if strict_precision is not None:
@@ -84,18 +93,18 @@ class BinanceFuturesClient(BaseRestClient):
                     # Format with exact precision - this will produce at most 'prec' decimal places
                     s = format(quantized, f".{prec}f")
                     # Remove trailing zeros and decimal point if not needed
-                    if '.' in s:
-                        s = s.rstrip('0').rstrip('.')
+                    if "." in s:
+                        s = s.rstrip("0").rstrip(".")
                     return s if s else "0"
                 except Exception:
                     pass
-            
+
             # Fallback to original logic if strict_precision not provided or failed
             # Convert to string using fixed-point notation
             s = format(normalized, f".{max_decimals}f")
             # Remove trailing zeros and decimal point if not needed
-            if '.' in s:
-                s = s.rstrip('0').rstrip('.')
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
             return s if s else "0"
         except Exception:
             # Fallback: try to convert safely
@@ -108,21 +117,21 @@ class BinanceFuturesClient(BaseRestClient):
                         prec = int(strict_precision)
                         if 0 <= prec <= 18:
                             s = format(f, f".{prec}f")
-                            if '.' in s:
-                                s = s.rstrip('0').rstrip('.')
+                            if "." in s:
+                                s = s.rstrip("0").rstrip(".")
                             return s if s else "0"
                     except Exception:
                         pass
                 # Format with max_decimals and remove trailing zeros
                 s = format(f, f".{max_decimals}f")
-                if '.' in s:
-                    s = s.rstrip('0').rstrip('.')
+                if "." in s:
+                    s = s.rstrip("0").rstrip(".")
                 return s if s else "0"
             except Exception:
                 # Last resort: convert to string
                 s = str(d)
                 # Try to remove scientific notation if present
-                if 'e' in s.lower() or 'E' in s:
+                if "e" in s.lower() or "E" in s:
                     try:
                         f = float(s)
                         if strict_precision is not None:
@@ -130,14 +139,14 @@ class BinanceFuturesClient(BaseRestClient):
                                 prec = int(strict_precision)
                                 if 0 <= prec <= 18:
                                     s = format(f, f".{prec}f")
-                                    if '.' in s:
-                                        s = s.rstrip('0').rstrip('.')
+                                    if "." in s:
+                                        s = s.rstrip("0").rstrip(".")
                                     return s if s else "0"
                             except Exception:
                                 pass
                         s = format(f, f".{max_decimals}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                     except Exception:
                         pass
                 return s if s else "0"
@@ -360,7 +369,7 @@ class BinanceFuturesClient(BaseRestClient):
     def _normalize_quantity(self, *, symbol: str, quantity: float, for_market: bool) -> Tuple[Decimal, Optional[int]]:
         """
         Normalize futures order quantity using LOT_SIZE / MARKET_LOT_SIZE filters (best-effort).
-        
+
         Returns:
             Tuple of (normalized_quantity, precision) where precision is the number of decimal places required.
         """
@@ -381,7 +390,7 @@ class BinanceFuturesClient(BaseRestClient):
 
         if step > 0:
             q = self._floor_to_step(q, step)
-        
+
         # Enforce quantity precision cap (Binance may reject quantities with too many decimals: -1111).
         # First try to get precision from metadata
         qty_precision = None
@@ -391,7 +400,7 @@ class BinanceFuturesClient(BaseRestClient):
                 qty_precision = meta.get("quantityPrecision")
         except Exception:
             pass
-        
+
         # If precision not available, infer from stepSize
         if qty_precision is None and step > 0:
             try:
@@ -399,9 +408,9 @@ class BinanceFuturesClient(BaseRestClient):
                 # Use normalize() to remove trailing zeros, then count decimal places
                 step_normalized = step.normalize()
                 step_str = str(step_normalized)
-                if '.' in step_str:
+                if "." in step_str:
                     # Count decimal places after removing trailing zeros
-                    decimal_part = step_str.split('.')[1]
+                    decimal_part = step_str.split(".")[1]
                     qty_precision = len(decimal_part)
                     # Ensure precision is at least 0 and at most 18
                     if qty_precision < 0:
@@ -413,11 +422,11 @@ class BinanceFuturesClient(BaseRestClient):
                     qty_precision = 0
             except Exception:
                 pass
-        
+
         # Apply precision limit
         if qty_precision is not None:
             q = self._floor_to_precision(q, qty_precision)
-        
+
         if min_qty > 0 and q < min_qty:
             return (Decimal("0"), qty_precision)
         return (q, qty_precision)
@@ -539,7 +548,7 @@ class BinanceFuturesClient(BaseRestClient):
             s = str(err or "")
         except Exception:
             s = ""
-        return f'\"code\":{int(code)}' in s or f"'code': {int(code)}" in s or f"'code':{int(code)}" in s
+        return f'"code":{int(code)}' in s or f"'code': {int(code)}" in s or f"'code':{int(code)}" in s
 
     @staticmethod
     def _normalize_position_side(pos_side: Optional[str]) -> str:
@@ -613,7 +622,9 @@ class BinanceFuturesClient(BaseRestClient):
 
         while True:
             try:
-                last = self.get_order(symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or ""))
+                last = self.get_order(
+                    symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or "")
+                )
             except Exception:
                 last = last or {}
 
@@ -712,7 +723,11 @@ class BinanceFuturesClient(BaseRestClient):
         dual_side = self.get_dual_side_position()
         pos_norm = self._normalize_position_side(position_side)
         if dual_side is True:
-            params["positionSide"] = (pos_norm if pos_norm in ("LONG", "SHORT") else self._infer_position_side(side=sd, reduce_only=reduce_only))
+            params["positionSide"] = (
+                pos_norm
+                if pos_norm in ("LONG", "SHORT")
+                else self._infer_position_side(side=sd, reduce_only=reduce_only)
+            )
         elif dual_side is False:
             # Keep default (BOTH) by omitting positionSide.
             params.pop("positionSide", None)
@@ -748,7 +763,11 @@ class BinanceFuturesClient(BaseRestClient):
                         pass
                 else:
                     # Likely hedge mode; retry with inferred positionSide.
-                    params2["positionSide"] = (pos_norm if pos_norm in ("LONG", "SHORT") else self._infer_position_side(side=sd, reduce_only=reduce_only))
+                    params2["positionSide"] = (
+                        pos_norm
+                        if pos_norm in ("LONG", "SHORT")
+                        else self._infer_position_side(side=sd, reduce_only=reduce_only)
+                    )
                     params2.pop("reduceOnly", None)
                     try:
                         raw = self._signed_request("POST", "/fapi/v1/order", params=params2)
@@ -853,7 +872,11 @@ class BinanceFuturesClient(BaseRestClient):
         dual_side = self.get_dual_side_position()
         pos_norm = self._normalize_position_side(position_side)
         if dual_side is True:
-            params["positionSide"] = (pos_norm if pos_norm in ("LONG", "SHORT") else self._infer_position_side(side=sd, reduce_only=reduce_only))
+            params["positionSide"] = (
+                pos_norm
+                if pos_norm in ("LONG", "SHORT")
+                else self._infer_position_side(side=sd, reduce_only=reduce_only)
+            )
         elif dual_side is False:
             params.pop("positionSide", None)
         else:
@@ -881,7 +904,11 @@ class BinanceFuturesClient(BaseRestClient):
                     except Exception:
                         pass
                 else:
-                    params2["positionSide"] = (pos_norm if pos_norm in ("LONG", "SHORT") else self._infer_position_side(side=sd, reduce_only=reduce_only))
+                    params2["positionSide"] = (
+                        pos_norm
+                        if pos_norm in ("LONG", "SHORT")
+                        else self._infer_position_side(side=sd, reduce_only=reduce_only)
+                    )
                     params2.pop("reduceOnly", None)
                     try:
                         raw = self._signed_request("POST", "/fapi/v1/order", params=params2)
@@ -903,7 +930,9 @@ class BinanceFuturesClient(BaseRestClient):
         exchange_order_id = str(raw.get("orderId") or raw.get("clientOrderId") or "")
         filled = float(raw.get("executedQty") or 0.0)
         avg_price = float(raw.get("avgPrice") or raw.get("price") or 0.0)
-        return LiveOrderResult(exchange_id="binance", exchange_order_id=exchange_order_id, filled=filled, avg_price=avg_price, raw=raw)
+        return LiveOrderResult(
+            exchange_id="binance", exchange_order_id=exchange_order_id, filled=filled, avg_price=avg_price, raw=raw
+        )
 
     def cancel_order(self, *, symbol: str, order_id: str = "", client_order_id: str = "") -> Dict[str, Any]:
         sym = to_binance_futures_symbol(symbol)
@@ -952,5 +981,3 @@ class BinanceFuturesClient(BaseRestClient):
             return rows
         sym = to_binance_futures_symbol(want)
         return [p for p in rows if isinstance(p, dict) and str(p.get("symbol") or "") == sym]
-
-

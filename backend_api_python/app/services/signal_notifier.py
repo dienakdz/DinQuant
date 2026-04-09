@@ -17,9 +17,9 @@ notification_config = {
 
 from __future__ import annotations
 
-import html
-import hmac
 import hashlib
+import hmac
+import html
 import json
 import os
 import smtplib
@@ -27,7 +27,6 @@ import time
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from typing import Any, Dict, List, Optional, Tuple
-
 from zoneinfo import ZoneInfo
 
 import requests
@@ -229,9 +228,7 @@ class SignalNotifier:
                         headers_override=(targets.get("webhook_headers") or targets.get("webhookHeaders") or None),
                         token_override=(targets.get("webhook_token") or targets.get("webhookToken") or None),
                         signing_secret_override=(
-                            targets.get("webhook_signing_secret")
-                            or targets.get("webhookSigningSecret")
-                            or None
+                            targets.get("webhook_signing_secret") or targets.get("webhookSigningSecret") or None
                         ),
                     )
                 elif c == "discord":
@@ -450,7 +447,7 @@ class SignalNotifier:
                     "<td style='padding:10px 12px;border-top:1px solid #eaecef;color:#57606a;width:160px;'>"
                     f"{esc(k)}"
                     "</td>"
-                    "<td style='padding:10px 12px;border-top:1px solid #eaecef;color:#24292f;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace;'>"
+                    '<td style=\'padding:10px 12px;border-top:1px solid #eaecef;color:#24292f;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;\'>'
                     f"{esc(v)}"
                     "</td>"
                     "</tr>"
@@ -494,7 +491,6 @@ class SignalNotifier:
         user_id: int = None,
     ) -> Tuple[bool, str]:
         try:
-            now = int(time.time())
             # Get user_id from strategy if not provided
             if user_id is None:
                 if strategy_id is not None:
@@ -504,7 +500,7 @@ class SignalNotifier:
                             cur.execute("SELECT user_id FROM qd_strategies_trading WHERE id = ?", (int(strategy_id),))
                             row = cur.fetchone()
                             cur.close()
-                        user_id = int((row or {}).get('user_id') or 1)
+                        user_id = int((row or {}).get("user_id") or 1)
                     except Exception:
                         user_id = 1
                 else:
@@ -590,7 +586,9 @@ class SignalNotifier:
             headers["Authorization"] = f"Bearer {tok}"
 
         # Optional signing secret (per-strategy override, else env)
-        signing_secret = str(signing_secret_override or "").strip() or (os.getenv("SIGNAL_WEBHOOK_SIGNING_SECRET") or "").strip()
+        signing_secret = (
+            str(signing_secret_override or "").strip() or (os.getenv("SIGNAL_WEBHOOK_SIGNING_SECRET") or "").strip()
+        )
         if signing_secret:
             try:
                 ts = str(int(time.time()))
@@ -599,12 +597,14 @@ class SignalNotifier:
                 sig = hmac.new(signing_secret.encode("utf-8"), sig_base, hashlib.sha256).hexdigest()
                 headers["X-QD-Timestamp"] = ts
                 headers["X-QD-Signature"] = sig
+
                 # Send raw bytes so signature matches what we sign.
                 def _post_once(timeout: float) -> requests.Response:
                     return requests.post(url, data=body, headers=headers, timeout=timeout)
             except Exception as e:
                 return False, f"webhook_signing_failed:{e}"
         else:
+
             def _post_once(timeout: float) -> requests.Response:
                 return requests.post(url, json=payload, headers=headers, timeout=timeout)
 
@@ -650,11 +650,15 @@ class SignalNotifier:
             "title": "QuantDinger Signal",
             "color": int(color),
             "fields": [
-                {"name": "Strategy", "value": f"{strategy.get('name') or ''} (#{int(strategy.get('id') or 0)})", "inline": True},
+                {
+                    "name": "Strategy",
+                    "value": f"{strategy.get('name') or ''} (#{int(strategy.get('id') or 0)})",
+                    "inline": True,
+                },
                 {"name": "Symbol", "value": str(instrument.get("symbol") or ""), "inline": True},
                 {"name": "Signal", "value": str(sig.get("type") or ""), "inline": False},
-                {"name": "Price", "value": str(float(order.get('ref_price') or 0.0)), "inline": True},
-                {"name": "Stake", "value": str(float(order.get('stake_amount') or 0.0)), "inline": True},
+                {"name": "Price", "value": str(float(order.get("ref_price") or 0.0)), "inline": True},
+                {"name": "Stake", "value": str(float(order.get("stake_amount") or 0.0)), "inline": True},
             ],
         }
         if payload.get("timestamp_iso"):
@@ -865,9 +869,7 @@ class SignalNotifier:
                 elif c == "telegram":
                     chat_id = str((targets or {}).get("telegram") or "").strip()
                     token_override = str(
-                        (targets or {}).get("telegram_bot_token")
-                        or (targets or {}).get("telegram_token")
-                        or ""
+                        (targets or {}).get("telegram_bot_token") or (targets or {}).get("telegram_token") or ""
                     ).strip()
                     ok, err = self._notify_telegram(
                         chat_id=chat_id,
@@ -907,4 +909,3 @@ class SignalNotifier:
             results[c] = {"ok": bool(ok), "error": (err or "")}
 
         return results
-

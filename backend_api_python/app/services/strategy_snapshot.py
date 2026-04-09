@@ -121,20 +121,44 @@ class StrategySnapshotResolver:
         indicator_config = self._safe_dict(strategy.get("indicator_config"))
         trading_config = self._safe_dict(strategy.get("trading_config"))
 
-        cs_type = str(trading_config.get("cs_strategy_type") or trading_config.get("strategy_type") or "single").strip().lower()
+        cs_type = (
+            str(trading_config.get("cs_strategy_type") or trading_config.get("strategy_type") or "single")
+            .strip()
+            .lower()
+        )
         if cs_type == "cross_sectional":
             raise ValueError("Cross-sectional strategies are not supported in strategy backtest yet")
 
         symbol = str(override.get("symbol") or trading_config.get("symbol") or strategy.get("symbol") or "").strip()
-        market = str(override.get("market") or strategy.get("market_category") or trading_config.get("market_category") or "Crypto").strip() or "Crypto"
+        market = (
+            str(
+                override.get("market")
+                or strategy.get("market_category")
+                or trading_config.get("market_category")
+                or "Crypto"
+            ).strip()
+            or "Crypto"
+        )
         if ":" in symbol and "market" not in override:
             maybe_market, maybe_symbol = symbol.split(":", 1)
             market = maybe_market or market
             symbol = maybe_symbol or symbol
 
-        timeframe = str(override.get("timeframe") or trading_config.get("timeframe") or strategy.get("timeframe") or "1D").strip() or "1D"
-        initial_capital = self._to_float(override.get("initialCapital", trading_config.get("initial_capital", strategy.get("initial_capital", 10000))), 10000.0)
-        leverage = self._to_int(override.get("leverage", trading_config.get("leverage", strategy.get("leverage", 1))), 1)
+        timeframe = (
+            str(
+                override.get("timeframe") or trading_config.get("timeframe") or strategy.get("timeframe") or "1D"
+            ).strip()
+            or "1D"
+        )
+        initial_capital = self._to_float(
+            override.get(
+                "initialCapital", trading_config.get("initial_capital", strategy.get("initial_capital", 10000))
+            ),
+            10000.0,
+        )
+        leverage = self._to_int(
+            override.get("leverage", trading_config.get("leverage", strategy.get("leverage", 1))), 1
+        )
         # Commission/slippage are backtest-only assumptions (not used by live ScriptStrategy execution).
         # Script strategies created from the UI may omit these; apply sensible backtest defaults.
         commission_raw = override.get("commission")
@@ -161,7 +185,11 @@ class StrategySnapshotResolver:
 
         indicator_id = indicator_config.get("indicator_id") or strategy.get("indicator_id")
         indicator_name = indicator_config.get("indicator_name") or ""
-        code = (strategy.get("strategy_code") or "").strip() if is_script else (indicator_config.get("indicator_code") or "").strip()
+        code = (
+            (strategy.get("strategy_code") or "").strip()
+            if is_script
+            else (indicator_config.get("indicator_code") or "").strip()
+        )
         if not code and indicator_id and not is_script:
             code = self._fetch_indicator_code(indicator_id)
 

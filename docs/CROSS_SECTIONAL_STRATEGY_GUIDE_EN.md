@@ -34,24 +34,24 @@ When creating or editing a strategy, add the following parameters to `trading_co
 
 ### Parameter Description
 
-- **cs_strategy_type**: 
+- **cs_strategy_type**:
   - `'single'`: Single-symbol strategy (default, original functionality)
   - `'cross_sectional'`: Cross-sectional strategy
 
-- **symbol_list**: 
+- **symbol_list**:
   - List of symbols, format: `["Market:SYMBOL", ...]`
   - Example: `["Crypto:BTC/USDT", "Crypto:ETH/USDT"]`
 
-- **portfolio_size**: 
+- **portfolio_size**:
   - Portfolio size, i.e., the number of symbols to hold simultaneously
   - Example: 10 means holding 10 symbols at the same time
 
-- **long_ratio**: 
+- **long_ratio**:
   - Long ratio, a float between 0 and 1
   - Example: 0.5 means 50% long, 50% short
   - Example: 1.0 means 100% long (no short positions)
 
-- **rebalance_frequency**: 
+- **rebalance_frequency**:
   - Rebalancing frequency
   - `'daily'`: Daily rebalancing
   - `'weekly'`: Weekly rebalancing
@@ -74,7 +74,7 @@ for symbol, df in data.items():
     # Calculate factor values for each symbol
     # Example: Momentum factor
     momentum = (df['close'].iloc[-1] / df['close'].iloc[-20] - 1) * 100
-    
+
     # Example: RSI indicator
     def calculate_rsi(prices, period=14):
         delta = prices.diff()
@@ -83,9 +83,9 @@ for symbol, df in data.items():
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         return rsi.iloc[-1]
-    
+
     rsi = calculate_rsi(df['close'], 14)
-    
+
     # Composite score (adjust weights as needed)
     score = momentum * 0.6 + (100 - rsi) * 0.4
     scores[symbol] = score
@@ -175,7 +175,7 @@ scores = {}
 for symbol, df in data.items():
     # 20-period momentum
     momentum = (df['close'].iloc[-1] / df['close'].iloc[-20] - 1) * 100
-    
+
     # RSI
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -183,7 +183,7 @@ for symbol, df in data.items():
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     rsi_value = rsi.iloc[-1]
-    
+
     # Composite score
     score = momentum * 0.7 + (100 - rsi_value) * 0.3
     scores[symbol] = score

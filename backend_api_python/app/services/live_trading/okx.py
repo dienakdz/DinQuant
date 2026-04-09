@@ -11,12 +11,12 @@ import base64
 import hashlib
 import hmac
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
 from app.services.live_trading.base import BaseRestClient, LiveOrderResult, LiveTradingError
-from app.services.live_trading.symbols import to_okx_swap_inst_id, to_okx_spot_inst_id
+from app.services.live_trading.symbols import to_okx_spot_inst_id, to_okx_swap_inst_id
 
 
 class OkxClient(BaseRestClient):
@@ -63,7 +63,7 @@ class OkxClient(BaseRestClient):
         """
         Convert Decimal to a non-scientific string with controlled precision.
         OKX expects plain decimal strings matching lotSz precision.
-        
+
         Args:
             d: Decimal value to format
             max_decimals: Maximum decimal places (fallback if strict_precision not provided)
@@ -74,7 +74,7 @@ class OkxClient(BaseRestClient):
                 return "0"
             # Normalize to remove unnecessary trailing zeros
             normalized = d.normalize()
-            
+
             # If strict_precision is provided, use it and strictly limit decimal places
             if strict_precision is not None:
                 try:
@@ -85,19 +85,20 @@ class OkxClient(BaseRestClient):
                         prec = 18
                     # Use quantize to ensure exact precision
                     from decimal import ROUND_DOWN
+
                     q = Decimal("1").scaleb(-prec)
                     quantized = normalized.quantize(q, rounding=ROUND_DOWN)
                     s = format(quantized, f".{prec}f")
-                    if '.' in s:
-                        s = s.rstrip('0').rstrip('.')
+                    if "." in s:
+                        s = s.rstrip("0").rstrip(".")
                     return s if s else "0"
                 except Exception:
                     pass
-            
+
             # Format with max_decimals and remove trailing zeros
             s = format(normalized, f".{max_decimals}f")
-            if '.' in s:
-                s = s.rstrip('0').rstrip('.')
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
             return s if s else "0"
         except Exception:
             try:
@@ -109,18 +110,18 @@ class OkxClient(BaseRestClient):
                         prec = int(strict_precision)
                         if 0 <= prec <= 18:
                             s = format(f, f".{prec}f")
-                            if '.' in s:
-                                s = s.rstrip('0').rstrip('.')
+                            if "." in s:
+                                s = s.rstrip("0").rstrip(".")
                             return s if s else "0"
                     except Exception:
                         pass
                 s = format(f, f".{max_decimals}f")
-                if '.' in s:
-                    s = s.rstrip('0').rstrip('.')
+                if "." in s:
+                    s = s.rstrip("0").rstrip(".")
                 return s if s else "0"
             except Exception:
                 s = str(d)
-                if 'e' in s.lower() or 'E' in s:
+                if "e" in s.lower() or "E" in s:
                     try:
                         f = float(s)
                         if strict_precision is not None:
@@ -128,14 +129,14 @@ class OkxClient(BaseRestClient):
                                 prec = int(strict_precision)
                                 if 0 <= prec <= 18:
                                     s = format(f, f".{prec}f")
-                                    if '.' in s:
-                                        s = s.rstrip('0').rstrip('.')
+                                    if "." in s:
+                                        s = s.rstrip("0").rstrip(".")
                                     return s if s else "0"
                             except Exception:
                                 pass
                         s = format(f, f".{max_decimals}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                     except Exception:
                         pass
                 return s if s else "0"
@@ -205,7 +206,7 @@ class OkxClient(BaseRestClient):
         - Swap: OKX sz is in contracts; convert base qty -> contracts using ctVal, then align to lotSz/minSz.
 
         Note: this system passes `amount` around as base-asset quantity across exchanges.
-        
+
         Returns:
             Tuple of (normalized_size, precision) where precision is the number of decimal places required.
         """
@@ -235,15 +236,15 @@ class OkxClient(BaseRestClient):
         # Align to lot size step.
         if lot_sz > 0:
             req = self._floor_to_step(req, lot_sz)
-        
+
         # Infer precision from lotSz
         size_precision = None
         if lot_sz > 0:
             try:
                 lot_sz_normalized = lot_sz.normalize()
                 lot_sz_str = str(lot_sz_normalized)
-                if '.' in lot_sz_str:
-                    decimal_part = lot_sz_str.split('.')[1]
+                if "." in lot_sz_str:
+                    decimal_part = lot_sz_str.split(".")[1]
                     size_precision = len(decimal_part)
                     if size_precision < 0:
                         size_precision = 0
@@ -312,7 +313,7 @@ class OkxClient(BaseRestClient):
 
         signed_path = f"{path}?{qs}" if qs else path
         sign = self._sign(ts, method, signed_path, body_str)
-        
+
         # For GET requests with query params, we need to ensure the actual request URL matches the signed path
         # OKX requires exact match between signed path and actual request path
         if method.upper() == "GET" and qs:
@@ -323,7 +324,7 @@ class OkxClient(BaseRestClient):
         else:
             request_path = path
             request_params = params
-        
+
         code, data, text = self._request(
             method,
             request_path,
@@ -348,14 +349,14 @@ class OkxClient(BaseRestClient):
         if isinstance(data, dict) and str(data.get("code") or "") not in ("0", ""):
             error_code = str(data.get("code") or "")
             error_msg = str(data.get("msg") or data)
-            
+
             # Check for specific error codes in data array
             data_array = data.get("data", [])
             if isinstance(data_array, list) and data_array:
                 first_item = data_array[0] if isinstance(data_array[0], dict) else {}
                 s_code = str(first_item.get("sCode") or "")
                 s_msg = str(first_item.get("sMsg") or "")
-                
+
                 # Error code 51008: Insufficient margin
                 if s_code == "51008" or "insufficient" in s_msg.lower() or "margin" in s_msg.lower():
                     raise LiveTradingError(
@@ -369,7 +370,7 @@ class OkxClient(BaseRestClient):
                         f"Solution: Please enable 'Trade' permission for your API key in OKX account.\n"
                         f"Path: OKX website -> API Management -> Edit API Key -> Enable 'Trade' permission"
                     )
-            
+
             # Fallback for permission errors
             if error_code == "50120" or "permission" in str(error_msg).lower():
                 raise LiveTradingError(
@@ -387,7 +388,7 @@ class OkxClient(BaseRestClient):
     def get_ticker(self, *, inst_id: str) -> Dict[str, Any]:
         """
         Get ticker price for an instrument.
-        
+
         Endpoint: GET /api/v5/market/ticker?instId=...
         """
         if not inst_id:
@@ -406,7 +407,7 @@ class OkxClient(BaseRestClient):
     def get_positions(self, *, inst_id: str = "", inst_type: str = "SWAP") -> Dict[str, Any]:
         """
         Get positions (best-effort).
-        
+
         Args:
             inst_id: Instrument ID (optional, for filtering)
             inst_type: Instrument type - "SPOT" or "SWAP" (default: "SWAP")
@@ -417,7 +418,7 @@ class OkxClient(BaseRestClient):
         it = str(inst_type or "SWAP").strip().upper()
         if it not in ("SPOT", "SWAP", "FUTURES", "OPTION"):
             it = "SWAP"
-        
+
         params: Dict[str, Any] = {"instType": it}
         # Only add instId if it's not empty
         if inst_id and str(inst_id).strip():
@@ -662,7 +663,9 @@ class OkxClient(BaseRestClient):
         data = (raw.get("data") or []) if isinstance(raw, dict) else []
         first: Dict[str, Any] = data[0] if isinstance(data, list) and data else {}
         exchange_order_id = str(first.get("ordId") or first.get("clOrdId") or "")
-        return LiveOrderResult(exchange_id="okx", exchange_order_id=exchange_order_id, filled=0.0, avg_price=0.0, raw=raw)
+        return LiveOrderResult(
+            exchange_id="okx", exchange_order_id=exchange_order_id, filled=0.0, avg_price=0.0, raw=raw
+        )
 
     def cancel_order(self, *, market_type: str, symbol: str, ord_id: str = "", cl_ord_id: str = "") -> Dict[str, Any]:
         mt = (market_type or "swap").strip().lower()
@@ -836,10 +839,24 @@ class OkxClient(BaseRestClient):
             # Terminal states: return whatever we have.
             if state in ("filled", "canceled", "cancelled"):
                 if time.time() >= end_ts:
-                    return {"filled": filled, "avg_price": avg_price, "fee": 0.0, "fee_ccy": "", "state": state, "order": last_order, "fills": last_fills}
+                    return {
+                        "filled": filled,
+                        "avg_price": avg_price,
+                        "fee": 0.0,
+                        "fee_ccy": "",
+                        "state": state,
+                        "order": last_order,
+                        "fills": last_fills,
+                    }
 
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": 0.0, "fee_ccy": "", "state": state, "order": last_order, "fills": last_fills}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": 0.0,
+                    "fee_ccy": "",
+                    "state": state,
+                    "order": last_order,
+                    "fills": last_fills,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
-
-

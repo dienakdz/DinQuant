@@ -18,9 +18,8 @@ import hashlib
 import hmac
 import json
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
-from urllib.parse import urlencode
 
 import requests
 
@@ -31,11 +30,11 @@ from app.services.live_trading.symbols import to_deepcoin_symbol
 class DeepcoinClient(BaseRestClient):
     """
     Deepcoin REST client for spot and perpetual swap trading.
-    
+
     Based on official Deepcoin Python SDK.
     Supports both spot and swap (perpetual futures) markets.
     """
-    
+
     def __init__(
         self,
         *,
@@ -53,7 +52,7 @@ class DeepcoinClient(BaseRestClient):
         self.market_type = (market_type or "swap").strip().lower()
         if self.market_type not in ("swap", "spot"):
             self.market_type = "swap"
-        
+
         if not self.api_key or not self.secret_key:
             raise LiveTradingError("Missing Deepcoin api_key/secret_key")
 
@@ -78,7 +77,7 @@ class DeepcoinClient(BaseRestClient):
         """
         Convert Decimal to string with controlled precision.
         Deepcoin requires quantities to match lotSz/qtyStep precision.
-        
+
         Args:
             d: Decimal value to format
             max_decimals: Maximum decimal places (fallback if strict_precision not provided)
@@ -88,24 +87,25 @@ class DeepcoinClient(BaseRestClient):
             if d == 0:
                 return "0"
             normalized = d.normalize()
-            
+
             if strict_precision is not None:
                 try:
                     prec = int(strict_precision)
                     if 0 <= prec <= 18:
                         from decimal import ROUND_DOWN
+
                         q = Decimal("1").scaleb(-prec)
                         quantized = normalized.quantize(q, rounding=ROUND_DOWN)
                         s = format(quantized, f".{prec}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                         return s if s else "0"
                 except Exception:
                     pass
-            
+
             s = format(normalized, f".{max_decimals}f")
-            if '.' in s:
-                s = s.rstrip('0').rstrip('.')
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
             return s if s else "0"
         except Exception:
             try:
@@ -117,18 +117,18 @@ class DeepcoinClient(BaseRestClient):
                         prec = int(strict_precision)
                         if 0 <= prec <= 18:
                             s = format(f, f".{prec}f")
-                            if '.' in s:
-                                s = s.rstrip('0').rstrip('.')
+                            if "." in s:
+                                s = s.rstrip("0").rstrip(".")
                             return s if s else "0"
                     except Exception:
                         pass
                 s = format(f, f".{max_decimals}f")
-                if '.' in s:
-                    s = s.rstrip('0').rstrip('.')
+                if "." in s:
+                    s = s.rstrip("0").rstrip(".")
                 return s if s else "0"
             except Exception:
                 s = str(d)
-                if 'e' in s.lower() or 'E' in s:
+                if "e" in s.lower() or "E" in s:
                     try:
                         f = float(s)
                         if strict_precision is not None:
@@ -136,14 +136,14 @@ class DeepcoinClient(BaseRestClient):
                                 prec = int(strict_precision)
                                 if 0 <= prec <= 18:
                                     s = format(f, f".{prec}f")
-                                    if '.' in s:
-                                        s = s.rstrip('0').rstrip('.')
+                                    if "." in s:
+                                        s = s.rstrip("0").rstrip(".")
                                     return s if s else "0"
                             except Exception:
                                 pass
                         s = format(f, f".{max_decimals}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                     except Exception:
                         pass
                 return s if s else "0"
@@ -194,23 +194,23 @@ class DeepcoinClient(BaseRestClient):
     def _sign(self, iso_time: str, method: str, uri: str, data: Optional[Dict[str, Any]] = None) -> str:
         """
         Generate HMAC-SHA256 signature for request authentication.
-        
+
         For POST: message = timestamp + method + uri + json_body
         For GET: message = timestamp + method + uri (with query params)
         """
         method_upper = method.upper()
         if method_upper == "POST" and data:
             # Convert dict to JSON string with double quotes
-            data_str = json.dumps(data, separators=(',', ':'))
+            data_str = json.dumps(data, separators=(",", ":"))
             message = f"{iso_time}{method_upper}{uri}{data_str}"
         else:
             message = f"{iso_time}{method_upper}{uri}"
-        
-        message_bytes = message.encode('utf-8')
-        key_bytes = self.secret_key.encode('utf-8')
-        sign = base64.b64encode(
-            hmac.new(key=key_bytes, msg=message_bytes, digestmod=hashlib.sha256).digest()
-        ).decode('utf-8')
+
+        message_bytes = message.encode("utf-8")
+        key_bytes = self.secret_key.encode("utf-8")
+        sign = base64.b64encode(hmac.new(key=key_bytes, msg=message_bytes, digestmod=hashlib.sha256).digest()).decode(
+            "utf-8"
+        )
         return sign
 
     def _headers(self, iso_time: str, sign: str) -> Dict[str, str]:
@@ -233,16 +233,16 @@ class DeepcoinClient(BaseRestClient):
         """
         full_uri = self._build_uri_with_params(uri, params, method)
         url = f"{self.base_url}{full_uri}"
-        
+
         try:
             if method.upper() == "GET":
                 resp = requests.get(url=url, timeout=self.timeout_sec)
             else:
                 resp = requests.post(url=url, json=params, timeout=self.timeout_sec)
-            
+
             if resp.status_code >= 400:
                 raise LiveTradingError(f"Deepcoin HTTP {resp.status_code}: {resp.text[:500]}")
-            
+
             data = resp.json()
             if isinstance(data, dict):
                 code = data.get("code") or data.get("retCode")
@@ -261,35 +261,35 @@ class DeepcoinClient(BaseRestClient):
     ) -> Dict[str, Any]:
         """
         Make authenticated API request following Deepcoin signing spec.
-        
+
         For GET requests: params are appended to URI as query string
         For POST requests: params are sent as JSON body
         """
         iso_time = self._get_iso_time()
         method_upper = method.upper()
-        
+
         # Build full URI (with query params for GET)
         full_uri = self._build_uri_with_params(uri, params, method)
-        
+
         # Generate signature
         if method_upper == "POST":
             sign = self._sign(iso_time, method_upper, uri, params)
         else:
             sign = self._sign(iso_time, method_upper, full_uri, None)
-        
+
         headers = self._headers(iso_time, sign)
         url = f"{self.base_url}{full_uri}"
-        
+
         try:
             if method_upper == "POST":
-                body_str = json.dumps(params, separators=(',', ':')) if params else ""
+                body_str = json.dumps(params, separators=(",", ":")) if params else ""
                 resp = requests.post(url=url, headers=headers, data=body_str, timeout=self.timeout_sec)
             else:
                 resp = requests.get(url=url, headers=headers, timeout=self.timeout_sec)
-            
+
             if resp.status_code >= 400:
                 raise LiveTradingError(f"Deepcoin HTTP {resp.status_code}: {resp.text[:500]}")
-            
+
             data = resp.json()
             if isinstance(data, dict):
                 code = data.get("code") or data.get("retCode")
@@ -314,7 +314,7 @@ class DeepcoinClient(BaseRestClient):
     def get_balance(self) -> Dict[str, Any]:
         """
         Get account balance.
-        
+
         Endpoint: GET /deepcoin/account/balances
         """
         params = {"instType": "SWAP" if self.market_type == "swap" else "SPOT"}
@@ -323,7 +323,7 @@ class DeepcoinClient(BaseRestClient):
     def get_positions(self, *, symbol: str = "") -> Dict[str, Any]:
         """
         Get open positions.
-        
+
         Endpoint: GET /deepcoin/account/positions
         """
         params: Dict[str, Any] = {"instType": "SWAP" if self.market_type == "swap" else "SPOT"}
@@ -334,20 +334,20 @@ class DeepcoinClient(BaseRestClient):
     def set_leverage(self, *, symbol: str, leverage: float, mgn_mode: str = "cross") -> bool:
         """
         Set leverage for a trading pair.
-        
+
         Endpoint: POST /deepcoin/account/set-leverage
         """
         sym = to_deepcoin_symbol(symbol)
         if not sym:
             return False
-        
+
         try:
             lv = int(float(leverage or 1.0))
         except Exception:
             lv = 1
         if lv < 1:
             lv = 1
-        
+
         mm = str(mgn_mode or "cross").strip().lower()
         if mm not in ("cross", "isolated"):
             mm = "cross"
@@ -367,7 +367,7 @@ class DeepcoinClient(BaseRestClient):
             "mgnMode": mm,
             "mrgPosition": "merge",
         }
-        
+
         try:
             self._signed_request("POST", "/deepcoin/account/set-leverage", params=params)
             self._lev_cache[cache_key] = (now, True)
@@ -378,13 +378,13 @@ class DeepcoinClient(BaseRestClient):
     def get_instrument_info(self, *, symbol: str) -> Dict[str, Any]:
         """
         Get instrument metadata (min qty, qty step, etc.).
-        
+
         Endpoint: GET /deepcoin/market/instruments
         """
         sym = to_deepcoin_symbol(symbol)
         if not sym:
             return {}
-        
+
         key = f"{self.market_type}:{sym}"
         now = time.time()
         cached = self._inst_cache.get(key)
@@ -395,7 +395,7 @@ class DeepcoinClient(BaseRestClient):
 
         inst_type = "SWAP" if self.market_type == "swap" else "SPOT"
         params = {"instType": inst_type, "instId": sym}
-        
+
         try:
             raw = self._public_request("GET", "/deepcoin/market/instruments", params=params)
             data = (raw.get("data") or []) if isinstance(raw, dict) else []
@@ -409,35 +409,35 @@ class DeepcoinClient(BaseRestClient):
     def _normalize_qty(self, *, symbol: str, qty: float) -> Tuple[Decimal, Optional[int]]:
         """
         Normalize order quantity to exchange requirements.
-        
+
         Returns:
             Tuple of (normalized_quantity, precision) where precision is the number of decimal places required.
         """
         q = self._to_dec(qty)
         if q <= 0:
             return (Decimal("0"), None)
-        
+
         sym = to_deepcoin_symbol(symbol)
         try:
             info = self.get_instrument_info(symbol=sym) or {}
         except Exception:
             info = {}
-        
+
         # Extract lot size filter
         step = self._to_dec(info.get("lotSz") or info.get("qtyStep") or "0")
         mn = self._to_dec(info.get("minSz") or info.get("minOrderQty") or "0")
-        
+
         if step > 0:
             q = self._floor_to_step(q, step)
-        
+
         # Infer precision from step
         qty_precision = None
         if step > 0:
             try:
                 step_normalized = step.normalize()
                 step_str = str(step_normalized)
-                if '.' in step_str:
-                    decimal_part = step_str.split('.')[1]
+                if "." in step_str:
+                    decimal_part = step_str.split(".")[1]
                     qty_precision = len(decimal_part)
                     if qty_precision < 0:
                         qty_precision = 0
@@ -447,7 +447,7 @@ class DeepcoinClient(BaseRestClient):
                     qty_precision = 0
             except Exception:
                 pass
-        
+
         if mn > 0 and q < mn:
             return (Decimal("0"), qty_precision)
         return (q, qty_precision)
@@ -464,9 +464,9 @@ class DeepcoinClient(BaseRestClient):
     ) -> LiveOrderResult:
         """
         Place a market order.
-        
+
         Endpoint: POST /deepcoin/trade/order
-        
+
         Args:
             symbol: Trading pair (e.g., "BTC/USDT:USDT" or "BTCUSDT")
             side: "buy" or "sell"
@@ -479,7 +479,7 @@ class DeepcoinClient(BaseRestClient):
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
-        
+
         q_req = float(qty or 0.0)
         q_dec, qty_precision = self._normalize_qty(symbol=symbol, qty=q_req)
         if float(q_dec or 0) <= 0:
@@ -492,7 +492,7 @@ class DeepcoinClient(BaseRestClient):
             "ordType": "market",
             "sz": self._dec_str(q_dec, strict_precision=qty_precision),
         }
-        
+
         if self.market_type != "spot":
             ps = (pos_side or "").strip().lower()
             if ps in ("long", "short", "net"):
@@ -507,7 +507,7 @@ class DeepcoinClient(BaseRestClient):
         data = (raw.get("data") or []) if isinstance(raw, dict) else []
         first: Dict[str, Any] = data[0] if isinstance(data, list) and data else {}
         oid = str(first.get("ordId") or first.get("orderId") or first.get("clOrdId") or "")
-        
+
         return LiveOrderResult(
             exchange_id="deepcoin",
             exchange_order_id=oid,
@@ -529,19 +529,19 @@ class DeepcoinClient(BaseRestClient):
     ) -> LiveOrderResult:
         """
         Place a limit order.
-        
+
         Endpoint: POST /deepcoin/trade/order
         """
         sym = to_deepcoin_symbol(symbol)
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
-        
+
         q_req = float(qty or 0.0)
         px = float(price or 0.0)
         if q_req <= 0 or px <= 0:
             raise LiveTradingError("Invalid qty/price")
-        
+
         q_dec, qty_precision = self._normalize_qty(symbol=symbol, qty=q_req)
         if float(q_dec or 0) <= 0:
             raise LiveTradingError(f"Invalid qty (below step/min): requested={q_req}")
@@ -554,7 +554,7 @@ class DeepcoinClient(BaseRestClient):
             "sz": self._dec_str(q_dec, strict_precision=qty_precision),
             "px": str(px),
         }
-        
+
         if self.market_type != "spot":
             ps = (pos_side or "").strip().lower()
             if ps in ("long", "short", "net"):
@@ -569,7 +569,7 @@ class DeepcoinClient(BaseRestClient):
         data = (raw.get("data") or []) if isinstance(raw, dict) else []
         first: Dict[str, Any] = data[0] if isinstance(data, list) and data else {}
         oid = str(first.get("ordId") or first.get("orderId") or first.get("clOrdId") or "")
-        
+
         return LiveOrderResult(
             exchange_id="deepcoin",
             exchange_order_id=oid,
@@ -581,12 +581,12 @@ class DeepcoinClient(BaseRestClient):
     def cancel_order(self, *, symbol: str, order_id: str = "", client_order_id: str = "") -> Dict[str, Any]:
         """
         Cancel an order.
-        
+
         Endpoint: POST /deepcoin/trade/cancel-order
         """
         sym = to_deepcoin_symbol(symbol)
         params: Dict[str, Any] = {"instId": sym}
-        
+
         if order_id:
             params["ordId"] = str(order_id)
         elif client_order_id:
@@ -599,12 +599,12 @@ class DeepcoinClient(BaseRestClient):
     def get_order(self, *, symbol: str, order_id: str = "", client_order_id: str = "") -> Dict[str, Any]:
         """
         Get order details.
-        
+
         Endpoint: GET /deepcoin/trade/order
         """
         sym = to_deepcoin_symbol(symbol)
         params: Dict[str, Any] = {"instId": sym}
-        
+
         if order_id:
             params["ordId"] = str(order_id)
         elif client_order_id:
@@ -620,7 +620,7 @@ class DeepcoinClient(BaseRestClient):
     def get_open_orders(self, *, symbol: str = "") -> Dict[str, Any]:
         """
         Get open orders.
-        
+
         Endpoint: GET /deepcoin/trade/orders-pending
         """
         params: Dict[str, Any] = {"instType": "SWAP" if self.market_type == "swap" else "SPOT"}
@@ -631,7 +631,7 @@ class DeepcoinClient(BaseRestClient):
     def get_order_history(self, *, symbol: str = "", limit: int = 100) -> Dict[str, Any]:
         """
         Get order history.
-        
+
         Endpoint: GET /deepcoin/trade/orders-history
         """
         params: Dict[str, Any] = {
@@ -653,7 +653,7 @@ class DeepcoinClient(BaseRestClient):
     ) -> Dict[str, Any]:
         """
         Poll order status until filled or timeout.
-        
+
         Returns:
             {
                 "filled": float,
@@ -666,7 +666,7 @@ class DeepcoinClient(BaseRestClient):
         """
         end_ts = time.time() + float(max_wait_sec or 0.0)
         last: Dict[str, Any] = {}
-        
+
         while True:
             try:
                 last = self.get_order(
@@ -676,19 +676,19 @@ class DeepcoinClient(BaseRestClient):
                 )
             except Exception:
                 last = last or {}
-            
+
             status = str(last.get("state") or last.get("status") or last.get("orderStatus") or "")
-            
+
             try:
                 filled = float(last.get("accFillSz") or last.get("fillSz") or last.get("cumExecQty") or 0.0)
             except Exception:
                 filled = 0.0
-            
+
             try:
                 avg_price = float(last.get("avgPx") or last.get("fillPx") or last.get("avgPrice") or 0.0)
             except Exception:
                 avg_price = 0.0
-            
+
             # Extract fee
             fee = 0.0
             fee_ccy = ""
@@ -697,7 +697,7 @@ class DeepcoinClient(BaseRestClient):
                 fee_ccy = str(last.get("feeCcy") or "")
             except Exception:
                 pass
-            
+
             if filled > 0 and avg_price > 0:
                 return {
                     "filled": filled,
@@ -707,7 +707,7 @@ class DeepcoinClient(BaseRestClient):
                     "status": status,
                     "order": last,
                 }
-            
+
             if status.lower() in ("filled", "cancelled", "canceled", "rejected"):
                 return {
                     "filled": filled,
@@ -717,7 +717,7 @@ class DeepcoinClient(BaseRestClient):
                     "status": status,
                     "order": last,
                 }
-            
+
             if time.time() >= end_ts:
                 return {
                     "filled": filled,
@@ -727,5 +727,5 @@ class DeepcoinClient(BaseRestClient):
                     "status": status,
                     "order": last,
                 }
-            
+
             time.sleep(float(poll_interval_sec or 0.5))

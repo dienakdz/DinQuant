@@ -91,7 +91,7 @@ docker-compose up -d --build
 > - 启动：
 >   `docker-compose up -d --build`
 
-> **Windows PowerShell**: 
+> **Windows PowerShell**:
 > - 复制后端配置：
 >   `Copy-Item backend_api_python\env.example -Destination backend_api_python\.env`
 > - 如果需要更多高级配置，直接查看这个文件下半部分的 “Advanced / rarely changed”：

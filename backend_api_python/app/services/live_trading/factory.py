@@ -9,23 +9,23 @@ Supports:
 
 from __future__ import annotations
 
-from typing import Any, Dict, Union
+from typing import Any, Dict
 
 from app.services.live_trading.base import BaseRestClient, LiveTradingError
 from app.services.live_trading.binance import BinanceFuturesClient
 from app.services.live_trading.binance_spot import BinanceSpotClient
-from app.services.live_trading.okx import OkxClient
+from app.services.live_trading.bitfinex import BitfinexClient, BitfinexDerivativesClient
 from app.services.live_trading.bitget import BitgetMixClient
 from app.services.live_trading.bitget_spot import BitgetSpotClient
 from app.services.live_trading.bybit import BybitClient
 from app.services.live_trading.coinbase_exchange import CoinbaseExchangeClient
+from app.services.live_trading.deepcoin import DeepcoinClient
+from app.services.live_trading.gate import GateSpotClient, GateUsdtFuturesClient
+from app.services.live_trading.htx import HtxClient
 from app.services.live_trading.kraken import KrakenClient
 from app.services.live_trading.kraken_futures import KrakenFuturesClient
-from app.services.live_trading.kucoin import KucoinSpotClient, KucoinFuturesClient
-from app.services.live_trading.gate import GateSpotClient, GateUsdtFuturesClient
-from app.services.live_trading.bitfinex import BitfinexClient, BitfinexDerivativesClient
-from app.services.live_trading.deepcoin import DeepcoinClient
-from app.services.live_trading.htx import HtxClient
+from app.services.live_trading.kucoin import KucoinFuturesClient, KucoinSpotClient
+from app.services.live_trading.okx import OkxClient
 
 # Lazy import IBKR to avoid ImportError if ib_insync not installed
 IBKRClient = None
@@ -62,7 +62,11 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
     secret_key = _get(exchange_config, "secret_key", "secret")
     passphrase = _get(exchange_config, "passphrase", "password")
 
-    mt = (market_type or exchange_config.get("market_type") or exchange_config.get("defaultType") or "swap").strip().lower()
+    mt = (
+        (market_type or exchange_config.get("market_type") or exchange_config.get("defaultType") or "swap")
+        .strip()
+        .lower()
+    )
     if mt in ("futures", "future", "perp", "perpetual"):
         mt = "swap"
 
@@ -70,15 +74,29 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
 
     if exchange_id == "binance":
         spot_broker_id = _get(exchange_config, "spot_broker_id", "spotBrokerId", "broker_id", "brokerId") or "A2NAPZAC"
-        futures_broker_id = _get(exchange_config, "futures_broker_id", "futuresBrokerId", "broker_id", "brokerId") or "HBpUbQjT"
+        futures_broker_id = (
+            _get(exchange_config, "futures_broker_id", "futuresBrokerId", "broker_id", "brokerId") or "HBpUbQjT"
+        )
         if mt == "spot":
             default_url = "https://demo-api.binance.com" if is_demo else "https://api.binance.com"
             base_url = _get(exchange_config, "base_url", "baseUrl") or default_url
-            return BinanceSpotClient(api_key=api_key, secret_key=secret_key, base_url=base_url, enable_demo_trading=is_demo, broker_id=spot_broker_id)
+            return BinanceSpotClient(
+                api_key=api_key,
+                secret_key=secret_key,
+                base_url=base_url,
+                enable_demo_trading=is_demo,
+                broker_id=spot_broker_id,
+            )
         # Default to USDT-M futures
         default_url = "https://demo-fapi.binance.com" if is_demo else "https://fapi.binance.com"
         base_url = _get(exchange_config, "base_url", "baseUrl") or default_url
-        return BinanceFuturesClient(api_key=api_key, secret_key=secret_key, base_url=base_url, enable_demo_trading=is_demo, broker_id=futures_broker_id)
+        return BinanceFuturesClient(
+            api_key=api_key,
+            secret_key=secret_key,
+            base_url=base_url,
+            enable_demo_trading=is_demo,
+            broker_id=futures_broker_id,
+        )
     if exchange_id == "okx":
         base_url = _get(exchange_config, "base_url", "baseUrl") or "https://www.okx.com"
         broker_code = "56fa80b0ce8cBCDE"
@@ -140,7 +158,9 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
         )
 
     if exchange_id in ("coinbaseexchange", "coinbase_exchange"):
-        default_cb = "https://api-public.sandbox.exchange.coinbase.com" if is_demo else "https://api.exchange.coinbase.com"
+        default_cb = (
+            "https://api-public.sandbox.exchange.coinbase.com" if is_demo else "https://api.exchange.coinbase.com"
+        )
         base_url = _get(exchange_config, "base_url", "baseUrl") or default_cb
         if mt != "spot":
             raise LiveTradingError("CoinbaseExchange only supports spot market_type in this project")
@@ -172,7 +192,9 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
             return GateSpotClient(api_key=api_key, secret_key=secret_key, base_url=base_url, channel_id=gate_channel_id)
         default_fut = "https://fx-api-testnet.gateio.ws" if is_demo else "https://fx-api.gateio.ws"
         base_url = _get(exchange_config, "base_url", "baseUrl") or default_fut
-        return GateUsdtFuturesClient(api_key=api_key, secret_key=secret_key, base_url=base_url, channel_id=gate_channel_id)
+        return GateUsdtFuturesClient(
+            api_key=api_key, secret_key=secret_key, base_url=base_url, channel_id=gate_channel_id
+        )
 
     if exchange_id == "bitfinex":
         # Same REST host; use keys from Bitfinex paper/sub-account where applicable.
@@ -183,7 +205,9 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
 
     if exchange_id == "deepcoin":
         if is_demo and not (_get(exchange_config, "base_url", "baseUrl")):
-            raise LiveTradingError("Deepcoin demo/testnet is not configured in this project yet. Please disable demo mode or provide an explicit testnet base_url.")
+            raise LiveTradingError(
+                "Deepcoin demo/testnet is not configured in this project yet. Please disable demo mode or provide an explicit testnet base_url."
+            )
         base_url = _get(exchange_config, "base_url", "baseUrl") or "https://api.deepcoin.com"
         return DeepcoinClient(
             api_key=api_key,
@@ -194,8 +218,12 @@ def create_client(exchange_config: Dict[str, Any], *, market_type: str = "swap")
         )
 
     if exchange_id == "htx":
-        if is_demo and not (_get(exchange_config, "base_url", "baseUrl") or _get(exchange_config, "futures_base_url", "futuresBaseUrl")):
-            raise LiveTradingError("HTX demo/testnet is not configured in this project yet. Please disable demo mode or provide explicit testnet base_url/futures_base_url.")
+        if is_demo and not (
+            _get(exchange_config, "base_url", "baseUrl") or _get(exchange_config, "futures_base_url", "futuresBaseUrl")
+        ):
+            raise LiveTradingError(
+                "HTX demo/testnet is not configured in this project yet. Please disable demo mode or provide explicit testnet base_url/futures_base_url."
+            )
         spot_url = _get(exchange_config, "base_url", "baseUrl") or "https://api.huobi.pro"
         futures_url = _get(exchange_config, "futures_base_url", "futuresBaseUrl") or "https://api.hbdm.com"
         broker_id = _get(exchange_config, "broker_id", "brokerId") or "AA7b890547"
@@ -238,7 +266,9 @@ def create_ibkr_client(exchange_config: Dict[str, Any]):
     # Lazy import to avoid ImportError if ib_insync not installed
     if IBKRClient is None or IBKRConfig is None:
         try:
-            from app.services.ibkr_trading import IBKRClient as _IBKRClient, IBKRConfig as _IBKRConfig
+            from app.services.ibkr_trading import IBKRClient as _IBKRClient
+            from app.services.ibkr_trading import IBKRConfig as _IBKRConfig
+
             IBKRClient = _IBKRClient
             IBKRConfig = _IBKRConfig
         except ImportError:
@@ -276,7 +306,7 @@ def create_mt5_client(exchange_config: Dict[str, Any]):
     - mt5_server: Broker server name (e.g., "ICMarkets-Demo")
     - mt5_terminal_path: Optional path to terminal64.exe
     - market_category: Must be "Forex" (validated)
-    
+
     Note: MT5 is ONLY for Forex trading, not for Crypto or Stocks.
     """
     global MT5Client, MT5Config
@@ -292,7 +322,9 @@ def create_mt5_client(exchange_config: Dict[str, Any]):
     # Lazy import to avoid ImportError if MetaTrader5 not installed
     if MT5Client is None or MT5Config is None:
         try:
-            from app.services.mt5_trading import MT5Client as _MT5Client, MT5Config as _MT5Config
+            from app.services.mt5_trading import MT5Client as _MT5Client
+            from app.services.mt5_trading import MT5Config as _MT5Config
+
             MT5Client = _MT5Client
             MT5Config = _MT5Config
         except ImportError:
@@ -311,7 +343,7 @@ def create_mt5_client(exchange_config: Dict[str, Any]):
             login = int(str(login_raw).strip())
         except (ValueError, TypeError):
             login = 0
-    
+
     password = str(exchange_config.get("mt5_password") or "").strip()
     server = str(exchange_config.get("mt5_server") or "").strip()
     terminal_path = str(exchange_config.get("mt5_terminal_path") or "").strip()
@@ -338,5 +370,3 @@ def create_mt5_client(exchange_config: Dict[str, Any]):
         )
 
     return client
-
-

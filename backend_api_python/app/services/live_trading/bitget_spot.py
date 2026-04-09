@@ -14,7 +14,7 @@ import base64
 import hashlib
 import hmac
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -69,7 +69,7 @@ class BitgetSpotClient(BaseRestClient):
         """
         Convert Decimal to string with controlled precision.
         Bitget requires quantities to match quantityStep/quantityScale precision.
-        
+
         Args:
             d: Decimal value to format
             max_decimals: Maximum decimal places (fallback if strict_precision not provided)
@@ -79,7 +79,7 @@ class BitgetSpotClient(BaseRestClient):
             if d == 0:
                 return "0"
             normalized = d.normalize()
-            
+
             if strict_precision is not None:
                 try:
                     prec = int(strict_precision)
@@ -87,15 +87,15 @@ class BitgetSpotClient(BaseRestClient):
                         q = Decimal("1").scaleb(-prec)
                         quantized = normalized.quantize(q, rounding=ROUND_DOWN)
                         s = format(quantized, f".{prec}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                         return s if s else "0"
                 except Exception:
                     pass
-            
+
             s = format(normalized, f".{max_decimals}f")
-            if '.' in s:
-                s = s.rstrip('0').rstrip('.')
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
             return s if s else "0"
         except Exception:
             try:
@@ -107,18 +107,18 @@ class BitgetSpotClient(BaseRestClient):
                         prec = int(strict_precision)
                         if 0 <= prec <= 18:
                             s = format(f, f".{prec}f")
-                            if '.' in s:
-                                s = s.rstrip('0').rstrip('.')
+                            if "." in s:
+                                s = s.rstrip("0").rstrip(".")
                             return s if s else "0"
                     except Exception:
                         pass
                 s = format(f, f".{max_decimals}f")
-                if '.' in s:
-                    s = s.rstrip('0').rstrip('.')
+                if "." in s:
+                    s = s.rstrip("0").rstrip(".")
                 return s if s else "0"
             except Exception:
                 s = str(d)
-                if 'e' in s.lower() or 'E' in s:
+                if "e" in s.lower() or "E" in s:
                     try:
                         f = float(s)
                         if strict_precision is not None:
@@ -126,14 +126,14 @@ class BitgetSpotClient(BaseRestClient):
                                 prec = int(strict_precision)
                                 if 0 <= prec <= 18:
                                     s = format(f, f".{prec}f")
-                                    if '.' in s:
-                                        s = s.rstrip('0').rstrip('.')
+                                    if "." in s:
+                                        s = s.rstrip("0").rstrip(".")
                                     return s if s else "0"
                             except Exception:
                                 pass
                         s = format(f, f".{max_decimals}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                     except Exception:
                         pass
                 return s if s else "0"
@@ -256,7 +256,7 @@ class BitgetSpotClient(BaseRestClient):
     def _normalize_base_size(self, *, symbol: str, base_size: float) -> Tuple[Decimal, Optional[int]]:
         """
         Normalize spot base size to lot/step constraints (best-effort).
-        
+
         Returns:
             Tuple of (normalized_size, precision) where precision is the number of decimal places required.
         """
@@ -271,7 +271,13 @@ class BitgetSpotClient(BaseRestClient):
             meta = {}
 
         # Try common fields. If unavailable, keep as-is.
-        step = self._to_dec(meta.get("quantityScale") or meta.get("quantityStep") or meta.get("sizeStep") or meta.get("minTradeIncrement") or "0")
+        step = self._to_dec(
+            meta.get("quantityScale")
+            or meta.get("quantityStep")
+            or meta.get("sizeStep")
+            or meta.get("minTradeIncrement")
+            or "0"
+        )
         size_precision = None
         if step <= 0:
             # Some endpoints expose decimals instead of step.
@@ -291,8 +297,8 @@ class BitgetSpotClient(BaseRestClient):
                 try:
                     step_normalized = step.normalize()
                     step_str = str(step_normalized)
-                    if '.' in step_str:
-                        decimal_part = step_str.split('.')[1]
+                    if "." in step_str:
+                        decimal_part = step_str.split(".")[1]
                         size_precision = len(decimal_part)
                         if size_precision < 0:
                             size_precision = 0
@@ -303,12 +309,16 @@ class BitgetSpotClient(BaseRestClient):
                 except Exception:
                     pass
 
-        mn = self._to_dec(meta.get("minTradeAmount") or meta.get("minTradeNum") or meta.get("minQty") or meta.get("minSize") or "0")
+        mn = self._to_dec(
+            meta.get("minTradeAmount") or meta.get("minTradeNum") or meta.get("minQty") or meta.get("minSize") or "0"
+        )
         if mn > 0 and req < mn:
             return (Decimal("0"), size_precision)
         return (req, size_precision)
 
-    def place_limit_order(self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_limit_order(
+        self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sym = to_bitget_um_symbol(symbol)
         sd = (side or "").lower()
         if sd not in ("buy", "sell"):
@@ -336,7 +346,9 @@ class BitgetSpotClient(BaseRestClient):
         order_id = str(data.get("orderId") or "") if isinstance(data, dict) else ""
         return LiveOrderResult(exchange_id="bitget", exchange_order_id=order_id, filled=0.0, avg_price=0.0, raw=raw)
 
-    def place_market_order(self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_market_order(
+        self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         """
         NOTE: Bitget spot market BUY may expect quote amount. We accept `size` as base size,
         but the caller can also pass a quote-sized value if desired.
@@ -438,7 +450,9 @@ class BitgetSpotClient(BaseRestClient):
                                 fee = float(fee_v or 0.0)
                             except Exception:
                                 fee = 0.0
-                            ccy = str(f.get("feeCoin") or f.get("feeCcy") or f.get("fillFeeCoin") or f.get("fillFeeCcy") or "").strip()
+                            ccy = str(
+                                f.get("feeCoin") or f.get("feeCcy") or f.get("fillFeeCoin") or f.get("fillFeeCcy") or ""
+                            ).strip()
                             if fee != 0.0:
                                 total_fee += abs(float(fee))
                                 if (not fee_ccy) and ccy:
@@ -453,13 +467,15 @@ class BitgetSpotClient(BaseRestClient):
                         "fee_ccy": str(fee_ccy or ""),
                         "state": state,
                         "order": last_order,
-                        "fills": last_fills
+                        "fills": last_fills,
                     }
             except Exception:
                 pass
 
             try:
-                last_order = self.get_order(symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or ""))
+                last_order = self.get_order(
+                    symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or "")
+                )
                 od = last_order.get("data") if isinstance(last_order, dict) else None
                 if isinstance(od, dict):
                     state = str(od.get("status") or od.get("state") or "")
@@ -487,5 +503,3 @@ class BitgetSpotClient(BaseRestClient):
         if isinstance(data, dict):
             return data
         return {}
-
-

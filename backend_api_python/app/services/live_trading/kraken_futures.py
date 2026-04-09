@@ -29,7 +29,9 @@ from app.services.live_trading.symbols import to_kraken_futures_symbol
 
 
 class KrakenFuturesClient(BaseRestClient):
-    def __init__(self, *, api_key: str, secret_key: str, base_url: str = "https://futures.kraken.com", timeout_sec: float = 15.0):
+    def __init__(
+        self, *, api_key: str, secret_key: str, base_url: str = "https://futures.kraken.com", timeout_sec: float = 15.0
+    ):
         super().__init__(base_url=base_url, timeout_sec=timeout_sec)
         self.api_key = (api_key or "").strip()
         self.secret_key = (secret_key or "").strip()
@@ -41,7 +43,12 @@ class KrakenFuturesClient(BaseRestClient):
         return base64.b64encode(mac).decode("utf-8")
 
     def _headers(self, nonce: str, authent: str) -> Dict[str, str]:
-        return {"APIKey": self.api_key, "Nonce": nonce, "Authent": authent, "Content-Type": "application/x-www-form-urlencoded"}
+        return {
+            "APIKey": self.api_key,
+            "Nonce": nonce,
+            "Authent": authent,
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
 
     def _signed_request(self, method: str, path: str, *, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         m = str(method or "POST").upper()
@@ -52,7 +59,14 @@ class KrakenFuturesClient(BaseRestClient):
         # Sign with endpoint path (not including domain)
         prehash = f"{nonce}{postdata}{path}"
         authent = self._b64_hmac_sha256(prehash)
-        code, resp, text = self._request(m, path, params=None, json_body=None, data=postdata if postdata else None, headers=self._headers(nonce, authent))
+        code, resp, text = self._request(
+            m,
+            path,
+            params=None,
+            json_body=None,
+            data=postdata if postdata else None,
+            headers=self._headers(nonce, authent),
+        )
         if code >= 400:
             raise LiveTradingError(f"KrakenFutures HTTP {code}: {text[:500]}")
         if isinstance(resp, dict):
@@ -109,7 +123,11 @@ class KrakenFuturesClient(BaseRestClient):
         if client_order_id:
             body["cliOrdId"] = str(client_order_id)[:32]
         raw = self._signed_request("POST", "/derivatives/api/v3/sendorder", data=body)
-        oid = str((raw.get("sendStatus") or {}).get("order_id") or (raw.get("order_id") or "")) if isinstance(raw, dict) else ""
+        oid = (
+            str((raw.get("sendStatus") or {}).get("order_id") or (raw.get("order_id") or ""))
+            if isinstance(raw, dict)
+            else ""
+        )
         return LiveOrderResult(exchange_id="kraken", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw)
 
     def place_limit_order(
@@ -145,7 +163,11 @@ class KrakenFuturesClient(BaseRestClient):
         if client_order_id:
             body["cliOrdId"] = str(client_order_id)[:32]
         raw = self._signed_request("POST", "/derivatives/api/v3/sendorder", data=body)
-        oid = str((raw.get("sendStatus") or {}).get("order_id") or (raw.get("order_id") or "")) if isinstance(raw, dict) else ""
+        oid = (
+            str((raw.get("sendStatus") or {}).get("order_id") or (raw.get("order_id") or ""))
+            if isinstance(raw, dict)
+            else ""
+        )
         return LiveOrderResult(exchange_id="kraken", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw)
 
     def cancel_order(self, *, order_id: str = "", client_order_id: str = "") -> Dict[str, Any]:
@@ -205,11 +227,30 @@ class KrakenFuturesClient(BaseRestClient):
             if fee > 0:
                 fee_ccy = "USD"
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if status.lower() in ("filled", "cancelled", "canceled", "rejected"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
-
-

@@ -1,6 +1,6 @@
 # QuantDinger Trademarks & Branding Policy
 
-This document governs the use of **QuantDinger** trademarks and brand assets (including the name, logo, and visual identity).  
+This document governs the use of **QuantDinger** trademarks and brand assets (including the name, logo, and visual identity).
 It is **separate** from the code license. The code in this repository is licensed under the **Apache License 2.0** (see `LICENSE`).
 
 > Note: This policy is provided for clarity and is not legal advice.
@@ -20,7 +20,7 @@ The following are considered **QuantDinger brand assets**:
 
 ## 2) Apache 2.0 vs. trademarks (important)
 
-Apache License 2.0 governs the **code** and allows you to fork, modify, and redistribute the code under its terms.  
+Apache License 2.0 governs the **code** and allows you to fork, modify, and redistribute the code under its terms.
 However, **Apache 2.0 does not grant trademark rights**. Trademarks are governed by this policy.
 
 You must still comply with Apache 2.0 requirements (e.g., preserving license/copyright notices, and `NOTICE` if present).

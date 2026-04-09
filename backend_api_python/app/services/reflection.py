@@ -5,13 +5,13 @@ Validates historical AI decisions against actual price outcomes,
 updates qd_analysis_memory with was_correct/actual_return_pct,
 and optionally triggers AI calibration.
 """
+
 import os
 import threading
-import time
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
-from app.utils.logger import get_logger
 from app.services.analysis_memory import get_analysis_memory
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -53,6 +53,7 @@ class ReflectionService:
             return
         try:
             from app.services.ai_calibration import AICalibrationService
+
             svc = AICalibrationService()
             markets = (os.getenv("AI_CALIBRATION_MARKETS", "Crypto") or "Crypto").strip().split(",")
             for market in markets:

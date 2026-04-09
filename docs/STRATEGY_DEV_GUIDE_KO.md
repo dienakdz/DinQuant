@@ -98,13 +98,13 @@ df['sell'] = condition_sell.fillna(False)
 ```python
 # 매수 마커를 저가보다 0.5% 아래에 배치
 buy_marks = [
-    df['low'].iloc[i] * 0.995 if df['buy'].iloc[i] else None 
+    df['low'].iloc[i] * 0.995 if df['buy'].iloc[i] else None
     for i in range(len(df))
 ]
 
 # 매도 마커를 고가보다 0.5% 위에 배치
 sell_marks = [
-    df['high'].iloc[i] * 1.005 if df['sell'].iloc[i] else None 
+    df['high'].iloc[i] * 1.005 if df['sell'].iloc[i] else None
     for i in range(len(df))
 ]
 ```
@@ -166,12 +166,12 @@ df['sell'] = sell
 # -----------------------
 # 마커 위치 계산
 buy_marks = [
-    df['low'].iloc[i] * 0.995 if buy.iloc[i] else None 
+    df['low'].iloc[i] * 0.995 if buy.iloc[i] else None
     for i in range(len(df))
 ]
 
 sell_marks = [
-    df['high'].iloc[i] * 1.005 if sell.iloc[i] else None 
+    df['high'].iloc[i] * 1.005 if sell.iloc[i] else None
     for i in range(len(df))
 ]
 

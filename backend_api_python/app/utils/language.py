@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-
 SUPPORTED_LANGS = {
     "en-US",
     "zh-CN",
@@ -82,5 +81,3 @@ def detect_request_language(flask_request, body: Optional[dict] = None, default:
         return lang
 
     return default
-
-

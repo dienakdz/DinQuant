@@ -16,7 +16,7 @@ from typing import Dict, Tuple
 def _split_base_quote(symbol: str) -> Tuple[str, str]:
     """
     The split symbols are base currency and quote currency.
-    
+
     Handle various formats:
     - BTC/USDT -> (BTC, USDT)
     - BTCUSDT -> (BTCUSDT, "") - requires further processing
@@ -28,10 +28,10 @@ def _split_base_quote(symbol: str) -> Tuple[str, str]:
     if "/" not in s:
         # Try to identify the quote currency (common format: BASEQUOTE)
         s_upper = s.upper()
-        common_quotes = ['USDT', 'USD', 'BTC', 'ETH', 'BUSD', 'USDC', 'BNB']
+        common_quotes = ["USDT", "USD", "BTC", "ETH", "BUSD", "USDC", "BNB"]
         for quote in common_quotes:
             if s_upper.endswith(quote) and len(s_upper) > len(quote):
-                base = s_upper[:-len(quote)]
+                base = s_upper[: -len(quote)]
                 if base:
                     return base, quote
         # Unrecognized, the original symbol and empty quote are returned.
@@ -207,22 +207,22 @@ def to_deepcoin_symbol(symbol: str) -> str:
     Examples:
     - Spot: BTC-USDT
     - Perpetual: BTC-USDT-SWAP
-    
+
     If symbol already contains '-', return as-is (already in Deepcoin format).
     """
     s = (symbol or "").strip()
     if not s:
         return s
-    
+
     # Already in Deepcoin format
     if "-" in s:
         return s.upper()
-    
+
     base, quote = _split_base_quote(symbol)
     if not base or not quote:
         # Best effort: remove slashes and colons
         return s.replace("/", "-").replace(":", "-").upper()
-    
+
     # Return BASE-QUOTE format (caller adds -SWAP if needed for futures)
     return f"{base}-{quote}"
 
@@ -260,4 +260,3 @@ def to_htx_contract_code(symbol: str) -> str:
     if not base or not quote:
         return s.replace("/", "-").replace(":", "-").upper()
     return f"{base}-{quote}"
-

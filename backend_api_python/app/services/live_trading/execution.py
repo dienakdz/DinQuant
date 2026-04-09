@@ -14,17 +14,16 @@ from typing import Any, Dict, Optional, Tuple
 from app.services.live_trading.base import BaseRestClient, LiveOrderResult, LiveTradingError
 from app.services.live_trading.binance import BinanceFuturesClient
 from app.services.live_trading.binance_spot import BinanceSpotClient
-from app.services.live_trading.okx import OkxClient
+from app.services.live_trading.bitfinex import BitfinexClient, BitfinexDerivativesClient
 from app.services.live_trading.bitget import BitgetMixClient
 from app.services.live_trading.bitget_spot import BitgetSpotClient
 from app.services.live_trading.bybit import BybitClient
 from app.services.live_trading.coinbase_exchange import CoinbaseExchangeClient
+from app.services.live_trading.gate import GateSpotClient, GateUsdtFuturesClient
 from app.services.live_trading.kraken import KrakenClient
 from app.services.live_trading.kraken_futures import KrakenFuturesClient
-from app.services.live_trading.kucoin import KucoinSpotClient
-from app.services.live_trading.kucoin import KucoinFuturesClient
-from app.services.live_trading.gate import GateSpotClient, GateUsdtFuturesClient
-from app.services.live_trading.bitfinex import BitfinexClient, BitfinexDerivativesClient
+from app.services.live_trading.kucoin import KucoinFuturesClient, KucoinSpotClient
+from app.services.live_trading.okx import OkxClient
 
 # Lazy import Deepcoin
 DeepcoinClient = None
@@ -42,43 +41,43 @@ MT5Client = None
 def _normalize_symbol_for_order(symbol: str, market_type: str = "swap") -> str:
     """
     Standardize symbol formats to ensure symbols comply with exchange requirements.
-    
+
     Handles various input formats:
     - BTC/USDT -> BTC/USDT
     - BTCUSDT -> BTC/USDT
     - BTC/USDT:USDT -> BTC/USDT
     - PI, TRX -> PI/USDT, TRX/USDT (/USDT is added by default)
-    
+
     Args:
         symbol: original symbol
         market_type: market type (spot/swap)
-        
+
     Returns:
         normalized symbols
     """
     if not symbol:
         return symbol
-    
+
     sym = symbol.strip()
-    
+
     # Remove swap/futures suffix
-    if ':' in sym:
-        sym = sym.split(':', 1)[0]
-    
+    if ":" in sym:
+        sym = sym.split(":", 1)[0]
+
     sym = sym.upper()
-    
+
     # If there is already a separator, return it directly (assuming the format is correct)
-    if '/' in sym:
+    if "/" in sym:
         return sym
-    
+
     # Try to identify from common quote currencies
-    common_quotes = ['USDT', 'USD', 'BTC', 'ETH', 'BUSD', 'USDC']
+    common_quotes = ["USDT", "USD", "BTC", "ETH", "BUSD", "USDC"]
     for quote in common_quotes:
         if sym.endswith(quote) and len(sym) > len(quote):
-            base = sym[:-len(quote)]
+            base = sym[: -len(quote)]
             if base:
                 return f"{base}/{quote}"
-    
+
     # If not recognized, USDT will be used by default.
     return f"{sym}/USDT"
 
@@ -113,7 +112,9 @@ def _quote_amount_from_base_qty(client: BaseRestClient, *, symbol: str, base_qty
     if not isinstance(ticker, dict):
         return float(base_qty or 0.0)
     try:
-        price = float(ticker.get("last") or ticker.get("lastPr") or ticker.get("lastPrice") or ticker.get("price") or 0.0)
+        price = float(
+            ticker.get("last") or ticker.get("lastPr") or ticker.get("lastPrice") or ticker.get("price") or 0.0
+        )
     except Exception:
         price = 0.0
     if price <= 0:
@@ -147,7 +148,7 @@ def place_order_from_signal(
     # Spot does not support short signals in this system.
     if mt == "spot" and ("short" in (signal_type or "").lower()):
         raise LiveTradingError("spot market does not support short signals")
-    
+
     # Standardized symbol format (unified processing of bare symbols such as PI, TRX, etc.)
     symbol = _normalize_symbol_for_order(symbol, market_type=mt)
 
@@ -161,7 +162,7 @@ def place_order_from_signal(
             client_order_id=client_order_id,
         )
     if isinstance(client, OkxClient):
-        td_mode = (cfg.get("margin_mode") or cfg.get("td_mode") or "cross")
+        td_mode = cfg.get("margin_mode") or cfg.get("td_mode") or "cross"
         return client.place_market_order(
             symbol=symbol,
             side=side,
@@ -222,28 +223,37 @@ def place_order_from_signal(
         if side == "buy":
             kucoin_size = _quote_amount_from_base_qty(client, symbol=symbol, base_qty=qty)
             quote_size = kucoin_size > 0 and kucoin_size != qty
-        return client.place_market_order(symbol=symbol, side=side, size=kucoin_size, client_order_id=client_order_id, quote_size=quote_size)
+        return client.place_market_order(
+            symbol=symbol, side=side, size=kucoin_size, client_order_id=client_order_id, quote_size=quote_size
+        )
     if isinstance(client, KucoinFuturesClient):
-        return client.place_market_order(symbol=symbol, side=side, size=qty, reduce_only=reduce_only, client_order_id=client_order_id)
+        return client.place_market_order(
+            symbol=symbol, side=side, size=qty, reduce_only=reduce_only, client_order_id=client_order_id
+        )
     if isinstance(client, GateSpotClient):
         gate_size = qty
         if side == "buy":
             gate_size = _quote_amount_from_base_qty(client, symbol=symbol, base_qty=qty)
         return client.place_market_order(symbol=symbol, side=side, size=gate_size, client_order_id=client_order_id)
     if isinstance(client, GateUsdtFuturesClient):
-        return client.place_market_order(symbol=symbol, side=side, size=qty, reduce_only=reduce_only, client_order_id=client_order_id)
+        return client.place_market_order(
+            symbol=symbol, side=side, size=qty, reduce_only=reduce_only, client_order_id=client_order_id
+        )
     if isinstance(client, BitfinexClient):
         return client.place_market_order(symbol=symbol, side=side, size=qty, client_order_id=client_order_id)
     if isinstance(client, BitfinexDerivativesClient):
         return client.place_market_order(symbol=symbol, side=side, size=qty, client_order_id=client_order_id)
     if isinstance(client, KrakenFuturesClient):
-        return client.place_market_order(symbol=symbol, side=side, size=qty, reduce_only=reduce_only, client_order_id=client_order_id)
+        return client.place_market_order(
+            symbol=symbol, side=side, size=qty, reduce_only=reduce_only, client_order_id=client_order_id
+        )
 
     # Check for Deepcoin client (lazy import to avoid circular dependency)
     global DeepcoinClient
     if DeepcoinClient is None:
         try:
             from app.services.live_trading.deepcoin import DeepcoinClient as _DeepcoinClient
+
             DeepcoinClient = _DeepcoinClient
         except ImportError:
             pass
@@ -262,6 +272,7 @@ def place_order_from_signal(
     if HtxClient is None:
         try:
             from app.services.live_trading.htx import HtxClient as _HtxClient
+
             HtxClient = _HtxClient
         except ImportError:
             pass
@@ -281,6 +292,7 @@ def place_order_from_signal(
     if IBKRClient is None:
         try:
             from app.services.ibkr_trading import IBKRClient as _IBKRClient
+
             IBKRClient = _IBKRClient
         except ImportError:
             pass
@@ -299,6 +311,7 @@ def place_order_from_signal(
     if MT5Client is None:
         try:
             from app.services.mt5_trading import MT5Client as _MT5Client
+
             MT5Client = _MT5Client
         except ImportError:
             pass
@@ -404,8 +417,9 @@ def _place_mt5_order(
 
     # Normalize symbol before placing order (MT5 requires specific format)
     from app.services.mt5_trading.symbols import normalize_symbol
+
     normalized_symbol = normalize_symbol(symbol)
-    
+
     # Place market order
     result = client.place_market_order(
         symbol=normalized_symbol,
@@ -427,4 +441,3 @@ def _place_mt5_order(
             "raw": result.raw,
         },
     )
-

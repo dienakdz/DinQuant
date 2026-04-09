@@ -1,26 +1,24 @@
-import os
-import time
 import json
 import threading
 import uuid
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from app.utils.logger import get_logger
 from app.utils.db import get_db_connection
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+
 class StrategyService:
     """Strategy service."""
-    
+
     # Class variable: limit connection test concurrency
     _connection_test_semaphore = threading.Semaphore(5)
-    
+
     def __init__(self):
         # Local deployment: do not use encryption/decryption.
         pass
-        
+
     def get_running_strategies(self) -> List[Dict[str, Any]]:
         """Get all running strategies (ID only)"""
         try:
@@ -30,7 +28,7 @@ class StrategyService:
                 cursor.execute(query)
                 results = cursor.fetchall()
                 cursor.close()
-                return [row['id'] for row in results]
+                return [row["id"] for row in results]
         except Exception as e:
             logger.error(f"Failed to fetch running strategies: {str(e)}")
             return []
@@ -47,25 +45,25 @@ class StrategyService:
                 cursor.execute(query)
                 results = cursor.fetchall()
                 cursor.close()
-                
-                strategies = [{'id': row['id'], 'strategy_type': row.get('strategy_type', '')} for row in results]
+
+                strategies = [{"id": row["id"], "strategy_type": row.get("strategy_type", "")} for row in results]
                 logger.info(f"Found {len(strategies)} running strategies: {strategies}")
                 return strategies
-                
+
         except Exception as e:
             logger.error(f"Failed to fetch running strategies: {str(e)}")
             return []
-    
+
     def get_exchange_symbols(self, exchange_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get exchange trading pairs (no API Key required)
         """
         try:
-            exchange_id = exchange_config.get('exchange_id', '')
-            proxies = exchange_config.get('proxies')
-            
+            exchange_id = exchange_config.get("exchange_id", "")
+            proxies = exchange_config.get("proxies")
+
             if not exchange_id:
-                return {'success': False, 'message': 'Please select an exchange', 'symbols': []}
+                return {"success": False, "message": "Please select an exchange", "symbols": []}
 
             # For these exchanges, prefer direct REST (no ccxt), aligned with local live-trading design.
             ex = str(exchange_id or "").strip().lower()
@@ -78,11 +76,17 @@ class StrategyService:
                     return r.json()
 
                 symbols: List[str] = []
-                market_type = str(exchange_config.get("market_type") or exchange_config.get("defaultType") or "spot").strip().lower()
+                market_type = (
+                    str(exchange_config.get("market_type") or exchange_config.get("defaultType") or "spot")
+                    .strip()
+                    .lower()
+                )
                 if market_type in ("futures", "future", "perp", "perpetual"):
                     market_type = "swap"
                 if ex == "bybit":
-                    base = str(exchange_config.get("base_url") or exchange_config.get("baseUrl") or "https://api.bybit.com").rstrip("/")
+                    base = str(
+                        exchange_config.get("base_url") or exchange_config.get("baseUrl") or "https://api.bybit.com"
+                    ).rstrip("/")
                     cat = "spot" if market_type == "spot" else "linear"
                     j = _req_json(f"{base}/v5/market/instruments-info?category={cat}")
                     lst = (((j.get("result") or {}).get("list")) if isinstance(j, dict) else None) or []
@@ -97,10 +101,14 @@ class StrategyService:
                             if sym.endswith("USDT") and len(sym) > 4:
                                 symbols.append(f"{sym[:-4]}/USDT")
                     symbols = sorted(list(set(symbols)))
-                    return {'success': True, 'message': f'Success, {len(symbols)} trading pairs', 'symbols': symbols}
+                    return {"success": True, "message": f"Success, {len(symbols)} trading pairs", "symbols": symbols}
 
                 if ex in ("coinbaseexchange", "coinbase_exchange"):
-                    base = str(exchange_config.get("base_url") or exchange_config.get("baseUrl") or "https://api.exchange.coinbase.com").rstrip("/")
+                    base = str(
+                        exchange_config.get("base_url")
+                        or exchange_config.get("baseUrl")
+                        or "https://api.exchange.coinbase.com"
+                    ).rstrip("/")
                     j = _req_json(f"{base}/products")
                     if isinstance(j, list):
                         for it in j:
@@ -113,7 +121,7 @@ class StrategyService:
                             if quote_ccy == "USDT" and base_ccy:
                                 symbols.append(f"{base_ccy}/USDT")
                     symbols = sorted(list(set(symbols)))
-                    return {'success': True, 'message': f'Success, {len(symbols)} trading pairs', 'symbols': symbols}
+                    return {"success": True, "message": f"Success, {len(symbols)} trading pairs", "symbols": symbols}
 
                 if ex == "kraken":
                     if market_type == "spot":
@@ -130,7 +138,11 @@ class StrategyService:
                                 if str(quote_ccy).upper() == "USDT":
                                     symbols.append(f"{str(base_ccy).upper()}/USDT")
                     else:
-                        base = str(exchange_config.get("futures_base_url") or exchange_config.get("futuresBaseUrl") or "https://futures.kraken.com").rstrip("/")
+                        base = str(
+                            exchange_config.get("futures_base_url")
+                            or exchange_config.get("futuresBaseUrl")
+                            or "https://futures.kraken.com"
+                        ).rstrip("/")
                         j = _req_json(f"{base}/derivatives/api/v3/instruments")
                         instruments = j.get("instruments") if isinstance(j, dict) else None
                         if isinstance(instruments, list):
@@ -142,11 +154,15 @@ class StrategyService:
                                 if sym and ("perpetual" in typ or typ.startswith("pf") or sym.startswith("PF_")):
                                     symbols.append(sym)
                     symbols = sorted(list(set(symbols)))
-                    return {'success': True, 'message': f'Success, {len(symbols)} trading pairs', 'symbols': symbols}
+                    return {"success": True, "message": f"Success, {len(symbols)} trading pairs", "symbols": symbols}
 
                 if ex == "kucoin":
                     if market_type == "spot":
-                        base = str(exchange_config.get("base_url") or exchange_config.get("baseUrl") or "https://api.kucoin.com").rstrip("/")
+                        base = str(
+                            exchange_config.get("base_url")
+                            or exchange_config.get("baseUrl")
+                            or "https://api.kucoin.com"
+                        ).rstrip("/")
                         j = _req_json(f"{base}/api/v1/symbols")
                         data = (j.get("data") if isinstance(j, dict) else None) or []
                         if isinstance(data, list):
@@ -161,7 +177,11 @@ class StrategyService:
                                 if b:
                                     symbols.append(f"{b}/USDT")
                     else:
-                        base = str(exchange_config.get("futures_base_url") or exchange_config.get("futuresBaseUrl") or "https://api-futures.kucoin.com").rstrip("/")
+                        base = str(
+                            exchange_config.get("futures_base_url")
+                            or exchange_config.get("futuresBaseUrl")
+                            or "https://api-futures.kucoin.com"
+                        ).rstrip("/")
                         j = _req_json(f"{base}/api/v1/contracts/active")
                         data = (j.get("data") if isinstance(j, dict) else None) or []
                         if isinstance(data, list):
@@ -177,10 +197,12 @@ class StrategyService:
                                 if base_ccy:
                                     symbols.append(f"{base_ccy}/USDT")
                     symbols = sorted(list(set(symbols)))
-                    return {'success': True, 'message': f'Success, {len(symbols)} trading pairs', 'symbols': symbols}
+                    return {"success": True, "message": f"Success, {len(symbols)} trading pairs", "symbols": symbols}
 
                 if ex == "gate":
-                    base = str(exchange_config.get("base_url") or exchange_config.get("baseUrl") or "https://api.gateio.ws").rstrip("/")
+                    base = str(
+                        exchange_config.get("base_url") or exchange_config.get("baseUrl") or "https://api.gateio.ws"
+                    ).rstrip("/")
                     if market_type == "spot":
                         j = _req_json(f"{base}/api/v4/spot/currency_pairs")
                         if isinstance(j, list):
@@ -203,11 +225,13 @@ class StrategyService:
                                 if name and name.upper().endswith("_USDT"):
                                     symbols.append(name.replace("_", "/"))
                     symbols = sorted(list(set(symbols)))
-                    return {'success': True, 'message': f'Success, {len(symbols)} trading pairs', 'symbols': symbols}
+                    return {"success": True, "message": f"Success, {len(symbols)} trading pairs", "symbols": symbols}
 
                 if ex == "bitfinex":
-                    j = _req_json("https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange") if market_type == "spot" else _req_json(
-                        "https://api-pub.bitfinex.com/v2/conf/pub:list:pair:futures"
+                    j = (
+                        _req_json("https://api-pub.bitfinex.com/v2/conf/pub:list:pair:exchange")
+                        if market_type == "spot"
+                        else _req_json("https://api-pub.bitfinex.com/v2/conf/pub:list:pair:futures")
                     )
                     pairs = []
                     if isinstance(j, list) and j and isinstance(j[0], list):
@@ -225,38 +249,38 @@ class StrategyService:
                         elif s.endswith("USDT") and len(s) > 4:
                             symbols.append(f"{s[:-4]}/USDT")
                     symbols = sorted(list(set(symbols)))
-                    return {'success': True, 'message': f'Success, {len(symbols)} trading pairs', 'symbols': symbols}
-                return {'success': True, 'message': 'Success', 'symbols': symbols}
-            
+                    return {"success": True, "message": f"Success, {len(symbols)} trading pairs", "symbols": symbols}
+                return {"success": True, "message": "Success", "symbols": symbols}
+
             import ccxt
-            
+
             # Create exchange instance (public only)
             exchange_class = getattr(ccxt, exchange_id, None)
             if not exchange_class:
-                return {'success': False, 'message': f'Unsupported exchange: {exchange_id}', 'symbols': []}
-            
+                return {"success": False, "message": f"Unsupported exchange: {exchange_id}", "symbols": []}
+
             exchange_config_dict = {
-                'enableRateLimit': True,
-                'options': {'defaultType': 'swap'}  # Default to swap
+                "enableRateLimit": True,
+                "options": {"defaultType": "swap"},  # Default to swap
             }
             if proxies:
-                exchange_config_dict['proxies'] = proxies
-            
+                exchange_config_dict["proxies"] = proxies
+
             exchange = exchange_class(exchange_config_dict)
             markets = exchange.load_markets()
-            
+
             symbols = []
             for symbol, market in markets.items():
-                if market.get('active', False) and market.get('quote') == 'USDT':
+                if market.get("active", False) and market.get("quote") == "USDT":
                     symbols.append(symbol)
-            
+
             symbols.sort()
-            return {'success': True, 'message': f'Success, {len(symbols)} trading pairs', 'symbols': symbols}
-            
+            return {"success": True, "message": f"Success, {len(symbols)} trading pairs", "symbols": symbols}
+
         except Exception as e:
             logger.error(f"Failed to fetch symbols: {str(e)}")
-            return {'success': False, 'message': f'Failed to get trading pairs: {str(e)}', 'symbols': []}
-    
+            return {"success": False, "message": f"Failed to get trading pairs: {str(e)}", "symbols": []}
+
     def test_exchange_connection(self, exchange_config: Dict[str, Any], user_id: int = 1) -> Dict[str, Any]:
         """
         Test exchange connection via direct REST clients (no ccxt).
@@ -269,43 +293,45 @@ class StrategyService:
         with StrategyService._connection_test_semaphore:
             try:
                 from app.services.exchange_execution import resolve_exchange_config, safe_exchange_config_for_log
-                from app.services.live_trading.factory import create_client
                 from app.services.live_trading.binance import BinanceFuturesClient
                 from app.services.live_trading.binance_spot import BinanceSpotClient
-                from app.services.live_trading.okx import OkxClient
+                from app.services.live_trading.bitfinex import BitfinexClient, BitfinexDerivativesClient
                 from app.services.live_trading.bitget import BitgetMixClient
                 from app.services.live_trading.bitget_spot import BitgetSpotClient
                 from app.services.live_trading.bybit import BybitClient
                 from app.services.live_trading.coinbase_exchange import CoinbaseExchangeClient
+                from app.services.live_trading.deepcoin import DeepcoinClient
+                from app.services.live_trading.factory import create_client
+                from app.services.live_trading.gate import GateSpotClient, GateUsdtFuturesClient
+                from app.services.live_trading.htx import HtxClient
                 from app.services.live_trading.kraken import KrakenClient
                 from app.services.live_trading.kraken_futures import KrakenFuturesClient
-                from app.services.live_trading.kucoin import KucoinSpotClient
-                from app.services.live_trading.kucoin import KucoinFuturesClient
-                from app.services.live_trading.gate import GateSpotClient, GateUsdtFuturesClient
-                from app.services.live_trading.bitfinex import BitfinexClient, BitfinexDerivativesClient
-                from app.services.live_trading.deepcoin import DeepcoinClient
-                from app.services.live_trading.htx import HtxClient
+                from app.services.live_trading.kucoin import KucoinFuturesClient, KucoinSpotClient
+                from app.services.live_trading.okx import OkxClient
 
                 resolved = resolve_exchange_config(exchange_config or {}, user_id=user_id)
                 safe_cfg = safe_exchange_config_for_log(resolved)
 
                 exchange_id = (resolved.get("exchange_id") or "").strip().lower()
                 if not exchange_id:
-                    return {'success': False, 'message': 'Missing exchange_id', 'data': None}
+                    return {"success": False, "message": "Missing exchange_id", "data": None}
 
                 # Handle MT5 (Forex) connection test
-                if exchange_id == 'mt5':
+                if exchange_id == "mt5":
                     # Validate that MT5 is only used for Forex market
-                    market_category = str(resolved.get("market_category") or exchange_config.get("market_category") or "").strip()
+                    market_category = str(
+                        resolved.get("market_category") or exchange_config.get("market_category") or ""
+                    ).strip()
                     if market_category and market_category != "Forex":
                         return {
-                            'success': False,
-                            'message': f'MT5 can only be used for Forex trading, but market_category is {market_category}. Please use MT5 only with Forex market.',
-                            'data': {'exchange': safe_cfg}
+                            "success": False,
+                            "message": f"MT5 can only be used for Forex trading, but market_category is {market_category}. Please use MT5 only with Forex market.",
+                            "data": {"exchange": safe_cfg},
                         }
-                    
+
                     try:
                         from app.services.live_trading.factory import create_mt5_client
+
                         mt5_client = create_mt5_client(resolved)
                         if mt5_client and mt5_client.connected:
                             # Get account info if available
@@ -315,31 +341,29 @@ class StrategyService:
                             except Exception:
                                 pass
                             return {
-                                'success': True,
-                                'message': 'MT5 connection successful',
-                                'data': {
-                                    'exchange': safe_cfg,
-                                    'account': account_info
-                                }
+                                "success": True,
+                                "message": "MT5 connection successful",
+                                "data": {"exchange": safe_cfg, "account": account_info},
                             }
                         else:
                             return {
-                                'success': False,
-                                'message': 'Failed to connect to MT5. Please check credentials and ensure terminal is running.',
-                                'data': {'exchange': safe_cfg}
+                                "success": False,
+                                "message": "Failed to connect to MT5. Please check credentials and ensure terminal is running.",
+                                "data": {"exchange": safe_cfg},
                             }
                     except Exception as e:
                         error_msg = str(e)
                         return {
-                            'success': False,
-                            'message': f'MT5 connection failed: {error_msg}',
-                            'data': {'exchange': safe_cfg}
+                            "success": False,
+                            "message": f"MT5 connection failed: {error_msg}",
+                            "data": {"exchange": safe_cfg},
                         }
 
                 # Handle IBKR (US Stocks) connection test
-                if exchange_id == 'ibkr':
+                if exchange_id == "ibkr":
                     try:
                         from app.services.live_trading.factory import create_ibkr_client
+
                         ibkr_client = create_ibkr_client(resolved)
                         # create_ibkr_client already connects, so if it returns, connection is successful
                         if ibkr_client and ibkr_client.connected():
@@ -350,31 +374,29 @@ class StrategyService:
                             except Exception:
                                 pass
                             return {
-                                'success': True,
-                                'message': 'IBKR connection successful',
-                                'data': {
-                                    'exchange': safe_cfg,
-                                    'account': account_summary
-                                }
+                                "success": True,
+                                "message": "IBKR connection successful",
+                                "data": {"exchange": safe_cfg, "account": account_summary},
                             }
                         else:
                             return {
-                                'success': False,
-                                'message': 'Failed to connect to IBKR. Please check TWS/Gateway is running and credentials are correct.',
-                                'data': {'exchange': safe_cfg}
+                                "success": False,
+                                "message": "Failed to connect to IBKR. Please check TWS/Gateway is running and credentials are correct.",
+                                "data": {"exchange": safe_cfg},
                             }
                     except Exception as e:
                         error_msg = str(e)
                         return {
-                            'success': False,
-                            'message': f'IBKR connection failed: {error_msg}',
-                            'data': {'exchange': safe_cfg}
+                            "success": False,
+                            "message": f"IBKR connection failed: {error_msg}",
+                            "data": {"exchange": safe_cfg},
                         }
 
                 # Best-effort detect current egress IP (for Binance IP whitelist debugging).
                 egress_ip = ""
                 try:
                     import requests as _rq
+
                     egress_ip = str(_rq.get("https://ifconfig.me/ip", timeout=5).text or "").strip()
                 except Exception:
                     egress_ip = ""
@@ -387,7 +409,9 @@ class StrategyService:
                     if isinstance(client, OkxClient):
                         return client.get_balance()
                     if isinstance(client, BitgetMixClient):
-                        product_type = str(resolved.get("product_type") or resolved.get("productType") or "USDT-FUTURES")
+                        product_type = str(
+                            resolved.get("product_type") or resolved.get("productType") or "USDT-FUTURES"
+                        )
                         return client.get_accounts(product_type=product_type)
                     if isinstance(client, BitgetSpotClient):
                         return client.get_assets()
@@ -422,12 +446,12 @@ class StrategyService:
                         client = create_client(resolved, market_type=market_type)
                     except Exception as e:
                         return {
-                            'success': False,
-                            'message': f'Create client failed: {str(e)}',
-                            'data': {
-                                'exchange': safe_cfg,
-                                'market_type': market_type,
-                                'egress_ip': egress_ip,
+                            "success": False,
+                            "message": f"Create client failed: {str(e)}",
+                            "data": {
+                                "exchange": safe_cfg,
+                                "market_type": market_type,
+                                "egress_ip": egress_ip,
                             },
                         }
                     client_kind = type(client).__name__
@@ -439,14 +463,14 @@ class StrategyService:
                         ok_public = False
                     if not ok_public:
                         return {
-                            'success': False,
-                            'message': f'Public ping failed: {exchange_id}',
-                            'data': {
-                                'exchange': safe_cfg,
-                                'client': client_kind,
-                                'market_type': market_type,
-                                'egress_ip': egress_ip,
-                                'base_url': getattr(client, "base_url", "") or "",
+                            "success": False,
+                            "message": f"Public ping failed: {exchange_id}",
+                            "data": {
+                                "exchange": safe_cfg,
+                                "client": client_kind,
+                                "market_type": market_type,
+                                "egress_ip": egress_ip,
+                                "base_url": getattr(client, "base_url", "") or "",
                             },
                         }
 
@@ -454,7 +478,9 @@ class StrategyService:
                         priv_data = _validate_private(client, market_type)
                     except Exception as e:
                         msg = str(e)
-                        if exchange_id == "binance" and ("-2015" in msg or "Invalid API-key, IP, or permissions" in msg):
+                        if exchange_id == "binance" and (
+                            "-2015" in msg or "Invalid API-key, IP, or permissions" in msg
+                        ):
                             alt_market_type = "spot" if market_type != "spot" else "swap"
                             alt_client_kind = ""
                             alt_base_url = ""
@@ -470,7 +496,9 @@ class StrategyService:
                                 alt_ok = False
 
                             base_url = getattr(client, "base_url", "") or ""
-                            is_demo = str(resolved.get("enable_demo_trading") or resolved.get("enableDemoTrading") or "").strip().lower() in ("true", "1", "yes")
+                            is_demo = str(
+                                resolved.get("enable_demo_trading") or resolved.get("enableDemoTrading") or ""
+                            ).strip().lower() in ("true", "1", "yes")
                             hint = (
                                 f"Binance auth failed (-2015). Verify: "
                                 f"(1) IP whitelist includes this server egress IP={egress_ip or 'unknown'}, "
@@ -505,31 +533,31 @@ class StrategyService:
                             hint_cn = ""
 
                         fail_payload = {
-                            'exchange': safe_cfg,
-                            'client': client_kind,
-                            'market_type': market_type,
-                            'egress_ip': egress_ip,
-                            'base_url': getattr(client, "base_url", "") or "",
+                            "exchange": safe_cfg,
+                            "client": client_kind,
+                            "market_type": market_type,
+                            "egress_ip": egress_ip,
+                            "base_url": getattr(client, "base_url", "") or "",
                         }
                         if hint_cn:
-                            fail_payload['hint_cn'] = hint_cn
+                            fail_payload["hint_cn"] = hint_cn
 
                         return {
-                            'success': False,
-                            'message': f'Auth failed: {msg}',
-                            'data': fail_payload,
+                            "success": False,
+                            "message": f"Auth failed: {msg}",
+                            "data": fail_payload,
                         }
 
                     return {
-                        'success': True,
-                        'message': 'Connection OK',
-                        'data': {
-                            'exchange': safe_cfg,
-                            'client': client_kind,
-                            'market_type': market_type,
-                            'egress_ip': egress_ip,
-                            'base_url': getattr(client, "base_url", "") or "",
-                            'private': priv_data,
+                        "success": True,
+                        "message": "Connection OK",
+                        "data": {
+                            "exchange": safe_cfg,
+                            "client": client_kind,
+                            "market_type": market_type,
+                            "egress_ip": egress_ip,
+                            "base_url": getattr(client, "base_url", "") or "",
+                            "private": priv_data,
                         },
                     }
 
@@ -545,34 +573,31 @@ class StrategyService:
                 last_failure = None
                 for market_type in market_candidates:
                     result = _probe_market_type(market_type)
-                    if result.get('success'):
+                    if result.get("success"):
                         if not explicit_market_type and len(market_candidates) > 1:
-                            result['message'] = f"Connection OK ({market_type})"
+                            result["message"] = f"Connection OK ({market_type})"
                         return result
                     last_failure = result
 
                 if last_failure and not explicit_market_type and len(market_candidates) > 1:
                     tried = "/".join(market_candidates)
-                    last_failure['message'] = f"{last_failure.get('message')}. Tried market_type={tried}"
-                return last_failure or {'success': False, 'message': 'Connection failed', 'data': None}
+                    last_failure["message"] = f"{last_failure.get('message')}. Tried market_type={tried}"
+                return last_failure or {"success": False, "message": "Connection failed", "data": None}
             except Exception as e:
                 logger.error(f"test_exchange_connection failed: {str(e)}")
-                return {'success': False, 'message': f'Connection failed: {str(e)}', 'data': None}
+                return {"success": False, "message": f"Connection failed: {str(e)}", "data": None}
 
     def get_strategy_type(self, strategy_id: int) -> str:
         """Get strategy type from DB."""
         try:
             with get_db_connection() as db:
                 cur = db.cursor()
-                cur.execute(
-                    "SELECT strategy_type FROM qd_strategies_trading WHERE id = ?",
-                    (strategy_id,)
-                )
+                cur.execute("SELECT strategy_type FROM qd_strategies_trading WHERE id = ?", (strategy_id,))
                 row = cur.fetchone()
                 cur.close()
-            return (row or {}).get('strategy_type') or 'IndicatorStrategy'
+            return (row or {}).get("strategy_type") or "IndicatorStrategy"
         except Exception:
-            return 'IndicatorStrategy'
+            return "IndicatorStrategy"
 
     def update_strategy_status(self, strategy_id: int, status: str, user_id: int = None) -> bool:
         """Update strategy status. If user_id is provided, verify ownership."""
@@ -582,12 +607,12 @@ class StrategyService:
                 if user_id is not None:
                     cur.execute(
                         "UPDATE qd_strategies_trading SET status = ?, updated_at = NOW() WHERE id = ? AND user_id = ?",
-                        (status, strategy_id, user_id)
+                        (status, strategy_id, user_id),
                     )
                 else:
                     cur.execute(
                         "UPDATE qd_strategies_trading SET status = ?, updated_at = NOW() WHERE id = ?",
-                        (status, strategy_id)
+                        (status, strategy_id),
                     )
                 db.commit()
                 cur.close()
@@ -614,7 +639,7 @@ class StrategyService:
 
     def _dump_json_or_encrypt(self, obj: Any, encrypt: bool = False) -> str:
         if obj is None:
-            return ''
+            return ""
         # Local deployment: always store plaintext JSON.
         return json.dumps(obj, ensure_ascii=False)
 
@@ -630,26 +655,28 @@ class StrategyService:
                     WHERE user_id = ?
                     ORDER BY id DESC
                     """,
-                    (user_id,)
+                    (user_id,),
                 )
                 rows = cur.fetchall() or []
                 cur.close()
 
             out = []
             for r in rows:
-                ex = self._safe_json_loads(r.get('exchange_config'), {})
-                ind = self._safe_json_loads(r.get('indicator_config'), {})
-                tr = self._safe_json_loads(r.get('trading_config'), {})
-                ai = self._safe_json_loads(r.get('ai_model_config'), {})
-                notify = self._safe_json_loads(r.get('notification_config'), {})
-                out.append({
-                    **r,
-                    'exchange_config': ex,
-                    'indicator_config': ind,
-                    'trading_config': tr,
-                    'ai_model_config': ai,
-                    'notification_config': notify
-                })
+                ex = self._safe_json_loads(r.get("exchange_config"), {})
+                ind = self._safe_json_loads(r.get("indicator_config"), {})
+                tr = self._safe_json_loads(r.get("trading_config"), {})
+                ai = self._safe_json_loads(r.get("ai_model_config"), {})
+                notify = self._safe_json_loads(r.get("notification_config"), {})
+                out.append(
+                    {
+                        **r,
+                        "exchange_config": ex,
+                        "indicator_config": ind,
+                        "trading_config": tr,
+                        "ai_model_config": ai,
+                        "notification_config": notify,
+                    }
+                )
             return out
         except Exception as e:
             logger.error(f"list_strategies failed: {e}")
@@ -661,41 +688,45 @@ class StrategyService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 if user_id is not None:
-                    cur.execute("SELECT * FROM qd_strategies_trading WHERE id = ? AND user_id = ?", (strategy_id, user_id))
+                    cur.execute(
+                        "SELECT * FROM qd_strategies_trading WHERE id = ? AND user_id = ?", (strategy_id, user_id)
+                    )
                 else:
                     cur.execute("SELECT * FROM qd_strategies_trading WHERE id = ?", (strategy_id,))
                 r = cur.fetchone()
                 cur.close()
             if not r:
                 return None
-            r['exchange_config'] = self._safe_json_loads(r.get('exchange_config'), {})
-            r['indicator_config'] = self._safe_json_loads(r.get('indicator_config'), {})
-            r['trading_config'] = self._safe_json_loads(r.get('trading_config'), {})
-            r['ai_model_config'] = self._safe_json_loads(r.get('ai_model_config'), {})
-            r['notification_config'] = self._safe_json_loads(r.get('notification_config'), {})
+            r["exchange_config"] = self._safe_json_loads(r.get("exchange_config"), {})
+            r["indicator_config"] = self._safe_json_loads(r.get("indicator_config"), {})
+            r["trading_config"] = self._safe_json_loads(r.get("trading_config"), {})
+            r["ai_model_config"] = self._safe_json_loads(r.get("ai_model_config"), {})
+            r["notification_config"] = self._safe_json_loads(r.get("notification_config"), {})
             return r
         except Exception as e:
             logger.error(f"get_strategy failed: {e}")
             return None
 
     def create_strategy(self, payload: Dict[str, Any]) -> int:
-        name = (payload.get('strategy_name') or '').strip()
+        name = (payload.get("strategy_name") or "").strip()
         if not name:
             raise ValueError("strategy_name is required")
 
-        user_id = payload.get('user_id') or 1
-        strategy_type = payload.get('strategy_type') or 'IndicatorStrategy'
-        market_category = payload.get('market_category') or 'Crypto'
-        execution_mode = payload.get('execution_mode') or 'signal'
-        notification_config = payload.get('notification_config') or {}
+        user_id = payload.get("user_id") or 1
+        strategy_type = payload.get("strategy_type") or "IndicatorStrategy"
+        market_category = payload.get("market_category") or "Crypto"
+        execution_mode = payload.get("execution_mode") or "signal"
+        notification_config = payload.get("notification_config") or {}
 
-        indicator_config = payload.get('indicator_config') or {}
-        trading_config = payload.get('trading_config') or {}
-        exchange_config = payload.get('exchange_config') or {}
+        indicator_config = payload.get("indicator_config") or {}
+        trading_config = payload.get("trading_config") or {}
+        exchange_config = payload.get("exchange_config") or {}
 
         # Validate MT5 can only be used for Forex trading
-        exchange_id = (exchange_config.get('exchange_id') or '').strip().lower() if isinstance(exchange_config, dict) else ''
-        if exchange_id == 'mt5' and market_category != 'Forex':
+        exchange_id = (
+            (exchange_config.get("exchange_id") or "").strip().lower() if isinstance(exchange_config, dict) else ""
+        )
+        if exchange_id == "mt5" and market_category != "Forex":
             raise ValueError(
                 f"MT5 can only be used for Forex trading, but market_category is '{market_category}'. "
                 f"MT5 does not support Crypto or Stock trading. Please use MT5 only with Forex market."
@@ -703,38 +734,38 @@ class StrategyService:
 
         # When credential_id is present, strip raw API keys to avoid
         # storing secrets in the strategy record — they live in qd_exchange_credentials.
-        if isinstance(exchange_config, dict) and exchange_config.get('credential_id'):
-            for _secret_key in ('api_key', 'secret_key', 'passphrase', 'apiKey', 'secret', 'password'):
+        if isinstance(exchange_config, dict) and exchange_config.get("credential_id"):
+            for _secret_key in ("api_key", "secret_key", "passphrase", "apiKey", "secret", "password"):
                 exchange_config.pop(_secret_key, None)
 
         # Strategy group fields
-        strategy_group_id = payload.get('strategy_group_id') or ''
-        group_base_name = payload.get('group_base_name') or ''
+        strategy_group_id = payload.get("strategy_group_id") or ""
+        group_base_name = payload.get("group_base_name") or ""
 
         # Denormalized fields for quick list rendering
-        symbol = (trading_config or {}).get('symbol')
-        timeframe = (trading_config or {}).get('timeframe')
-        initial_capital = (trading_config or {}).get('initial_capital') or payload.get('initial_capital') or 1000
-        leverage = (trading_config or {}).get('leverage') or 1
-        market_type = (trading_config or {}).get('market_type') or 'swap'
-        
-        # Cross-sectional strategy fields (store in trading_config to avoid DB schema changes)
-        cs_strategy_type = payload.get('cs_strategy_type') or trading_config.get('cs_strategy_type') or 'single'
-        symbol_list = payload.get('symbol_list') or trading_config.get('symbol_list') or []
-        portfolio_size = payload.get('portfolio_size') or trading_config.get('portfolio_size') or 10
-        long_ratio = float(payload.get('long_ratio') or trading_config.get('long_ratio') or 0.5)
-        rebalance_frequency = payload.get('rebalance_frequency') or trading_config.get('rebalance_frequency') or 'daily'
-        
-        # Store cross-sectional config in trading_config
-        if cs_strategy_type == 'cross_sectional':
-            trading_config['cs_strategy_type'] = cs_strategy_type
-            trading_config['symbol_list'] = symbol_list
-            trading_config['portfolio_size'] = portfolio_size
-            trading_config['long_ratio'] = long_ratio
-            trading_config['rebalance_frequency'] = rebalance_frequency
+        symbol = (trading_config or {}).get("symbol")
+        timeframe = (trading_config or {}).get("timeframe")
+        initial_capital = (trading_config or {}).get("initial_capital") or payload.get("initial_capital") or 1000
+        leverage = (trading_config or {}).get("leverage") or 1
+        market_type = (trading_config or {}).get("market_type") or "swap"
 
-        strategy_mode = payload.get('strategy_mode') or 'signal'
-        strategy_code = payload.get('strategy_code') or ''
+        # Cross-sectional strategy fields (store in trading_config to avoid DB schema changes)
+        cs_strategy_type = payload.get("cs_strategy_type") or trading_config.get("cs_strategy_type") or "single"
+        symbol_list = payload.get("symbol_list") or trading_config.get("symbol_list") or []
+        portfolio_size = payload.get("portfolio_size") or trading_config.get("portfolio_size") or 10
+        long_ratio = float(payload.get("long_ratio") or trading_config.get("long_ratio") or 0.5)
+        rebalance_frequency = payload.get("rebalance_frequency") or trading_config.get("rebalance_frequency") or "daily"
+
+        # Store cross-sectional config in trading_config
+        if cs_strategy_type == "cross_sectional":
+            trading_config["cs_strategy_type"] = cs_strategy_type
+            trading_config["symbol_list"] = symbol_list
+            trading_config["portfolio_size"] = portfolio_size
+            trading_config["long_ratio"] = long_ratio
+            trading_config["rebalance_frequency"] = rebalance_frequency
+
+        strategy_mode = payload.get("strategy_mode") or "signal"
+        strategy_code = payload.get("strategy_code") or ""
 
         with get_db_connection() as db:
             cur = db.cursor()
@@ -755,22 +786,22 @@ class StrategyService:
                     market_category,
                     execution_mode,
                     self._dump_json_or_encrypt(notification_config, encrypt=False),
-                    payload.get('status') or 'stopped',
+                    payload.get("status") or "stopped",
                     symbol,
                     timeframe,
                     float(initial_capital or 1000),
                     int(leverage or 1),
                     market_type,
-                    self._dump_json_or_encrypt(exchange_config, encrypt=False) if exchange_config else '',
+                    self._dump_json_or_encrypt(exchange_config, encrypt=False) if exchange_config else "",
                     self._dump_json_or_encrypt(indicator_config, encrypt=False),
                     self._dump_json_or_encrypt(trading_config, encrypt=False),
-                    self._dump_json_or_encrypt(payload.get('ai_model_config') or {}, encrypt=False),
-                    int(payload.get('decide_interval') or 300),
+                    self._dump_json_or_encrypt(payload.get("ai_model_config") or {}, encrypt=False),
+                    int(payload.get("decide_interval") or 300),
                     strategy_group_id,
                     group_base_name,
                     strategy_mode,
-                    strategy_code
-                )
+                    strategy_code,
+                ),
             )
             new_id = cur.lastrowid
             db.commit()
@@ -780,10 +811,10 @@ class StrategyService:
     def batch_create_strategies(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         Batch create strategies (multi-symbol)
-        
+
         Args:
             payload: Contains symbols (array) and other strategy config
-            
+
         Returns:
             {
                 'success': True/False,
@@ -792,128 +823,118 @@ class StrategyService:
                 'failed_symbols': []
             }
         """
-        symbols = payload.get('symbols') or []
+        symbols = payload.get("symbols") or []
         if not symbols or not isinstance(symbols, list):
             raise ValueError("symbols array is required")
-        
-        base_name = (payload.get('strategy_name') or '').strip()
+
+        base_name = (payload.get("strategy_name") or "").strip()
         if not base_name:
             raise ValueError("strategy_name is required")
-        
+
         # Validate MT5 can only be used for Forex trading
-        market_category = payload.get('market_category') or 'Crypto'
-        exchange_config = payload.get('exchange_config') or {}
-        exchange_id = (exchange_config.get('exchange_id') or '').strip().lower() if isinstance(exchange_config, dict) else ''
-        if exchange_id == 'mt5' and market_category != 'Forex':
+        market_category = payload.get("market_category") or "Crypto"
+        exchange_config = payload.get("exchange_config") or {}
+        exchange_id = (
+            (exchange_config.get("exchange_id") or "").strip().lower() if isinstance(exchange_config, dict) else ""
+        )
+        if exchange_id == "mt5" and market_category != "Forex":
             raise ValueError(
                 f"MT5 can only be used for Forex trading, but market_category is '{market_category}'. "
                 f"MT5 does not support Crypto or Stock trading. Please use MT5 only with Forex market."
             )
-        
+
         # Generate strategy group ID
         strategy_group_id = str(uuid.uuid4())[:8]
-        
+
         created_ids = []
         failed_symbols = []
-        
+
         for symbol in symbols:
             try:
                 # Create individual strategy for each symbol
                 single_payload = dict(payload)
-                
+
                 # Parse symbol (may be "Market:SYMBOL" format)
-                if isinstance(symbol, str) and ':' in symbol:
-                    parts = symbol.split(':', 1)
+                if isinstance(symbol, str) and ":" in symbol:
+                    parts = symbol.split(":", 1)
                     market_category = parts[0]
                     symbol_name = parts[1]
                 else:
-                    market_category = payload.get('market_category') or 'Crypto'
+                    market_category = payload.get("market_category") or "Crypto"
                     symbol_name = symbol
-                
+
                 # Strategy name with symbol suffix
-                single_payload['strategy_name'] = f"{base_name}-{symbol_name}"
-                single_payload['strategy_group_id'] = strategy_group_id
-                single_payload['group_base_name'] = base_name
-                single_payload['market_category'] = market_category
-                
+                single_payload["strategy_name"] = f"{base_name}-{symbol_name}"
+                single_payload["strategy_group_id"] = strategy_group_id
+                single_payload["group_base_name"] = base_name
+                single_payload["market_category"] = market_category
+
                 # Update symbol in trading_config
-                trading_config = dict(single_payload.get('trading_config') or {})
-                trading_config['symbol'] = symbol_name
-                single_payload['trading_config'] = trading_config
-                
+                trading_config = dict(single_payload.get("trading_config") or {})
+                trading_config["symbol"] = symbol_name
+                single_payload["trading_config"] = trading_config
+
                 new_id = self.create_strategy(single_payload)
                 created_ids.append(new_id)
-                
+
             except Exception as e:
                 logger.error(f"Failed to create strategy for symbol {symbol}: {e}")
-                failed_symbols.append({'symbol': symbol, 'error': str(e)})
-        
+                failed_symbols.append({"symbol": symbol, "error": str(e)})
+
         return {
-            'success': len(created_ids) > 0,
-            'strategy_group_id': strategy_group_id,
-            'group_base_name': base_name,
-            'created_ids': created_ids,
-            'failed_symbols': failed_symbols,
-            'total_created': len(created_ids),
-            'total_failed': len(failed_symbols)
+            "success": len(created_ids) > 0,
+            "strategy_group_id": strategy_group_id,
+            "group_base_name": base_name,
+            "created_ids": created_ids,
+            "failed_symbols": failed_symbols,
+            "total_created": len(created_ids),
+            "total_failed": len(failed_symbols),
         }
 
     def batch_start_strategies(self, strategy_ids: List[int], user_id: int = None) -> Dict[str, Any]:
         """Batch start strategies. If user_id is provided, verify ownership."""
         success_ids = []
         failed_ids = []
-        
+
         for sid in strategy_ids:
             try:
-                self.update_strategy_status(sid, 'running', user_id=user_id)
+                self.update_strategy_status(sid, "running", user_id=user_id)
                 success_ids.append(sid)
             except Exception as e:
                 logger.error(f"Failed to start strategy {sid}: {e}")
-                failed_ids.append({'id': sid, 'error': str(e)})
-        
-        return {
-            'success': len(success_ids) > 0,
-            'success_ids': success_ids,
-            'failed_ids': failed_ids
-        }
+                failed_ids.append({"id": sid, "error": str(e)})
+
+        return {"success": len(success_ids) > 0, "success_ids": success_ids, "failed_ids": failed_ids}
 
     def batch_stop_strategies(self, strategy_ids: List[int], user_id: int = None) -> Dict[str, Any]:
         """Batch stop strategies. If user_id is provided, verify ownership."""
         success_ids = []
         failed_ids = []
-        
+
         for sid in strategy_ids:
             try:
-                self.update_strategy_status(sid, 'stopped', user_id=user_id)
+                self.update_strategy_status(sid, "stopped", user_id=user_id)
                 success_ids.append(sid)
             except Exception as e:
                 logger.error(f"Failed to stop strategy {sid}: {e}")
-                failed_ids.append({'id': sid, 'error': str(e)})
-        
-        return {
-            'success': len(success_ids) > 0,
-            'success_ids': success_ids,
-            'failed_ids': failed_ids
-        }
+                failed_ids.append({"id": sid, "error": str(e)})
+
+        return {"success": len(success_ids) > 0, "success_ids": success_ids, "failed_ids": failed_ids}
 
     def batch_delete_strategies(self, strategy_ids: List[int], user_id: int = None) -> Dict[str, Any]:
         """Batch delete strategies. If user_id is provided, verify ownership."""
         success_ids = []
         failed_ids = []
-        
+
         for sid in strategy_ids:
             try:
                 self.delete_strategy(sid, user_id=user_id)
                 success_ids.append(sid)
             except Exception as e:
                 logger.error(f"Failed to delete strategy {sid}: {e}")
-                failed_ids.append({'id': sid, 'error': str(e)})
-        
-        return {
-            'success': len(success_ids) > 0,
-            'success_ids': success_ids,
-            'failed_ids': failed_ids
-        }
+                failed_ids.append({"id": sid, "error": str(e)})
+
+        return {"success": len(success_ids) > 0, "success_ids": success_ids, "failed_ids": failed_ids}
 
     def get_strategies_by_group(self, strategy_group_id: str, user_id: int = None) -> List[Dict[str, Any]]:
         """Get all strategies in a group. If user_id is provided, filter by user."""
@@ -923,16 +944,15 @@ class StrategyService:
                 if user_id is not None:
                     cur.execute(
                         "SELECT id FROM qd_strategies_trading WHERE strategy_group_id = ? AND user_id = ?",
-                        (strategy_group_id, user_id)
+                        (strategy_group_id, user_id),
                     )
                 else:
                     cur.execute(
-                        "SELECT id FROM qd_strategies_trading WHERE strategy_group_id = ?",
-                        (strategy_group_id,)
+                        "SELECT id FROM qd_strategies_trading WHERE strategy_group_id = ?", (strategy_group_id,)
                     )
                 rows = cur.fetchall() or []
                 cur.close()
-            return [row['id'] for row in rows]
+            return [row["id"] for row in rows]
         except Exception as e:
             logger.error(f"get_strategies_by_group failed: {e}")
             return []
@@ -943,50 +963,59 @@ class StrategyService:
             return False
 
         # Merge: allow partial updates
-        name = (payload.get('strategy_name') or existing.get('strategy_name') or '').strip()
-        market_category = payload.get('market_category') or existing.get('market_category') or 'Crypto'
-        execution_mode = payload.get('execution_mode') or existing.get('execution_mode') or 'signal'
-        notification_config = payload.get('notification_config') if payload.get('notification_config') is not None else (existing.get('notification_config') or {})
+        name = (payload.get("strategy_name") or existing.get("strategy_name") or "").strip()
+        market_category = payload.get("market_category") or existing.get("market_category") or "Crypto"
+        execution_mode = payload.get("execution_mode") or existing.get("execution_mode") or "signal"
+        notification_config = (
+            payload.get("notification_config")
+            if payload.get("notification_config") is not None
+            else (existing.get("notification_config") or {})
+        )
 
-        indicator_config = payload.get('indicator_config') if payload.get('indicator_config') is not None else (existing.get('indicator_config') or {})
-        trading_config = payload.get('trading_config') if payload.get('trading_config') is not None else (existing.get('trading_config') or {})
-        exchange_config = payload.get('exchange_config') if payload.get('exchange_config') is not None else (existing.get('exchange_config') or {})
-        ai_model_config = payload.get('ai_model_config') if payload.get('ai_model_config') is not None else (existing.get('ai_model_config') or {})
-        strategy_mode = payload.get('strategy_mode') if payload.get('strategy_mode') is not None else (existing.get('strategy_mode') or 'signal')
-        strategy_code = payload.get('strategy_code') if payload.get('strategy_code') is not None else (existing.get('strategy_code') or '')
+        indicator_config = (
+            payload.get("indicator_config")
+            if payload.get("indicator_config") is not None
+            else (existing.get("indicator_config") or {})
+        )
+        trading_config = (
+            payload.get("trading_config")
+            if payload.get("trading_config") is not None
+            else (existing.get("trading_config") or {})
+        )
+        exchange_config = (
+            payload.get("exchange_config")
+            if payload.get("exchange_config") is not None
+            else (existing.get("exchange_config") or {})
+        )
+        ai_model_config = (
+            payload.get("ai_model_config")
+            if payload.get("ai_model_config") is not None
+            else (existing.get("ai_model_config") or {})
+        )
 
         # When credential_id is present, strip raw API keys to avoid
         # storing secrets in the strategy record — they live in qd_exchange_credentials.
-        if isinstance(exchange_config, dict) and exchange_config.get('credential_id'):
-            for _secret_key in ('api_key', 'secret_key', 'passphrase', 'apiKey', 'secret', 'password'):
+        if isinstance(exchange_config, dict) and exchange_config.get("credential_id"):
+            for _secret_key in ("api_key", "secret_key", "passphrase", "apiKey", "secret", "password"):
                 exchange_config.pop(_secret_key, None)
 
         # Handle cross-sectional strategy config updates
-        if payload.get('cs_strategy_type') is not None:
-            trading_config['cs_strategy_type'] = payload.get('cs_strategy_type')
-        if payload.get('symbol_list') is not None:
-            trading_config['symbol_list'] = payload.get('symbol_list')
-        if payload.get('portfolio_size') is not None:
-            trading_config['portfolio_size'] = payload.get('portfolio_size')
-        if payload.get('long_ratio') is not None:
-            trading_config['long_ratio'] = payload.get('long_ratio')
-        if payload.get('rebalance_frequency') is not None:
-            trading_config['rebalance_frequency'] = payload.get('rebalance_frequency')
+        if payload.get("cs_strategy_type") is not None:
+            trading_config["cs_strategy_type"] = payload.get("cs_strategy_type")
+        if payload.get("symbol_list") is not None:
+            trading_config["symbol_list"] = payload.get("symbol_list")
+        if payload.get("portfolio_size") is not None:
+            trading_config["portfolio_size"] = payload.get("portfolio_size")
+        if payload.get("long_ratio") is not None:
+            trading_config["long_ratio"] = payload.get("long_ratio")
+        if payload.get("rebalance_frequency") is not None:
+            trading_config["rebalance_frequency"] = payload.get("rebalance_frequency")
 
-        symbol = (trading_config or {}).get('symbol')
-        timeframe = (trading_config or {}).get('timeframe')
-        initial_capital = (trading_config or {}).get('initial_capital') or existing.get('initial_capital') or 1000
-        leverage = (trading_config or {}).get('leverage') or existing.get('leverage') or 1
-        market_type = (trading_config or {}).get('market_type') or existing.get('market_type') or 'swap'
-
-        strategy_type = (payload.get('strategy_type') if payload.get('strategy_type') is not None
-                         else existing.get('strategy_type')) or 'IndicatorStrategy'
-        strategy_mode = (payload.get('strategy_mode') if payload.get('strategy_mode') is not None
-                         else existing.get('strategy_mode')) or 'signal'
-        if 'strategy_code' in payload:
-            strategy_code = payload.get('strategy_code') or ''
-        else:
-            strategy_code = existing.get('strategy_code') or ''
+        symbol = (trading_config or {}).get("symbol")
+        timeframe = (trading_config or {}).get("timeframe")
+        initial_capital = (trading_config or {}).get("initial_capital") or existing.get("initial_capital") or 1000
+        leverage = (trading_config or {}).get("leverage") or existing.get("leverage") or 1
+        market_type = (trading_config or {}).get("market_type") or existing.get("market_type") or "swap"
 
         with get_db_connection() as db:
             cur = db.cursor()
@@ -1022,12 +1051,12 @@ class StrategyService:
                     float(initial_capital or 1000),
                     int(leverage or 1),
                     market_type,
-                    self._dump_json_or_encrypt(exchange_config, encrypt=False) if exchange_config else '',
+                    self._dump_json_or_encrypt(exchange_config, encrypt=False) if exchange_config else "",
                     self._dump_json_or_encrypt(indicator_config, encrypt=False),
                     self._dump_json_or_encrypt(trading_config, encrypt=False),
                     self._dump_json_or_encrypt(ai_model_config, encrypt=False),
-                    strategy_id
-                )
+                    strategy_id,
+                ),
             )
             db.commit()
             cur.close()
@@ -1039,7 +1068,9 @@ class StrategyService:
             with get_db_connection() as db:
                 cur = db.cursor()
                 if user_id is not None:
-                    cur.execute("DELETE FROM qd_strategies_trading WHERE id = ? AND user_id = ?", (strategy_id, user_id))
+                    cur.execute(
+                        "DELETE FROM qd_strategies_trading WHERE id = ? AND user_id = ?", (strategy_id, user_id)
+                    )
                 else:
                     cur.execute("DELETE FROM qd_strategies_trading WHERE id = ?", (strategy_id,))
                 db.commit()

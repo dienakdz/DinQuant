@@ -18,14 +18,14 @@
         position: relative;
         overflow: hidden;
       }
-      
+
       .first-loading-wrp > h2 {
         font-size: 32px;
         margin-bottom: 40px;
         color: #333;
         font-weight: 600;
       }
-      
+
       .first-loading-wrp .loading-wrp {
         padding: 40px;
         display: flex;
@@ -36,7 +36,7 @@
         width: 100%;
         max-width: 600px;
       }
-      
+
       /* Pixel-style running cat animation container */
       .pixel-cat-container {
         position: relative;
@@ -45,7 +45,7 @@
         margin: 0 auto 30px;
         overflow: hidden;
       }
-      
+
       /* Pixel cat body */
       .pixel-cat {
         position: absolute;
@@ -58,14 +58,14 @@
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
       }
-      
+
       /* All pixel elements use sharp edges */
       .pixel-cat * {
         image-rendering: pixelated;
         image-rendering: -moz-crisp-edges;
         image-rendering: crisp-edges;
       }
-      
+
       /* Cat head - built from pixel blocks */
       .cat-head {
         position: absolute;
@@ -73,7 +73,7 @@
         top: 0;
         width: 16px;
         height: 14px;
-        background: 
+        background:
           /* White base of the head */
           linear-gradient(#fff, #fff) 2px 4px / 12px 10px no-repeat,
           /* Black patch on the left side of the face */
@@ -82,7 +82,7 @@
           linear-gradient(#fff, #fff) 4px 2px / 8px 2px no-repeat;
         animation: headBob 0.4s steps(2) infinite;
       }
-      
+
       /* Left ear - black pointed ear */
       .cat-ear-left {
         position: absolute;
@@ -90,12 +90,12 @@
         top: -2px;
         width: 4px;
         height: 6px;
-        background: 
+        background:
           linear-gradient(#000, #000) 0px 4px / 4px 2px no-repeat,
           linear-gradient(#000, #000) 1px 2px / 2px 2px no-repeat,
           linear-gradient(#000, #000) 1px 0px / 2px 2px no-repeat;
       }
-      
+
       /* Right ear - white pointed ear */
       .cat-ear-right {
         position: absolute;
@@ -103,13 +103,13 @@
         top: -2px;
         width: 4px;
         height: 6px;
-        background: 
+        background:
           linear-gradient(#fff, #fff) 0px 4px / 4px 2px no-repeat,
           linear-gradient(#fff, #fff) 1px 2px / 2px 2px no-repeat,
           linear-gradient(#fff, #fff) 1px 0px / 2px 2px no-repeat;
         box-shadow: inset 0 0 0 1px #000;
       }
-      
+
       .cat-ear-right::after {
         content: '';
         position: absolute;
@@ -119,7 +119,7 @@
         border-width: 0 1px 0 0;
         box-sizing: border-box;
       }
-      
+
       /* Left eye - white eye on black background */
       .cat-eye-left {
         position: absolute;
@@ -129,7 +129,7 @@
         height: 4px;
         background: #fff;
       }
-      
+
       .cat-eye-left::after {
         content: '';
         position: absolute;
@@ -139,7 +139,7 @@
         height: 2px;
         background: #000;
       }
-      
+
       /* Right eye - black eye on white background */
       .cat-eye-right {
         position: absolute;
@@ -151,7 +151,7 @@
         border: 1px solid #000;
         box-sizing: border-box;
       }
-      
+
       .cat-eye-right::after {
         content: '';
         position: absolute;
@@ -161,7 +161,7 @@
         height: 2px;
         background: #000;
       }
-      
+
       /* Nose - small pink square */
       .cat-nose {
         position: absolute;
@@ -171,7 +171,7 @@
         height: 2px;
         background: #000;
       }
-      
+
       /* Whiskers - pixel lines */
       .cat-whiskers {
         position: absolute;
@@ -180,7 +180,7 @@
         width: 16px;
         height: 4px;
       }
-      
+
       .cat-whiskers::before {
         content: '';
         position: absolute;
@@ -191,7 +191,7 @@
         background: #000;
         box-shadow: 0 2px 0 #000;
       }
-      
+
       .cat-whiskers::after {
         content: '';
         position: absolute;
@@ -202,7 +202,7 @@
         background: #000;
         box-shadow: 0 2px 0 #000;
       }
-      
+
       /* Body - black and white pixel blocks */
       .cat-body {
         position: absolute;
@@ -210,7 +210,7 @@
         top: 14px;
         width: 14px;
         height: 10px;
-        background: 
+        background:
           /* White section */
           linear-gradient(#fff, #fff) 6px 0 / 8px 10px no-repeat,
           /* Black section */
@@ -218,7 +218,7 @@
         border: 1px solid #000;
         box-sizing: border-box;
       }
-      
+
       /* Front leg - left, black */
       .cat-leg-front-left {
         position: absolute;
@@ -229,7 +229,7 @@
         background: #000;
         animation: legFront 0.2s steps(2) infinite;
       }
-      
+
       /* Front leg - right, white with border */
       .cat-leg-front-right {
         position: absolute;
@@ -242,7 +242,7 @@
         box-sizing: border-box;
         animation: legFront 0.2s steps(2) infinite 0.1s;
       }
-      
+
       /* Back leg - left, white with border */
       .cat-leg-back-left {
         position: absolute;
@@ -255,7 +255,7 @@
         box-sizing: border-box;
         animation: legBack 0.2s steps(2) infinite 0.1s;
       }
-      
+
       /* Back leg - right, black */
       .cat-leg-back-right {
         position: absolute;
@@ -266,7 +266,7 @@
         background: #000;
         animation: legBack 0.2s steps(2) infinite;
       }
-      
+
       /* Tail - a long curved pixel tail */
       .cat-tail {
         position: absolute;
@@ -274,7 +274,7 @@
         top: 10px;
         width: 12px;
         height: 10px;
-        background: 
+        background:
           /* Tail base */
           linear-gradient(#000, #000) 0 6px / 3px 3px no-repeat,
           /* Middle of the tail */
@@ -286,43 +286,43 @@
         animation: tailWag 0.3s steps(2) infinite alternate;
         transform-origin: left bottom;
       }
-      
+
       /* Running animation - slight vertical bounce */
       @keyframes catRun {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-3px); }
       }
-      
+
       /* Movement animation - move left and right */
       @keyframes catMove {
         0% { left: -40px; }
         100% { left: calc(100% + 40px); }
       }
-      
+
       /* Front leg animation */
       @keyframes legFront {
         0%, 100% { transform: rotate(-15deg); }
         50% { transform: rotate(15deg); }
       }
-      
+
       /* Back leg animation */
       @keyframes legBack {
         0%, 100% { transform: rotate(15deg); }
         50% { transform: rotate(-15deg); }
       }
-      
+
       /* Tail swing */
       @keyframes tailWag {
         0% { transform: rotate(-10deg); }
         100% { transform: rotate(10deg); }
       }
-      
+
       /* Subtle head sway */
       @keyframes headBob {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-1px); }
       }
-      
+
       /* Ground effect - pixel style */
       .ground {
         position: absolute;
@@ -340,12 +340,12 @@
         animation: groundMove 0.3s linear infinite;
         image-rendering: pixelated;
       }
-      
+
       @keyframes groundMove {
         0% { background-position: 0 0; }
         100% { background-position: 12px 0; }
       }
-      
+
       /* Brand text */
       .brand-text {
         display: flex;
@@ -357,21 +357,21 @@
         margin-top: 20px;
         letter-spacing: 2px;
       }
-      
+
       /* Dark theme adaptation */
       @media (prefers-color-scheme: dark) {
         .first-loading-wrp {
           background: #141414;
         }
-        
+
         .first-loading-wrp > h2 {
           color: #fff;
         }
-        
+
         .brand-text {
           color: #fff;
         }
-        
+
         .ground {
           background: repeating-linear-gradient(
             90deg,
@@ -381,32 +381,32 @@
             #333 12px
           );
         }
-        
+
         /* Use light gray instead of pure white in dark mode */
         .cat-head {
-          background: 
+          background:
             linear-gradient(#ddd, #ddd) 2px 4px / 12px 10px no-repeat,
             linear-gradient(#000, #000) 2px 4px / 6px 10px no-repeat,
             linear-gradient(#ddd, #ddd) 4px 2px / 8px 2px no-repeat;
         }
-        
+
         .cat-body {
-          background: 
+          background:
             linear-gradient(#ddd, #ddd) 6px 0 / 8px 10px no-repeat,
             linear-gradient(#000, #000) 0 0 / 8px 10px no-repeat;
         }
-        
+
         .cat-leg-front-right,
         .cat-leg-back-left {
           background: #ddd;
         }
-        
+
         .cat-eye-left,
         .cat-eye-right {
           background: #ddd;
         }
       }
-      
+
       /* Ensure the pixel style renders correctly in all browsers */
       .pixel-cat,
       .pixel-cat * {
@@ -415,18 +415,18 @@
         image-rendering: pixelated;
         image-rendering: crisp-edges;
       }
-      
+
       /* Mobile adaptation */
       @media (max-width: 768px) {
         .pixel-cat-container {
           transform: scale(1.5);
         }
-        
+
         .first-loading-wrp > h2 {
           font-size: 24px;
           margin-bottom: 30px;
         }
-        
+
         .brand-text {
           font-size: 20px;
         }

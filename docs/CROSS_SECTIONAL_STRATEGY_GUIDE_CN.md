@@ -34,24 +34,24 @@
 
 ### 参数说明
 
-- **cs_strategy_type**: 
+- **cs_strategy_type**:
   - `'single'`: 单标的策略（默认，原有功能）
   - `'cross_sectional'`: 截面策略
 
-- **symbol_list**: 
+- **symbol_list**:
   - 标的列表，格式为 `["Market:SYMBOL", ...]`
   - 例如：`["Crypto:BTC/USDT", "Crypto:ETH/USDT"]`
 
-- **portfolio_size**: 
+- **portfolio_size**:
   - 持仓组合大小，即同时持有的标的数量
   - 例如：10 表示同时持有10个标的
 
-- **long_ratio**: 
+- **long_ratio**:
   - 做多比例，0-1之间的浮点数
   - 例如：0.5 表示50%做多，50%做空
   - 例如：1.0 表示100%做多（不做空）
 
-- **rebalance_frequency**: 
+- **rebalance_frequency**:
   - 调仓频率
   - `'daily'`: 每日调仓
   - `'weekly'`: 每周调仓
@@ -74,7 +74,7 @@ for symbol, df in data.items():
     # 计算每个标的的因子值
     # 例如：动量因子
     momentum = (df['close'].iloc[-1] / df['close'].iloc[-20] - 1) * 100
-    
+
     # 例如：RSI指标
     def calculate_rsi(prices, period=14):
         delta = prices.diff()
@@ -83,9 +83,9 @@ for symbol, df in data.items():
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         return rsi.iloc[-1]
-    
+
     rsi = calculate_rsi(df['close'], 14)
-    
+
     # 综合评分（可以根据需要调整权重）
     score = momentum * 0.6 + (100 - rsi) * 0.4
     scores[symbol] = score
@@ -175,7 +175,7 @@ scores = {}
 for symbol, df in data.items():
     # 20周期动量
     momentum = (df['close'].iloc[-1] / df['close'].iloc[-20] - 1) * 100
-    
+
     # RSI
     delta = df['close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
@@ -183,7 +183,7 @@ for symbol, df in data.items():
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     rsi_value = rsi.iloc[-1]
-    
+
     # 综合评分
     score = momentum * 0.7 + (100 - rsi_value) * 0.3
     scores[symbol] = score

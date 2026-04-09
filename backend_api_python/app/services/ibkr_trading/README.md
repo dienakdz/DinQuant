@@ -125,7 +125,7 @@ Then remove the related import and registration code in `app/routes/__init__.py`
 
 ## Docker Note
 
-When running in Docker, IBKR trading requires TWS/IB Gateway to be accessible from the container. 
+When running in Docker, IBKR trading requires TWS/IB Gateway to be accessible from the container.
 For local deployment, you can:
 
 1. Run TWS/Gateway on host machine

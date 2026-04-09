@@ -23,13 +23,11 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
+from app.services.analysis_memory import AnalysisMemory, get_analysis_memory
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
-from app.services.analysis_memory import get_analysis_memory, AnalysisMemory
-from app.services.market_data_collector import MarketDataCollector
-
 
 logger = get_logger(__name__)
 
@@ -180,9 +178,7 @@ class AICalibrationService:
             if validate_before:
                 memory: AnalysisMemory = get_analysis_memory()
                 # Validate anything older than ~7 days (matching your existing approx rules).
-                validated_stats = memory.validate_unvalidated_older_than(
-                    min_age_days=7, limit=300
-                )
+                validated_stats = memory.validate_unvalidated_older_than(min_age_days=7, limit=300)
                 validated_count = int(validated_stats.get("validated", 0) or 0)
         except Exception as e:
             logger.warning(f"pre-validation failed (skipped): {e}", exc_info=True)
@@ -269,7 +265,9 @@ class AICalibrationService:
         buy_threshold = float(best_abs_thr)
         sell_threshold = float(-best_abs_thr)
         cfg = self.get_latest(market)
-        min_consensus_abs_override = float(cfg.get("min_consensus_abs_override") or DEFAULTS["min_consensus_abs_override"])
+        min_consensus_abs_override = float(
+            cfg.get("min_consensus_abs_override") or DEFAULTS["min_consensus_abs_override"]
+        )
         quality_hold_threshold = float(cfg.get("quality_hold_threshold") or DEFAULTS["quality_hold_threshold"])
 
         try:
@@ -338,4 +336,3 @@ def start_ai_calibration_worker() -> None:
             logger.info("[AI Calibration] No calibration update applied (not enough data).")
     except Exception as e:
         logger.error(f"start_ai_calibration_worker failed: {e}", exc_info=True)
-

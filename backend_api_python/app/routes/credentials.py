@@ -4,32 +4,32 @@ Exchange credentials vault.
 encrypted_config stores Fernet ciphertext derived from SECRET_KEY (see app.utils.credential_crypto).
 """
 
-import traceback
 import json
-from flask import Blueprint, request, jsonify, g
+import traceback
 
 import requests as rq
+from flask import Blueprint, g, jsonify, request
 
+from app.utils.auth import login_required
+from app.utils.credential_crypto import decrypt_credential_blob, encrypt_credential_blob
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
-from app.utils.auth import login_required
-from app.utils.credential_crypto import encrypt_credential_blob, decrypt_credential_blob
 
 logger = get_logger(__name__)
 
-credentials_bp = Blueprint('credentials', __name__)
+credentials_bp = Blueprint("credentials", __name__)
 
 
 def _api_key_hint(api_key: str) -> str:
     if not api_key:
-        return ''
+        return ""
     s = str(api_key)
     if len(s) <= 8:
-        return s[:2] + '***'
+        return s[:2] + "***"
     return f"{s[:4]}...{s[-4:]}"
 
 
-@credentials_bp.route('/list', methods=['GET'])
+@credentials_bp.route("/list", methods=["GET"])
 @login_required
 def list_credentials():
     """List all credentials for the current user."""
@@ -45,7 +45,7 @@ def list_credentials():
                 WHERE user_id = %s
                 ORDER BY id DESC
                 """,
-                (user_id,)
+                (user_id,),
             )
             rows = cur.fetchall() or []
             cur.close()
@@ -53,26 +53,35 @@ def list_credentials():
         items = []
         for row in rows:
             item = dict(row or {})
-            item['enable_demo_trading'] = False
+            item["enable_demo_trading"] = False
             try:
-                plain = decrypt_credential_blob(item.get('encrypted_config'))
+                plain = decrypt_credential_blob(item.get("encrypted_config"))
                 cfg = json.loads(plain) if plain else {}
-                item['enable_demo_trading'] = bool(cfg.get('enable_demo_trading') or cfg.get('enableDemoTrading'))
+                item["enable_demo_trading"] = bool(cfg.get("enable_demo_trading") or cfg.get("enableDemoTrading"))
             except Exception:
-                item['enable_demo_trading'] = False
-            item.pop('encrypted_config', None)
+                item["enable_demo_trading"] = False
+            item.pop("encrypted_config", None)
             items.append(item)
 
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'items': items}})
+        return jsonify({"code": 1, "msg": "success", "data": {"items": items}})
     except Exception as e:
         logger.error(f"list_credentials failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': {'items': []}}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": {"items": []}}), 500
 
 
 CRYPTO_EXCHANGES = [
-    'binance', 'okx', 'bitget', 'bybit', 'coinbaseexchange',
-    'kraken', 'kucoin', 'gate', 'bitfinex', 'deepcoin', 'htx'
+    "binance",
+    "okx",
+    "bitget",
+    "bybit",
+    "coinbaseexchange",
+    "kraken",
+    "kucoin",
+    "gate",
+    "bitfinex",
+    "deepcoin",
+    "htx",
 ]
 
 
@@ -89,7 +98,7 @@ def _egress_ipify(url: str) -> str:
         return ""
 
 
-@credentials_bp.route('/egress-ip', methods=['GET'])
+@credentials_bp.route("/egress-ip", methods=["GET"])
 @login_required
 def get_egress_ip():
     """
@@ -112,7 +121,7 @@ def get_egress_ip():
     )
 
 
-@credentials_bp.route('/create', methods=['POST'])
+@credentials_bp.route("/create", methods=["POST"])
 @login_required
 def create_credential():
     """Create a new credential for the current user.
@@ -122,53 +131,59 @@ def create_credential():
     try:
         user_id = g.user_id
         data = request.get_json() or {}
-        name = (data.get('name') or '').strip()
-        exchange_id = (data.get('exchange_id') or '').strip().lower()
+        name = (data.get("name") or "").strip()
+        exchange_id = (data.get("exchange_id") or "").strip().lower()
 
         if not exchange_id:
-            return jsonify({'code': 0, 'msg': 'Missing exchange_id', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "Missing exchange_id", "data": None}), 400
 
-        config = {'exchange_id': exchange_id}
-        hint = ''
+        config = {"exchange_id": exchange_id}
+        hint = ""
 
-        if exchange_id == 'ibkr':
+        if exchange_id == "ibkr":
             # Interactive Brokers (US stocks)
-            config.update({
-                'ibkr_host': (data.get('ibkr_host') or '127.0.0.1').strip(),
-                'ibkr_port': int(data.get('ibkr_port') or 7497),
-                'ibkr_client_id': int(data.get('ibkr_client_id') or 1),
-                'ibkr_account': (data.get('ibkr_account') or '').strip()
-            })
+            config.update(
+                {
+                    "ibkr_host": (data.get("ibkr_host") or "127.0.0.1").strip(),
+                    "ibkr_port": int(data.get("ibkr_port") or 7497),
+                    "ibkr_client_id": int(data.get("ibkr_client_id") or 1),
+                    "ibkr_account": (data.get("ibkr_account") or "").strip(),
+                }
+            )
             hint = f"{config['ibkr_host']}:{config['ibkr_port']}"
-        elif exchange_id == 'mt5':
+        elif exchange_id == "mt5":
             # MetaTrader 5 (Forex)
-            mt5_server = (data.get('mt5_server') or '').strip()
-            mt5_login = str(data.get('mt5_login') or '').strip()
-            mt5_password = (data.get('mt5_password') or '').strip()
+            mt5_server = (data.get("mt5_server") or "").strip()
+            mt5_login = str(data.get("mt5_login") or "").strip()
+            mt5_password = (data.get("mt5_password") or "").strip()
             if not mt5_server or not mt5_login or not mt5_password:
-                return jsonify({'code': 0, 'msg': 'Missing mt5_server/mt5_login/mt5_password', 'data': None}), 400
-            config.update({
-                'mt5_server': mt5_server,
-                'mt5_login': mt5_login,
-                'mt5_password': mt5_password,
-                'mt5_terminal_path': (data.get('mt5_terminal_path') or '').strip()
-            })
+                return jsonify({"code": 0, "msg": "Missing mt5_server/mt5_login/mt5_password", "data": None}), 400
+            config.update(
+                {
+                    "mt5_server": mt5_server,
+                    "mt5_login": mt5_login,
+                    "mt5_password": mt5_password,
+                    "mt5_terminal_path": (data.get("mt5_terminal_path") or "").strip(),
+                }
+            )
             hint = f"{mt5_server}/{mt5_login}"
         elif exchange_id in CRYPTO_EXCHANGES:
             # Crypto exchanges
-            api_key = (data.get('api_key') or '').strip()
-            secret_key = (data.get('secret_key') or '').strip()
+            api_key = (data.get("api_key") or "").strip()
+            secret_key = (data.get("secret_key") or "").strip()
             if not api_key or not secret_key:
-                return jsonify({'code': 0, 'msg': 'Missing api_key/secret_key', 'data': None}), 400
-            config.update({
-                'api_key': api_key,
-                'secret_key': secret_key,
-                'passphrase': (data.get('passphrase') or '').strip(),
-                'enable_demo_trading': bool(data.get('enable_demo_trading', False))
-            })
+                return jsonify({"code": 0, "msg": "Missing api_key/secret_key", "data": None}), 400
+            config.update(
+                {
+                    "api_key": api_key,
+                    "secret_key": secret_key,
+                    "passphrase": (data.get("passphrase") or "").strip(),
+                    "enable_demo_trading": bool(data.get("enable_demo_trading", False)),
+                }
+            )
             hint = _api_key_hint(api_key)
         else:
-            return jsonify({'code': 0, 'msg': f'Unsupported exchange: {exchange_id}', 'data': None}), 400
+            return jsonify({"code": 0, "msg": f"Unsupported exchange: {exchange_id}", "data": None}), 400
 
         plaintext_config = json.dumps(config, ensure_ascii=False)
         stored_blob = encrypt_credential_blob(plaintext_config)
@@ -181,47 +196,44 @@ def create_credential():
                 VALUES (%s, %s, %s, %s, %s, NOW(), NOW())
                 RETURNING id
                 """,
-                (user_id, name, exchange_id, hint, stored_blob)
+                (user_id, name, exchange_id, hint, stored_blob),
             )
             row = cur.fetchone()
-            new_id = (row or {}).get('id')
+            new_id = (row or {}).get("id")
             db.commit()
             cur.close()
 
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'id': new_id}})
+        return jsonify({"code": 1, "msg": "success", "data": {"id": new_id}})
     except Exception as e:
         logger.error(f"create_credential failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@credentials_bp.route('/delete', methods=['DELETE'])
+@credentials_bp.route("/delete", methods=["DELETE"])
 @login_required
 def delete_credential():
     """Delete a credential for the current user."""
     try:
         user_id = g.user_id
-        cred_id = request.args.get('id', type=int)
+        cred_id = request.args.get("id", type=int)
         if not cred_id:
-            return jsonify({'code': 0, 'msg': 'Missing id', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "Missing id", "data": None}), 400
 
         with get_db_connection() as db:
             cur = db.cursor()
-            cur.execute(
-                "DELETE FROM qd_exchange_credentials WHERE id = %s AND user_id = %s",
-                (cred_id, user_id)
-            )
+            cur.execute("DELETE FROM qd_exchange_credentials WHERE id = %s AND user_id = %s", (cred_id, user_id))
             db.commit()
             cur.close()
 
-        return jsonify({'code': 1, 'msg': 'success', 'data': None})
+        return jsonify({"code": 1, "msg": "success", "data": None})
     except Exception as e:
         logger.error(f"delete_credential failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@credentials_bp.route('/get', methods=['GET'])
+@credentials_bp.route("/get", methods=["GET"])
 @login_required
 def get_credential():
     """
@@ -229,9 +241,9 @@ def get_credential():
     """
     try:
         user_id = g.user_id
-        cred_id = request.args.get('id', type=int)
+        cred_id = request.args.get("id", type=int)
         if not cred_id:
-            return jsonify({'code': 0, 'msg': 'Missing id', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "Missing id", "data": None}), 400
 
         with get_db_connection() as db:
             cur = db.cursor()
@@ -241,34 +253,34 @@ def get_credential():
                 FROM qd_exchange_credentials
                 WHERE id = %s AND user_id = %s
                 """,
-                (cred_id, user_id)
+                (cred_id, user_id),
             )
             row = cur.fetchone()
             cur.close()
 
         if not row:
-            return jsonify({'code': 0, 'msg': 'Not found', 'data': None}), 404
+            return jsonify({"code": 0, "msg": "Not found", "data": None}), 404
 
-        raw = row.get('encrypted_config')
+        raw = row.get("encrypted_config")
         plain = decrypt_credential_blob(raw)
         decrypted = json.loads(plain) if plain else {}
         # Ensure exchange_id is present
-        decrypted['exchange_id'] = row.get('exchange_id') or decrypted.get('exchange_id')
+        decrypted["exchange_id"] = row.get("exchange_id") or decrypted.get("exchange_id")
 
-        return jsonify({
-            'code': 1,
-            'msg': 'success',
-            'data': {
-                'id': row.get('id'),
-                'name': row.get('name'),
-                'exchange_id': row.get('exchange_id'),
-                'api_key_hint': row.get('api_key_hint'),
-                'config': decrypted
+        return jsonify(
+            {
+                "code": 1,
+                "msg": "success",
+                "data": {
+                    "id": row.get("id"),
+                    "name": row.get("name"),
+                    "exchange_id": row.get("exchange_id"),
+                    "api_key_hint": row.get("api_key_hint"),
+                    "config": decrypted,
+                },
             }
-        })
+        )
     except Exception as e:
         logger.error(f"get_credential failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
-
-
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500

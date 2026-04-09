@@ -525,7 +525,6 @@
       <a-tabs size="small" :activeKey="addMarketTab" @change="onAddMarketTabChange">
         <a-tab-pane key="Crypto" tab="Crypto" />
         <a-tab-pane key="USStock" tab="US Stock" />
-        <a-tab-pane key="HKStock" tab="HK Stock" />
         <a-tab-pane key="Forex" tab="Forex" />
         <a-tab-pane key="Futures" tab="Futures" />
       </a-tabs>
@@ -934,7 +933,6 @@ export default {
       const colorMap = {
         Crypto: 'gold',
         USStock: 'blue',
-        HKStock: 'geekblue',
         Forex: 'green',
         Futures: 'purple'
       }

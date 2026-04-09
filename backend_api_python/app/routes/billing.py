@@ -6,12 +6,12 @@ The current version first implements the minimum availability of "fast commercia
 - Users activate/issue points immediately after purchasing on the front end (can be replaced with a real payment gateway later)
 """
 
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, g, jsonify, request
 
-from app.utils.auth import login_required
-from app.utils.logger import get_logger
 from app.services.billing_service import get_billing_service
 from app.services.usdt_payment_service import get_usdt_payment_service
+from app.utils.auth import login_required
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -102,4 +102,3 @@ def usdt_get_order(order_id: int):
     except Exception as e:
         logger.error(f"usdt_get_order failed: {e}", exc_info=True)
         return jsonify({"code": 0, "msg": str(e), "data": None}), 500
-

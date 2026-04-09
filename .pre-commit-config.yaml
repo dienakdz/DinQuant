@@ -1,0 +1,42 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-toml
+      - id: check-yaml
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: backend-ruff-format
+        name: backend ruff format
+        entry: ruff format backend_api_python
+        language: python
+        additional_dependencies:
+          - ruff
+        pass_filenames: false
+        files: ^backend_api_python/.*\.py$
+
+      - id: backend-ruff-check
+        name: backend ruff check
+        entry: ruff check --fix backend_api_python
+        language: python
+        additional_dependencies:
+          - ruff
+        pass_filenames: false
+        files: ^backend_api_python/.*\.py$
+
+      # - id: frontend-prettier-check
+      #   name: frontend prettier write
+      #   entry: yarn --cwd frontend_vue format
+      #   language: system
+      #   pass_filenames: false
+      #   files: ^frontend_vue/(src|tests/unit)/.*\.(js|vue|json|css|less|scss|md)$|^frontend_vue/(package\.json|vue\.config\.js|babel\.config\.js|postcss\.config\.js|jest\.config\.js|jsconfig\.json|\.eslintrc\.js|\.prettierrc)$
+
+      # - id: frontend-eslint-check
+      #   name: frontend eslint fix
+      #   entry: yarn --cwd frontend_vue lint:fix
+      #   language: system
+      #   pass_filenames: false
+      #   files: ^frontend_vue/.*\.(js|vue)$|^frontend_vue/(package\.json|vue\.config\.js|babel\.config\.js|postcss\.config\.js|jest\.config\.js|\.eslintrc\.js)$

@@ -3,24 +3,25 @@ Cache utilities.
 Local-first behavior: use in-memory cache by default.
 Redis is only used when explicitly enabled via environment variables.
 """
-import time
-import threading
-from typing import Optional, Any
-import json
 
-from app.utils.logger import get_logger
+import json
+import threading
+import time
+from typing import Any, Optional
+
 from app.config import CacheConfig
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class MemoryCache:
     """In-memory cache (an alternative if Redis is unavailable)"""
-    
+
     def __init__(self):
         self._cache = {}
         self._lock = threading.Lock()
-    
+
     def get(self, key: str) -> Optional[str]:
         with self._lock:
             if key in self._cache:
@@ -30,17 +31,17 @@ class MemoryCache:
                 else:
                     del self._cache[key]
             return None
-    
+
     def setex(self, key: str, ttl: int, value: str):
         with self._lock:
             expiry = time.time() + ttl
             self._cache[key] = (value, expiry)
-    
+
     def delete(self, key: str):
         with self._lock:
             if key in self._cache:
                 del self._cache[key]
-    
+
     def clear(self):
         with self._lock:
             self._cache.clear()
@@ -48,10 +49,10 @@ class MemoryCache:
 
 class CacheManager:
     """cache manager"""
-    
+
     _instance = None
     _lock = threading.Lock()
-    
+
     def __new__(cls):
         if cls._instance is None:
             with cls._lock:
@@ -59,11 +60,11 @@ class CacheManager:
                     cls._instance = super().__new__(cls)
                     cls._instance._initialized = False
         return cls._instance
-    
+
     def __init__(self):
         if self._initialized:
             return
-            
+
         self._initialized = True
         self._client = None
         self._use_redis = False
@@ -77,6 +78,7 @@ class CacheManager:
         # Try Redis only when enabled.
         try:
             import redis
+
             from app.config import RedisConfig
 
             self._client = redis.Redis(
@@ -86,7 +88,7 @@ class CacheManager:
                 password=RedisConfig.PASSWORD,
                 decode_responses=True,
                 socket_connect_timeout=RedisConfig.CONNECT_TIMEOUT,
-                socket_timeout=RedisConfig.SOCKET_TIMEOUT
+                socket_timeout=RedisConfig.SOCKET_TIMEOUT,
             )
             self._client.ping()
             self._use_redis = True
@@ -96,7 +98,7 @@ class CacheManager:
             logger.info(f"Redis is enabled but unavailable; using in-memory cache instead: {e}")
             self._client = MemoryCache()
             self._use_redis = False
-    
+
     def get(self, key: str) -> Optional[Any]:
         """Get cache"""
         try:
@@ -107,22 +109,21 @@ class CacheManager:
         except Exception as e:
             logger.error(f"Cache read failed: {e}")
             return None
-    
+
     def set(self, key: str, value: Any, ttl: int = 300):
         """Set up cache"""
         try:
             self._client.setex(key, ttl, json.dumps(value))
         except Exception as e:
             logger.error(f"Cache write failed: {e}")
-    
+
     def delete(self, key: str):
         """Delete cache"""
         try:
             self._client.delete(key)
         except Exception as e:
             logger.error(f"Cache delete failed: {e}")
-    
+
     @property
     def is_redis(self) -> bool:
         return self._use_redis
-

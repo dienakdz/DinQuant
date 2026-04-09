@@ -7,10 +7,14 @@
     "build": "vue-cli-service build --no-lint",
     "test:unit": "vue-cli-service test:unit",
     "lint": "vue-cli-service lint",
+    "lint:check": "eslint --ext .js,.vue src tests/unit vue.config.js babel.config.js postcss.config.js jest.config.js --max-warnings=0",
+    "lint:fix": "eslint --ext .js,.vue src tests/unit vue.config.js babel.config.js postcss.config.js jest.config.js --fix",
     "build:preview": "vue-cli-service build --no-module --mode preview",
     "lint:nofix": "vue-cli-service lint --no-fix",
     "lint:js": "eslint src/**/*.js --fix",
-    "lint:css": "stylelint src/**/*.*ss --fix  --custom-syntax postcss-less"
+    "lint:css": "stylelint src/**/*.*ss --fix  --custom-syntax postcss-less",
+    "format": "prettier --write \"src/**/*.{js,vue,json,css,less,scss,md}\" \"tests/unit/**/*.{js,vue}\" vue.config.js babel.config.js postcss.config.js jest.config.js jsconfig.json .eslintrc.js .prettierrc",
+    "format:check": "prettier --check \"src/**/*.{js,vue,json,css,less,scss,md}\" \"tests/unit/**/*.{js,vue}\" vue.config.js babel.config.js postcss.config.js jest.config.js jsconfig.json .eslintrc.js .prettierrc"
   },
   "dependencies": {
     "@ant-design-vue/pro-layout": "^1.0.12",
@@ -61,6 +65,7 @@
     "babel-plugin-import": "^1.13.3",
     "babel-plugin-transform-remove-console": "^6.9.4",
     "eslint": "^7.32.0",
+    "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-html": "^6.2.0",
     "eslint-plugin-vue": "^7.20.0",
     "file-loader": "^6.2.0",
@@ -69,6 +74,7 @@
     "less-loader": "^5.0.0",
     "postcss": "^8.3.5",
     "postcss-less": "^6.0.0",
+    "prettier": "^2.7.1",
     "regenerator-runtime": "^0.13.9",
     "stylelint": "^14.8.5",
     "stylelint-config-css-modules": "^4.1.0",

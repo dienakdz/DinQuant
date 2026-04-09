@@ -1,27 +1,29 @@
 """
 Backtest API routes
 """
-from flask import Blueprint, request, jsonify, g
-from datetime import datetime
-import traceback
+
 import json
-import time
 import os
+import traceback
+from datetime import datetime
+
+import requests
+from flask import Blueprint, g, jsonify, request
 
 from app.services.backtest import BacktestService
-from app.utils.logger import get_logger
-from app.utils.db import get_db_connection
 from app.utils.auth import login_required
-import requests
+from app.utils.db import get_db_connection
+from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-backtest_bp = Blueprint('backtest', __name__)
+backtest_bp = Blueprint("backtest", __name__)
 backtest_service = BacktestService()
 
 
 def _openrouter_base_and_key() -> tuple[str, str]:
     from app.config import APIKeys
+
     # Use APIKeys to get the key (handles env var + config cache properly)
     key = APIKeys.OPENROUTER_API_KEY or ""
     base = os.getenv("OPENROUTER_BASE_URL", "").strip()
@@ -55,9 +57,9 @@ def _normalize_lang(lang: str | None) -> str:
         "fr-FR",
         "ja-JP",
     }
-    l = (lang or "").strip()
-    if not l:
-        return "zh-CN"
+    normalized_lang = (lang or "").strip()
+    if not normalized_lang:
+        return "en-US"
     alias = {
         "zh": "zh-CN",
         "zh-cn": "zh-CN",
@@ -81,53 +83,49 @@ def _normalize_lang(lang: str | None) -> str:
         "ar": "ar-SA",
         "ar-sa": "ar-SA",
     }
-    l2 = alias.get(l.lower(), l)
+    l2 = alias.get(normalized_lang.lower(), normalized_lang)
     return l2 if l2 in supported else "zh-CN"
 
 
-@backtest_bp.route('/backtest/precision-info', methods=['GET'])
+@backtest_bp.route("/backtest/precision-info", methods=["GET"])
 def get_precision_info():
     """
     Get backtest accuracy information (for front-end prompts)
-    
+
     Params (Query String):
         market: market type
         startDate: start date (YYYY-MM-DD)
         endDate: end date (YYYY-MM-DD)
-        
+
     Returns:
         Accuracy information, including recommended execution time frame and estimated number of K-lines
     """
     try:
         # Use request.args for GET params
-        market = request.args.get('market', 'crypto')
-        start_date_str = request.args.get('startDate', '')
-        end_date_str = request.args.get('endDate', '')
-        
+        market = request.args.get("market", "crypto")
+        start_date_str = request.args.get("startDate", "")
+        end_date_str = request.args.get("endDate", "")
+
         if not start_date_str or not end_date_str:
-            return jsonify({'code': 0, 'msg': 'startDate and endDate are required'}), 400
-        
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
-        
+            return jsonify({"code": 0, "msg": "startDate and endDate are required"}), 400
+
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+
         exec_tf, precision_info = backtest_service.get_execution_timeframe(start_date, end_date, market)
-        
-        return jsonify({
-            'code': 1,
-            'msg': 'success',
-            'data': precision_info
-        })
+
+        return jsonify({"code": 1, "msg": "success", "data": precision_info})
     except Exception as e:
         logger.error(f"Get precision info failed: {e}")
-        return jsonify({'code': 0, 'msg': str(e)}), 400
+        return jsonify({"code": 0, "msg": str(e)}), 400
 
 
-@backtest_bp.route('/backtest', methods=['POST'])
+@backtest_bp.route("/backtest", methods=["POST"])
 @login_required
 def run_backtest():
     """
     Run indicator backtest for the current user.
-    
+
     Params:
         indicatorId: Indicator ID (optional)
         indicatorCode: Indicator Python code
@@ -143,34 +141,30 @@ def run_backtest():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({
-                'code': 0,
-                'msg': 'Request body is required',
-                'data': None
-            }), 400
-        
+            return jsonify({"code": 0, "msg": "Request body is required", "data": None}), 400
+
         # Extract params - use current user's ID
         user_id = g.user_id
-        indicator_code = data.get('indicatorCode', '')
-        indicator_id = data.get('indicatorId')
-        symbol = data.get('symbol', '')
-        market = data.get('market', '')
-        timeframe = data.get('timeframe', '1D')
-        start_date_str = data.get('startDate', '')
-        end_date_str = data.get('endDate', '')
-        initial_capital = float(data.get('initialCapital', 10000))
-        commission = float(data.get('commission', 0.001))
-        slippage = float(data.get('slippage', 0.0))
-        leverage = int(data.get('leverage', 1))
-        trade_direction = data.get('tradeDirection', 'long')  # long, short, both
-        strategy_config = data.get('strategyConfig') or {}
+        indicator_code = data.get("indicatorCode", "")
+        indicator_id = data.get("indicatorId")
+        symbol = data.get("symbol", "")
+        market = data.get("market", "")
+        timeframe = data.get("timeframe", "1D")
+        start_date_str = data.get("startDate", "")
+        end_date_str = data.get("endDate", "")
+        initial_capital = float(data.get("initialCapital", 10000))
+        commission = float(data.get("commission", 0.001))
+        slippage = float(data.get("slippage", 0.0))
+        leverage = int(data.get("leverage", 1))
+        trade_direction = data.get("tradeDirection", "long")  # long, short, both
+        strategy_config = data.get("strategyConfig") or {}
         # Multi-timeframe backtesting switch (enabled by default, only valid for cryptocurrency markets)
-        enable_mtf = data.get('enableMtf', True)
+        enable_mtf = data.get("enableMtf", True)
         if isinstance(enable_mtf, str):
-            enable_mtf = enable_mtf.lower() in ['true', '1', 'yes']
-        
+            enable_mtf = enable_mtf.lower() in ["true", "1", "yes"]
+
         # (Debug) log received params if needed
-        
+
         # If frontend only provides indicatorId, load code from local DB.
         if (not indicator_code or not str(indicator_code).strip()) and indicator_id:
             try:
@@ -180,53 +174,50 @@ def run_backtest():
                     cur.execute("SELECT code FROM qd_indicator_codes WHERE id = ?", (iid,))
                     row = cur.fetchone()
                     cur.close()
-                if row and row.get('code'):
-                    indicator_code = row.get('code')
+                if row and row.get("code"):
+                    indicator_code = row.get("code")
             except Exception:
                 pass
 
         # Parameter validation
         if not all([indicator_code, symbol, market, timeframe, start_date_str, end_date_str]):
-            return jsonify({
-                'code': 0,
-                'msg': 'Missing required parameters',
-                'data': None
-            }), 400
-        
+            return jsonify({"code": 0, "msg": "Missing required parameters", "data": None}), 400
+
         # conversion date
         # Start date: 00:00:00 today
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
         # End date: 23:59:59 of the current day, ensuring that the entire day's data is included
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-        
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+
         # Validation time range limit
         days_diff = (end_date - start_date).days
-        
+
         # Set different time limits based on cycles
-        if timeframe == '1m':
+        if timeframe == "1m":
             max_days = 30  # 1 minute K-line up to 1 month
-            max_range_text = '1 month'
-        elif timeframe == '5m':
+            max_range_text = "1 month"
+        elif timeframe == "5m":
             max_days = 180  # 5 minute K-line up to 6 months
-            max_range_text = '6 months'
-        elif timeframe in ['15m', '30m']:
+            max_range_text = "6 months"
+        elif timeframe in ["15m", "30m"]:
             max_days = 365  # 15-minute and 30-minute K-line up to 1 year
-            max_range_text = '1 year'
+            max_range_text = "1 year"
         else:  # 1H, 4H, 1D, 1W
             max_days = 1095  # 1 hour and above up to 3 years
-            max_range_text = '3 years'
-        
+            max_range_text = "3 years"
+
         if days_diff > max_days:
-            return jsonify({
-                'code': 0,
-                'msg': f'Backtest range exceeds limit: timeframe {timeframe} supports up to {max_range_text} ({max_days} days), but you selected {days_diff} days',
-                'data': None
-            }), 400
-        
-        
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": f"Backtest range exceeds limit: timeframe {timeframe} supports up to {max_range_text} ({max_days} days), but you selected {days_diff} days",
+                    "data": None,
+                }
+            ), 400
+
         # Execute backtesting (supports multi-time frame high-precision backtesting)
         # Cryptocurrency markets and using multi-timeframe backtesting when MTF is enabled
-        if enable_mtf and market.lower() in ['crypto', 'cryptocurrency']:
+        if enable_mtf and market.lower() in ["crypto", "cryptocurrency"]:
             result = backtest_service.run_multi_timeframe(
                 indicator_code=indicator_code,
                 market=market,
@@ -240,7 +231,7 @@ def run_backtest():
                 leverage=leverage,
                 trade_direction=trade_direction,
                 strategy_config=strategy_config,
-                enable_mtf=True
+                enable_mtf=True,
             )
         else:
             result = backtest_service.run(
@@ -255,20 +246,20 @@ def run_backtest():
                 slippage=slippage,
                 leverage=leverage,
                 trade_direction=trade_direction,
-                strategy_config=strategy_config
+                strategy_config=strategy_config,
             )
             # Add accuracy information for standard backtests
-            result['precision_info'] = {
-                'enabled': False,
-                'timeframe': timeframe,
-                'precision': 'standard',
-                'message': '使用标准K线回测'
+            result["precision_info"] = {
+                "enabled": False,
+                "timeframe": timeframe,
+                "precision": "standard",
+                "message": "使用标准K线回测",
             }
 
         run_id = backtest_service.persist_run(
             user_id=user_id,
             indicator_id=int(indicator_id) if indicator_id is not None else None,
-            run_type='indicator',
+            run_type="indicator",
             market=market,
             symbol=symbol,
             timeframe=timeframe,
@@ -280,67 +271,52 @@ def run_backtest():
             leverage=leverage,
             trade_direction=trade_direction,
             strategy_config=strategy_config,
-            config_snapshot={'indicatorId': int(indicator_id) if indicator_id is not None else None},
-            status='success',
-            error_message='',
+            config_snapshot={"indicatorId": int(indicator_id) if indicator_id is not None else None},
+            status="success",
+            error_message="",
             result=result,
             code=indicator_code,
         )
-        
-        return jsonify({
-            'code': 1,
-            'msg': 'Backtest succeeded',
-            'data': {
-                'runId': run_id,
-                'result': result
-            }
-        })
-        
+
+        return jsonify({"code": 1, "msg": "Backtest succeeded", "data": {"runId": run_id, "result": result}})
+
     except ValueError as e:
         logger.warning(f"Invalid backtest parameters: {str(e)}")
-        return jsonify({
-            'code': 0,
-            'msg': str(e),
-            'data': None
-        }), 400
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 400
     except Exception as e:
         logger.error(f"Backtest failed: {str(e)}")
         logger.error(traceback.format_exc())
         try:
             data = data if isinstance(data, dict) else {}
             user_id = g.user_id
-            indicator_id = data.get('indicatorId')
+            indicator_id = data.get("indicatorId")
             backtest_service.persist_run(
                 user_id=user_id,
                 indicator_id=int(indicator_id) if indicator_id is not None else None,
-                run_type='indicator',
-                market=str(data.get('market', '') or ''),
-                symbol=str(data.get('symbol', '') or ''),
-                timeframe=str(data.get('timeframe', '') or ''),
-                start_date_str=str(data.get('startDate', '') or ''),
-                end_date_str=str(data.get('endDate', '') or ''),
-                initial_capital=float(data.get('initialCapital', 0) or 0),
-                commission=float(data.get('commission', 0) or 0),
-                slippage=float(data.get('slippage', 0) or 0),
-                leverage=int(data.get('leverage', 1) or 1),
-                trade_direction=str(data.get('tradeDirection', 'long') or 'long'),
-                strategy_config=data.get('strategyConfig') or {},
-                config_snapshot={'indicatorId': int(indicator_id) if indicator_id is not None else None},
-                status='failed',
+                run_type="indicator",
+                market=str(data.get("market", "") or ""),
+                symbol=str(data.get("symbol", "") or ""),
+                timeframe=str(data.get("timeframe", "") or ""),
+                start_date_str=str(data.get("startDate", "") or ""),
+                end_date_str=str(data.get("endDate", "") or ""),
+                initial_capital=float(data.get("initialCapital", 0) or 0),
+                commission=float(data.get("commission", 0) or 0),
+                slippage=float(data.get("slippage", 0) or 0),
+                leverage=int(data.get("leverage", 1) or 1),
+                trade_direction=str(data.get("tradeDirection", "long") or "long"),
+                strategy_config=data.get("strategyConfig") or {},
+                config_snapshot={"indicatorId": int(indicator_id) if indicator_id is not None else None},
+                status="failed",
                 error_message=str(e),
                 result=None,
-                code=str(data.get('indicatorCode', '') or ''),
+                code=str(data.get("indicatorCode", "") or ""),
             )
         except Exception:
             pass
-        return jsonify({
-            'code': 0,
-            'msg': f'Backtest failed: {str(e)}',
-            'data': None
-        }), 500
+        return jsonify({"code": 0, "msg": f"Backtest failed: {str(e)}", "data": None}), 500
 
 
-@backtest_bp.route('/backtest/history', methods=['GET'])
+@backtest_bp.route("/backtest/history", methods=["GET"])
 @login_required
 def get_backtest_history():
     """
@@ -357,17 +333,17 @@ def get_backtest_history():
     try:
         # Use current user's ID
         user_id = g.user_id
-        limit = int(request.args.get('limit') or 50)
-        offset = int(request.args.get('offset') or 0)
+        limit = int(request.args.get("limit") or 50)
+        offset = int(request.args.get("offset") or 0)
         limit = max(1, min(limit, 200))
         offset = max(0, offset)
 
-        indicator_id = request.args.get('indicatorId')
-        strategy_id = request.args.get('strategyId')
-        run_type = (request.args.get('runType') or '').strip()
-        symbol = (request.args.get('symbol') or '').strip()
-        market = (request.args.get('market') or '').strip()
-        timeframe = (request.args.get('timeframe') or '').strip()
+        indicator_id = request.args.get("indicatorId")
+        strategy_id = request.args.get("strategyId")
+        run_type = (request.args.get("runType") or "").strip()
+        symbol = (request.args.get("symbol") or "").strip()
+        market = (request.args.get("market") or "").strip()
+        timeframe = (request.args.get("timeframe") or "").strip()
         rows = backtest_service.list_runs(
             user_id=user_id,
             limit=limit,
@@ -380,14 +356,14 @@ def get_backtest_history():
             timeframe=timeframe,
         )
 
-        return jsonify({'code': 1, 'msg': 'OK', 'data': rows})
+        return jsonify({"code": 1, "msg": "OK", "data": rows})
     except Exception as e:
         logger.error(f"get_backtest_history failed: {e}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@backtest_bp.route('/backtest/get', methods=['GET'])
+@backtest_bp.route("/backtest/get", methods=["GET"])
 @login_required
 def get_backtest_run():
     """
@@ -398,19 +374,19 @@ def get_backtest_run():
     """
     try:
         user_id = g.user_id
-        run_id = int(request.args.get('runId') or 0)
+        run_id = int(request.args.get("runId") or 0)
         if not run_id:
-            return jsonify({'code': 0, 'msg': 'runId is required', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "runId is required", "data": None}), 400
 
         row = backtest_service.get_run(user_id=user_id, run_id=run_id)
         if not row:
-            return jsonify({'code': 0, 'msg': 'run not found', 'data': None}), 404
+            return jsonify({"code": 0, "msg": "run not found", "data": None}), 404
 
-        return jsonify({'code': 1, 'msg': 'OK', 'data': row})
+        return jsonify({"code": 1, "msg": "OK", "data": row})
     except Exception as e:
         logger.error(f"get_backtest_run failed: {e}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
 def _heuristic_ai_advice(runs: list[dict], lang: str) -> str:
@@ -463,15 +439,43 @@ def _heuristic_ai_advice(runs: list[dict], lang: str) -> str:
 
     # Minimal localized headings to keep heuristic readable across locales.
     headings = {
-        "zh-CN": {"overall": "【总体建议】", "params": "【参数建议（可直接改回测配置测试）】", "next": "【下一步建议的回测方法】"},
-        "zh-TW": {"overall": "【總體建議】", "params": "【參數建議（可直接改回測配置測試）】", "next": "【下一步回測方法建議】"},
-        "en-US": {"overall": "Overall", "params": "Parameter suggestions (edit backtest config and re-run)", "next": "Next steps"},
+        "zh-CN": {
+            "overall": "【总体建议】",
+            "params": "【参数建议（可直接改回测配置测试）】",
+            "next": "【下一步建议的回测方法】",
+        },
+        "zh-TW": {
+            "overall": "【總體建議】",
+            "params": "【參數建議（可直接改回測配置測試）】",
+            "next": "【下一步回測方法建議】",
+        },
+        "en-US": {
+            "overall": "Overall",
+            "params": "Parameter suggestions (edit backtest config and re-run)",
+            "next": "Next steps",
+        },
         "ko-KR": {"overall": "요약", "params": "파라미터 제안(백테스트 설정 변경)", "next": "다음 단계"},
         "th-TH": {"overall": "สรุป", "params": "ข้อเสนอแนะพารามิเตอร์ (ปรับค่าที่ตั้งแบ็กเทสต์)", "next": "ขั้นตอนถัดไป"},
-        "vi-VN": {"overall": "Tổng quan", "params": "Gợi ý tham số (sửa cấu hình backtest và chạy lại)", "next": "Bước tiếp theo"},
-        "ar-SA": {"overall": "ملخص", "params": "اقتراحات المعلمات (عدّل إعدادات الاختبار وأعد التشغيل)", "next": "الخطوات التالية"},
-        "de-DE": {"overall": "Überblick", "params": "Parameter-Vorschläge (Backtest-Konfiguration anpassen)", "next": "Nächste Schritte"},
-        "fr-FR": {"overall": "Vue d’ensemble", "params": "Suggestions de paramètres (modifier la config et relancer)", "next": "Étapes suivantes"},
+        "vi-VN": {
+            "overall": "Tổng quan",
+            "params": "Gợi ý tham số (sửa cấu hình backtest và chạy lại)",
+            "next": "Bước tiếp theo",
+        },
+        "ar-SA": {
+            "overall": "ملخص",
+            "params": "اقتراحات المعلمات (عدّل إعدادات الاختبار وأعد التشغيل)",
+            "next": "الخطوات التالية",
+        },
+        "de-DE": {
+            "overall": "Überblick",
+            "params": "Parameter-Vorschläge (Backtest-Konfiguration anpassen)",
+            "next": "Nächste Schritte",
+        },
+        "fr-FR": {
+            "overall": "Vue d’ensemble",
+            "params": "Suggestions de paramètres (modifier la config et relancer)",
+            "next": "Étapes suivantes",
+        },
         "ja-JP": {"overall": "概要", "params": "パラメータ提案（設定変更→再バックテスト）", "next": "次のステップ"},
     }
     h = headings.get(lang, headings["en-US"])
@@ -479,62 +483,96 @@ def _heuristic_ai_advice(runs: list[dict], lang: str) -> str:
     lines = []
     if lang == "en-US":
         if len(runs) > 1:
-            lines.append(f"Received {len(runs)} backtest runs. Suggestions below focus on run #{r0.get('id','')}; validate with A/B tests across runs.")
+            lines.append(
+                f"Received {len(runs)} backtest runs. Suggestions below focus on run #{r0.get('id', '')}; validate with A/B tests across runs."
+            )
         lines.append(h["overall"])
     elif lang == "zh-TW":
         if len(runs) > 1:
-            lines.append(f"已收到 {len(runs)} 條回測記錄。以下以記錄 #{r0.get('id','')} 為主給出參數調整建議，並建議你用多組記錄做 A/B 驗證。")
+            lines.append(
+                f"已收到 {len(runs)} 條回測記錄。以下以記錄 #{r0.get('id', '')} 為主給出參數調整建議，並建議你用多組記錄做 A/B 驗證。"
+            )
         lines.append(h["overall"])
     else:
         if len(runs) > 1:
             if lang == "ko-KR":
-                lines.append(f"{len(runs)}개의 백테스트 기록을 받았습니다. 아래는 #{r0.get('id','')} 기준으로 제안하며, 여러 기록으로 A/B 검증을 권장합니다.")
+                lines.append(
+                    f"{len(runs)}개의 백테스트 기록을 받았습니다. 아래는 #{r0.get('id', '')} 기준으로 제안하며, 여러 기록으로 A/B 검증을 권장합니다."
+                )
             elif lang == "th-TH":
-                lines.append(f"ได้รับประวัติแบ็กเทสต์ {len(runs)} รายการ ข้อเสนอแนะด้านล่างอิงจาก #{r0.get('id','')} และแนะนำให้ทำ A/B test เทียบหลายชุด")
+                lines.append(
+                    f"ได้รับประวัติแบ็กเทสต์ {len(runs)} รายการ ข้อเสนอแนะด้านล่างอิงจาก #{r0.get('id', '')} และแนะนำให้ทำ A/B test เทียบหลายชุด"
+                )
             elif lang == "vi-VN":
-                lines.append(f"Đã nhận {len(runs)} bản ghi backtest. Gợi ý bên dưới tập trung vào #{r0.get('id','')} và khuyến nghị A/B test với nhiều bản ghi.")
+                lines.append(
+                    f"Đã nhận {len(runs)} bản ghi backtest. Gợi ý bên dưới tập trung vào #{r0.get('id', '')} và khuyến nghị A/B test với nhiều bản ghi."
+                )
             elif lang == "ar-SA":
-                lines.append(f"تم استلام {len(runs)} من سجلات الاختبار الخلفي. تركّز الاقتراحات أدناه على التشغيل #{r0.get('id','')} مع توصية باختبارات A/B.")
+                lines.append(
+                    f"تم استلام {len(runs)} من سجلات الاختبار الخلفي. تركّز الاقتراحات أدناه على التشغيل #{r0.get('id', '')} مع توصية باختبارات A/B."
+                )
             elif lang == "de-DE":
-                lines.append(f"{len(runs)} Backtest-Läufe empfangen. Vorschläge unten fokussieren auf Lauf #{r0.get('id','')}; A/B-Tests über mehrere Läufe empfohlen.")
+                lines.append(
+                    f"{len(runs)} Backtest-Läufe empfangen. Vorschläge unten fokussieren auf Lauf #{r0.get('id', '')}; A/B-Tests über mehrere Läufe empfohlen."
+                )
             elif lang == "fr-FR":
-                lines.append(f"{len(runs)} exécutions de backtest reçues. Suggestions ci-dessous centrées sur #{r0.get('id','')}; A/B tests recommandés.")
+                lines.append(
+                    f"{len(runs)} exécutions de backtest reçues. Suggestions ci-dessous centrées sur #{r0.get('id', '')}; A/B tests recommandés."
+                )
             elif lang == "ja-JP":
-                lines.append(f"{len(runs)} 件のバックテスト記録を受け取りました。以下は #{r0.get('id','')} を中心に提案し、複数記録でA/B検証を推奨します。")
+                lines.append(
+                    f"{len(runs)} 件のバックテスト記録を受け取りました。以下は #{r0.get('id', '')} を中心に提案し、複数記録でA/B検証を推奨します。"
+                )
             else:
-                lines.append(f"Received {len(runs)} backtest runs. Suggestions below focus on run #{r0.get('id','')}; validate with A/B tests across runs.")
+                lines.append(
+                    f"Received {len(runs)} backtest runs. Suggestions below focus on run #{r0.get('id', '')}; validate with A/B tests across runs."
+                )
         lines.append(h["overall"])
     if sharpe < 0 or total_return < 0:
         if lang == "en-US":
-            lines.append("- Strategy is losing/unstable: reduce risk first (lower entryPct, fewer/smaller scale-ins), then refine signal filters.")
+            lines.append(
+                "- Strategy is losing/unstable: reduce risk first (lower entryPct, fewer/smaller scale-ins), then refine signal filters."
+            )
         elif lang == "zh-TW":
-            lines.append("- 目前策略偏虧損/不穩定：先降低風險暴露（降低開倉資金占比 entryPct、減少加倉次數/比例），再調整信號過濾。")
+            lines.append(
+                "- 目前策略偏虧損/不穩定：先降低風險暴露（降低開倉資金占比 entryPct、減少加倉次數/比例），再調整信號過濾。"
+            )
         else:
-            lines.append("- 当前策略整体偏亏损/不稳定：优先降低风险暴露（降低开仓资金占比 entryPct、减少加仓次数/比例），再调信号过滤。")
+            lines.append(
+                "- 当前策略整体偏亏损/不稳定：优先降低风险暴露（降低开仓资金占比 entryPct、减少加仓次数/比例），再调信号过滤。"
+            )
     if max_dd > 30:
         if lang == "en-US":
-            lines.append("- Max drawdown is high: tighten stop-loss or reduce leverage/entry size; consider enabling trailing to protect profits.")
+            lines.append(
+                "- Max drawdown is high: tighten stop-loss or reduce leverage/entry size; consider enabling trailing to protect profits."
+            )
         elif lang == "zh-TW":
             lines.append("- 最大回撤偏大：建議優先收緊止損或降低槓桿/開倉倉位；同時考慮啟用移動止盈以保護盈利回撤。")
         else:
             lines.append("- 最大回撤较大：建议优先收紧止损或降低杠杆/开仓仓位；同时考虑启用移动止盈保护盈利回撤。")
     if trades < 10:
         if lang == "en-US":
-            lines.append("- Too few trades: rules may be too strict; relax thresholds or remove one filter to get enough samples.")
+            lines.append(
+                "- Too few trades: rules may be too strict; relax thresholds or remove one filter to get enough samples."
+            )
         elif lang == "zh-TW":
             lines.append("- 交易次數偏少：可能條件過嚴，建議適度放寬信號門檻或減少過濾條件，確保有足夠樣本驗證。")
         else:
             lines.append("- 交易次数偏少：可能条件过严，建议适当放宽信号阈值或减少过滤条件，确保有足够样本验证。")
     if win_rate < 35 and profit_factor >= 1.2:
         if lang == "en-US":
-            lines.append("- Low win rate but decent PF: consider slightly wider stop-loss and use trailing to lock profits.")
+            lines.append(
+                "- Low win rate but decent PF: consider slightly wider stop-loss and use trailing to lock profits."
+            )
         elif lang == "zh-TW":
             lines.append("- 勝率偏低但盈虧比不差：可考慮略放寬止損（讓盈利單跑起來），並用移動止盈鎖住利潤。")
         else:
             lines.append("- 胜率偏低但盈亏比不差：可以考虑放宽止损（让盈利单跑起来）并用移动止盈锁利润。")
     if win_rate >= 55 and profit_factor < 1.1:
         if lang == "en-US":
-            lines.append("- Win rate is OK but PF is low: raise take-profit or enable trailing to improve winners; avoid taking profits too early.")
+            lines.append(
+                "- Win rate is OK but PF is low: raise take-profit or enable trailing to improve winners; avoid taking profits too early."
+            )
         elif lang == "zh-TW":
             lines.append("- 勝率不低但盈虧比偏小：考慮提高止盈或啟用移動止盈，讓單筆盈利更充分；避免過早止盈。")
         else:
@@ -543,32 +581,56 @@ def _heuristic_ai_advice(runs: list[dict], lang: str) -> str:
     lines.append("\n" + h["params"])
     if stop_loss <= 0:
         if lang == "en-US":
-            lines.append("- Stop-loss: set stopLossPct (margin PnL basis). For crypto leverage, start with 2%~6% (then consider leverage conversion) and grid test.")
+            lines.append(
+                "- Stop-loss: set stopLossPct (margin PnL basis). For crypto leverage, start with 2%~6% (then consider leverage conversion) and grid test."
+            )
         elif lang == "zh-TW":
-            lines.append("- 止損：建議設定 stopLossPct（按保證金口徑）。在加密+槓桿下，先從 2%~6%（再結合槓桿換算）做網格測試。")
+            lines.append(
+                "- 止損：建議設定 stopLossPct（按保證金口徑）。在加密+槓桿下，先從 2%~6%（再結合槓桿換算）做網格測試。"
+            )
         else:
-            lines.append("- 止损：建议设置 stopLossPct（按保证金口径）。在加密+杠杆下，先从 2%~6%（再结合杠杆换算）做网格测试。")
+            lines.append(
+                "- 止损：建议设置 stopLossPct（按保证金口径）。在加密+杠杆下，先从 2%~6%（再结合杠杆换算）做网格测试。"
+            )
     else:
         if lang == "en-US":
-            lines.append(f"- Stop-loss: current stopLossPct={stop_loss:.4f} (margin basis). Test ±30% around it and monitor drawdown/liquidations.")
+            lines.append(
+                f"- Stop-loss: current stopLossPct={stop_loss:.4f} (margin basis). Test ±30% around it and monitor drawdown/liquidations."
+            )
         elif lang == "zh-TW":
-            lines.append(f"- 止損：目前 stopLossPct={stop_loss:.4f}（保證金口徑）。建議圍繞它做 ±30% 區間測試，並觀察回撤/爆倉次數變化。")
+            lines.append(
+                f"- 止損：目前 stopLossPct={stop_loss:.4f}（保證金口徑）。建議圍繞它做 ±30% 區間測試，並觀察回撤/爆倉次數變化。"
+            )
         else:
-            lines.append(f"- 止损：当前 stopLossPct={stop_loss:.4f}（保证金口径）。建议围绕它做 ±30% 的区间测试，并观察回撤/爆仓次数变化。")
+            lines.append(
+                f"- 止损：当前 stopLossPct={stop_loss:.4f}（保证金口径）。建议围绕它做 ±30% 的区间测试，并观察回撤/爆仓次数变化。"
+            )
     if take_profit > 0 and (not trailing_enabled):
         if lang == "en-US":
-            lines.append(f"- Take-profit: current takeProfitPct={take_profit:.4f}. Also test enabling trailing to reduce profit giveback.")
+            lines.append(
+                f"- Take-profit: current takeProfitPct={take_profit:.4f}. Also test enabling trailing to reduce profit giveback."
+            )
         elif lang == "zh-TW":
-            lines.append(f"- 止盈：目前 takeProfitPct={take_profit:.4f}。建議同時測試啟用移動止盈（trailing）以降低盈利回撤。")
+            lines.append(
+                f"- 止盈：目前 takeProfitPct={take_profit:.4f}。建議同時測試啟用移動止盈（trailing）以降低盈利回撤。"
+            )
         else:
-            lines.append(f"- 止盈：当前 takeProfitPct={take_profit:.4f}。建议同时测试开启移动止盈（trailing）以降低盈利回撤。")
+            lines.append(
+                f"- 止盈：当前 takeProfitPct={take_profit:.4f}。建议同时测试开启移动止盈（trailing）以降低盈利回撤。"
+            )
     if trailing_enabled:
         if lang == "en-US":
-            lines.append(f"- Trailing: enabled, pct={trailing_pct:.4f}, activationPct={trailing_act:.4f}. Set activation near typical winner PnL and test pct at 0.5x~1.5x.")
+            lines.append(
+                f"- Trailing: enabled, pct={trailing_pct:.4f}, activationPct={trailing_act:.4f}. Set activation near typical winner PnL and test pct at 0.5x~1.5x."
+            )
         elif lang == "zh-TW":
-            lines.append(f"- 移動止盈：已啟用，pct={trailing_pct:.4f}, activationPct={trailing_act:.4f}。建議將 activationPct 設為略低於常見單筆盈利水平，並把 pct 做 0.5x~1.5x 測試。")
+            lines.append(
+                f"- 移動止盈：已啟用，pct={trailing_pct:.4f}, activationPct={trailing_act:.4f}。建議將 activationPct 設為略低於常見單筆盈利水平，並把 pct 做 0.5x~1.5x 測試。"
+            )
         else:
-            lines.append(f"- 移动止盈：已启用，pct={trailing_pct:.4f}, activationPct={trailing_act:.4f}。建议把 activationPct 设为略低于常见单笔盈利水平，并把 pct 做 0.5x~1.5x 测试。")
+            lines.append(
+                f"- 移动止盈：已启用，pct={trailing_pct:.4f}, activationPct={trailing_act:.4f}。建议把 activationPct 设为略低于常见单笔盈利水平，并把 pct 做 0.5x~1.5x 测试。"
+            )
     else:
         if lang == "en-US":
             lines.append("- Trailing: consider trailing.enabled=true; start with pct=1%~3% (margin basis) and test.")
@@ -577,23 +639,37 @@ def _heuristic_ai_advice(runs: list[dict], lang: str) -> str:
         else:
             lines.append("- 移动止盈：建议开启 trailing.enabled=true，并从 pct=1%~3%（保证金口径换算后）开始测试。")
     if lang == "en-US":
-        lines.append(f"- Entry sizing: entryPct={entry_pct:.4f}. Test 0.2/0.3/0.5/0.8 to find a better return/drawdown sweet spot.")
+        lines.append(
+            f"- Entry sizing: entryPct={entry_pct:.4f}. Test 0.2/0.3/0.5/0.8 to find a better return/drawdown sweet spot."
+        )
     elif lang == "zh-TW":
-        lines.append(f"- 開倉倉位：目前 entryPct={entry_pct:.4f}。建議先用 0.2/0.3/0.5/0.8 分層回測，找收益/回撤更優的甜區。")
+        lines.append(
+            f"- 開倉倉位：目前 entryPct={entry_pct:.4f}。建議先用 0.2/0.3/0.5/0.8 分層回測，找收益/回撤更優的甜區。"
+        )
     else:
-        lines.append(f"- 开仓仓位：当前 entryPct={entry_pct:.4f}。建议先用 0.2/0.3/0.5/0.8 做分层回测，找收益/回撤更优的甜区。")
+        lines.append(
+            f"- 开仓仓位：当前 entryPct={entry_pct:.4f}。建议先用 0.2/0.3/0.5/0.8 做分层回测，找收益/回撤更优的甜区。"
+        )
 
     # Scaling (very light guidance)
     if isinstance(trend_add, dict) and trend_add.get("enabled"):
         if lang == "en-US":
-            lines.append("- Trend scale-in: reduce sizePct or maxTimes to avoid drawdown expansion; verify same-bar conflict rules match expectations.")
+            lines.append(
+                "- Trend scale-in: reduce sizePct or maxTimes to avoid drawdown expansion; verify same-bar conflict rules match expectations."
+            )
         elif lang == "zh-TW":
-            lines.append("- 順勢加倉：建議優先降低 sizePct 或 maxTimes，避免回撤擴大；並確認同K線主信號禁用加減倉規則符合預期。")
+            lines.append(
+                "- 順勢加倉：建議優先降低 sizePct 或 maxTimes，避免回撤擴大；並確認同K線主信號禁用加減倉規則符合預期。"
+            )
         else:
-            lines.append("- 顺势加仓：建议优先降低 sizePct 或 maxTimes，避免回撤扩大；并确保同K线主信号禁用加减仓的规则与你预期一致。")
+            lines.append(
+                "- 顺势加仓：建议优先降低 sizePct 或 maxTimes，避免回撤扩大；并确保同K线主信号禁用加减仓的规则与你预期一致。"
+            )
     if isinstance(dca_add, dict) and dca_add.get("enabled"):
         if lang == "en-US":
-            lines.append("- DCA scale-in: very risky under leverage; keep maxTimes small, sizePct low, and use stricter stop-loss.")
+            lines.append(
+                "- DCA scale-in: very risky under leverage; keep maxTimes small, sizePct low, and use stricter stop-loss."
+            )
         elif lang == "zh-TW":
             lines.append("- 逆勢加倉：加密槓桿下風險極高，建議 maxTimes 更小、sizePct 更低，並採用更嚴格止損。")
         else:
@@ -607,7 +683,9 @@ def _heuristic_ai_advice(runs: list[dict], lang: str) -> str:
             lines.append("- 顺势减仓：适合降低波动，但可能降低收益；建议和移动止盈一起对比测试。")
     if isinstance(adverse_reduce, dict) and adverse_reduce.get("enabled"):
         if lang == "en-US":
-            lines.append("- Adverse reduce: can control drawdowns but increases fees/slippage; consider enabling under higher leverage.")
+            lines.append(
+                "- Adverse reduce: can control drawdowns but increases fees/slippage; consider enabling under higher leverage."
+            )
         elif lang == "zh-TW":
             lines.append("- 逆勢減倉：可用於控回撤，但可能增加手續費/滑點成本；建議優先在高槓桿時開啟。")
         else:
@@ -622,12 +700,14 @@ def _heuristic_ai_advice(runs: list[dict], lang: str) -> str:
         lines.append("- 重點同時看：總收益、最大回撤、夏普、交易次數、爆倉/止損觸發次數。")
     else:
         # Keep English for other locales to ensure readability in fallback mode.
-        lines.append("- Keep signal logic fixed; run parameter grid tests (coarse → fine). Change only 1-2 params per run.")
+        lines.append(
+            "- Keep signal logic fixed; run parameter grid tests (coarse → fine). Change only 1-2 params per run."
+        )
         lines.append("- Track: total return, max drawdown, Sharpe, trade count, liquidation/stop-loss triggers.")
     return "\n".join(lines)
 
 
-@backtest_bp.route('/backtest/aiAnalyze', methods=['POST'])
+@backtest_bp.route("/backtest/aiAnalyze", methods=["POST"])
 @login_required
 def ai_analyze_backtest_runs():
     """
@@ -641,16 +721,16 @@ def ai_analyze_backtest_runs():
         data = request.get_json() or {}
         user_id = g.user_id
         backtest_service.ensure_storage_schema()
-        lang = _normalize_lang(data.get('lang'))
-        run_ids = data.get('runIds') or []
+        lang = _normalize_lang(data.get("lang"))
+        run_ids = data.get("runIds") or []
         if not isinstance(run_ids, list) or not run_ids:
-            return jsonify({'code': 0, 'msg': 'runIds is required', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "runIds is required", "data": None}), 400
 
         # Limit to avoid huge prompts / payload.
         run_ids = [int(x) for x in run_ids if str(x).strip().isdigit()]
         run_ids = run_ids[:10]
         if not run_ids:
-            return jsonify({'code': 0, 'msg': 'runIds is required', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "runIds is required", "data": None}), 400
 
         placeholders = ",".join(["?"] * len(run_ids))
         with get_db_connection() as db:
@@ -673,28 +753,28 @@ def ai_analyze_backtest_runs():
         runs: list[dict] = []
         for r in rows:
             try:
-                r['strategy_config'] = json.loads(r.get('strategy_config') or '{}')
+                r["strategy_config"] = json.loads(r.get("strategy_config") or "{}")
             except Exception:
-                r['strategy_config'] = {}
+                r["strategy_config"] = {}
             try:
-                r['config_snapshot'] = json.loads(r.get('config_snapshot') or '{}')
+                r["config_snapshot"] = json.loads(r.get("config_snapshot") or "{}")
             except Exception:
-                r['config_snapshot'] = {}
+                r["config_snapshot"] = {}
             try:
-                r['result'] = json.loads(r.get('result_json') or '{}')
+                r["result"] = json.loads(r.get("result_json") or "{}")
             except Exception:
-                r['result'] = {}
-            r.pop('result_json', None)
+                r["result"] = {}
+            r.pop("result_json", None)
             runs.append(r)
 
         if not runs:
-            return jsonify({'code': 0, 'msg': 'runs not found', 'data': None}), 404
+            return jsonify({"code": 0, "msg": "runs not found", "data": None}), 404
 
         # OpenRouter (optional)
         base_url, api_key = _openrouter_base_and_key()
         if not api_key:
             analysis = _heuristic_ai_advice(runs, lang)
-            return jsonify({'code': 1, 'msg': 'OK', 'data': {'analysis': analysis, 'mode': 'heuristic', 'lang': lang}})
+            return jsonify({"code": 1, "msg": "OK", "data": {"analysis": analysis, "mode": "heuristic", "lang": lang}})
 
         model = (os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini") or "").strip() or "openai/gpt-4o-mini"
         temperature = float(os.getenv("OPENROUTER_TEMPERATURE", "0.4") or 0.4)
@@ -767,21 +847,23 @@ def ai_analyze_backtest_runs():
             analysis = content.strip()
             if not analysis:
                 analysis = _heuristic_ai_advice(runs, lang)
-                return jsonify({'code': 1, 'msg': 'OK', 'data': {'analysis': analysis, 'mode': 'heuristic_fallback', 'lang': lang}})
-            return jsonify({'code': 1, 'msg': 'OK', 'data': {'analysis': analysis, 'mode': 'llm', 'lang': lang}})
+                return jsonify(
+                    {"code": 1, "msg": "OK", "data": {"analysis": analysis, "mode": "heuristic_fallback", "lang": lang}}
+                )
+            return jsonify({"code": 1, "msg": "OK", "data": {"analysis": analysis, "mode": "llm", "lang": lang}})
         except requests.exceptions.RequestException as e:
             # Do not fail the whole endpoint if LLM provider is misconfigured or rate-limited.
             logger.error(f"OpenRouter request failed, falling back to heuristic: {e}")
             analysis = _heuristic_ai_advice(runs, lang)
             return jsonify(
                 {
-                    'code': 1,
-                    'msg': 'OK',
-                    'data': {
-                        'analysis': analysis,
-                        'mode': 'heuristic_fallback',
-                        'lang': lang,
-                        'llmError': str(e),
+                    "code": 1,
+                    "msg": "OK",
+                    "data": {
+                        "analysis": analysis,
+                        "mode": "heuristic_fallback",
+                        "lang": lang,
+                        "llmError": str(e),
                     },
                 }
             )
@@ -789,5 +871,4 @@ def ai_analyze_backtest_runs():
     except Exception as e:
         logger.error(f"ai_analyze_backtest_runs failed: {e}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
-
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500

@@ -1,7 +1,8 @@
 [*]
 charset=utf-8
 end_of_line=lf
-insert_final_newline=false
+insert_final_newline=true
+trim_trailing_whitespace=true
 indent_style=space
 indent_size=2
 
@@ -36,4 +37,3 @@ indent_size=2
 [{.analysis_options,*.yml,*.yaml}]
 indent_style=space
 indent_size=2
-

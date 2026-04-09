@@ -1,8 +1,12 @@
 """
 QuantDinger Python API entrypoint.
 """
+
 import os
 import sys
+
+from app import create_app
+from app.config.settings import Config
 
 # Ensure UTF-8 console output on Windows to avoid UnicodeEncodeError in logs.
 # (PowerShell default encoding may be GBK/CP936.)
@@ -18,6 +22,7 @@ except Exception:
 # This keeps local deployment simple: edit one file and run.
 try:
     from dotenv import load_dotenv
+
     this_dir = os.path.dirname(os.path.abspath(__file__))
     # Primary: backend_api_python/.env (same dir as run.py)
     load_dotenv(os.path.join(this_dir, ".env"), override=False)
@@ -32,6 +37,7 @@ except Exception:
 # keeping console logs clean in local mode.
 os.environ.setdefault("TQDM_DISABLE", "1")
 
+
 # Optional: normalize outbound proxy settings for the whole process.
 # This makes requests/yfinance/finnhub/tiingo/GoogleSearch etc work behind a local proxy.
 def _apply_proxy_env():
@@ -45,23 +51,58 @@ def _apply_proxy_env():
             os.environ[key] = value
 
     # If user provided explicit proxy URL, honor it.
-    proxy_url = (os.getenv('PROXY_URL') or '').strip()
+    proxy_url = (os.getenv("PROXY_URL") or "").strip()
 
     if not proxy_url:
         return
 
     # Standard env vars used by requests and many libraries.
-    _set_if_blank('ALL_PROXY', proxy_url)
-    _set_if_blank('HTTP_PROXY', proxy_url)
-    _set_if_blank('HTTPS_PROXY', proxy_url)
+    _set_if_blank("ALL_PROXY", proxy_url)
+    _set_if_blank("HTTP_PROXY", proxy_url)
+    _set_if_blank("HTTPS_PROXY", proxy_url)
+
 
 _apply_proxy_env()
+#################
+
+
+# Optional: Disable SSL verification for development in corporate environments (SSL Inspection)
+# This is NOT recommended for production use.
+def _apply_ssl_verify():
+    verify_ssl = os.getenv("PYTHON_SSL_VERIFY", "true").lower() == "true"
+    if not verify_ssl:
+        import requests
+        import urllib3
+        from urllib3.exceptions import InsecureRequestWarning
+
+        # Suppress InsecureRequestWarning
+        urllib3.disable_warnings(InsecureRequestWarning)
+
+        # Monkey patch requests.Session.request to default verify=False
+        # This affects requests, yfinance, and many other libraries.
+        original_request = requests.Session.request
+
+        def patched_request(self, method, url, *args, **kwargs):
+            if "verify" not in kwargs:
+                kwargs["verify"] = False
+            return original_request(self, method, url, *args, **kwargs)
+
+        requests.Session.request = patched_request
+
+        # Also set common environment variables to skip verification
+        os.environ["CURL_CA_BUNDLE"] = ""
+        os.environ["REQUESTS_CA_BUNDLE"] = ""
+        os.environ["PYTHONHTTPSVERIFY"] = "0"
+
+        print("[DEV ONLY] SSL Verification disabled globally (Corporate SSL Inspection bypass)")
+
+
+_apply_ssl_verify()
+
+##################
 
 # Add project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from app import create_app
-from app.config.settings import Config
 
 # Create app instance (for gunicorn use)
 # gunicorn -c gunicorn_config.py "run:app"
@@ -72,7 +113,7 @@ def main():
     """Start application"""
     # Keep startup messages ASCII-only and short.
     print("QuantDinger Python API v2.2.2")
-    
+
     # ========== Critical Security Check for SECRET_KEY ==========
     # In production (DEBUG=False), the SECRET_KEY MUST NOT use the default example value.
     # This prevents attackers from forging JWT tokens with admin privileges.
@@ -90,17 +131,12 @@ def main():
         # Print to both stdout and raise to stop the server
         print(msg)
         raise RuntimeError("Insecure SECRET_KEY configuration: using default example value in non-debug mode")
-    
+
     print(f"Service starting at: http://{Config.HOST}:{Config.PORT}")
-    
+
     # Flask dev server is for local development only.
-    app.run(
-        host=Config.HOST,
-        port=Config.PORT,
-        debug=Config.DEBUG,
-        threaded=True
-    )
+    app.run(host=Config.HOST, port=Config.PORT, debug=Config.DEBUG, threaded=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

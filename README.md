@@ -7,12 +7,12 @@
 
   <h3>AI-Native Quantitative Trading Platform</h3>
   <p><strong>Vibe Coding Meets Algo Trading</strong></p>
-  <p> 
+  <p>
   <a href="docs/README_CN.md"><strong>🇨🇳 中文</strong></a> &nbsp;·&nbsp;
-  <a href="README.md"><strong>🇺🇸 English</strong></a> 
+  <a href="README.md"><strong>🇺🇸 English</strong></a>
   </p>
   <p>
- 
+
   <a href="https://ai.quantdinger.com"><strong>🌐 Live Demo</strong></a> &nbsp;·&nbsp;
   <a href="https://youtu.be/HPTVpqL7knM"><strong>📺 Video</strong></a> &nbsp;·&nbsp;
   <a href="https://www.quantdinger.com"><strong>💬 Community</strong></a> &nbsp;·&nbsp;
@@ -93,7 +93,7 @@ docker-compose up -d --build
 > - Launch:
 >   `docker-compose up -d --build`
 
-> **Windows PowerShell**: 
+> **Windows PowerShell**:
 > - Copy backend config:
 >   `Copy-Item backend_api_python\env.example -Destination backend_api_python\.env`
 > - Need more knobs? Scroll to the lower "Advanced / rarely changed" section inside:

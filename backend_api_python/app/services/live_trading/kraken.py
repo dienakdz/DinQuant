@@ -24,7 +24,9 @@ from app.services.live_trading.symbols import to_kraken_pair
 
 
 class KrakenClient(BaseRestClient):
-    def __init__(self, *, api_key: str, secret_key: str, base_url: str = "https://api.kraken.com", timeout_sec: float = 15.0):
+    def __init__(
+        self, *, api_key: str, secret_key: str, base_url: str = "https://api.kraken.com", timeout_sec: float = 15.0
+    ):
         super().__init__(base_url=base_url, timeout_sec=timeout_sec)
         self.api_key = (api_key or "").strip()
         self.secret_key = (secret_key or "").strip()
@@ -105,9 +107,17 @@ class KrakenClient(BaseRestClient):
                 pass
         return self._signed_request("POST", "/0/private/AddOrder", data=body)
 
-    def place_market_order(self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_market_order(
+        self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         pair = to_kraken_pair(symbol)
-        raw = self.add_order(pair=pair, side=side, ordertype="market", volume=float(size or 0.0), client_order_id=str(client_order_id or ""))
+        raw = self.add_order(
+            pair=pair,
+            side=side,
+            ordertype="market",
+            volume=float(size or 0.0),
+            client_order_id=str(client_order_id or ""),
+        )
         txid = ""
         try:
             tx = ((raw.get("result") or {}).get("txid")) if isinstance(raw, dict) else None
@@ -117,9 +127,18 @@ class KrakenClient(BaseRestClient):
             txid = ""
         return LiveOrderResult(exchange_id="kraken", exchange_order_id=txid, filled=0.0, avg_price=0.0, raw=raw)
 
-    def place_limit_order(self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_limit_order(
+        self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         pair = to_kraken_pair(symbol)
-        raw = self.add_order(pair=pair, side=side, ordertype="limit", volume=float(size or 0.0), price=float(price or 0.0), client_order_id=str(client_order_id or ""))
+        raw = self.add_order(
+            pair=pair,
+            side=side,
+            ordertype="limit",
+            volume=float(size or 0.0),
+            price=float(price or 0.0),
+            client_order_id=str(client_order_id or ""),
+        )
         txid = ""
         try:
             tx = ((raw.get("result") or {}).get("txid")) if isinstance(raw, dict) else None
@@ -142,7 +161,9 @@ class KrakenClient(BaseRestClient):
         od = (res.get(str(order_id)) if isinstance(res, dict) else None) or {}
         return od if isinstance(od, dict) else {}
 
-    def wait_for_fill(self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5) -> Dict[str, Any]:
+    def wait_for_fill(
+        self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5
+    ) -> Dict[str, Any]:
         end_ts = time.time() + float(max_wait_sec or 0.0)
         last: Dict[str, Any] = {}
         while True:
@@ -175,11 +196,30 @@ class KrakenClient(BaseRestClient):
             if fee > 0:
                 fee_ccy = "USD"
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if status.lower() in ("closed", "canceled", "cancelled", "expired"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
-
-

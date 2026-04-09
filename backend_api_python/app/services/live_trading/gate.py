@@ -17,8 +17,8 @@ import hashlib
 import hmac
 import logging
 import time
-from decimal import Decimal, ROUND_DOWN, ROUND_UP
-from typing import Any, Dict, Optional, Tuple, Union
+from decimal import ROUND_DOWN, Decimal
+from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
 from app.services.live_trading.base import BaseRestClient, LiveOrderResult, LiveTradingError
@@ -53,7 +53,15 @@ def _gate_ticker_response_to_normalized(raw: Any) -> Dict[str, Any]:
 
 
 class _GateBase(BaseRestClient):
-    def __init__(self, *, api_key: str, secret_key: str, base_url: str = "https://api.gateio.ws", timeout_sec: float = 15.0, channel_id: str = ""):
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        secret_key: str,
+        base_url: str = "https://api.gateio.ws",
+        timeout_sec: float = 15.0,
+        channel_id: str = "",
+    ):
         super().__init__(base_url=base_url, timeout_sec=timeout_sec)
         self.api_key = (api_key or "").strip()
         self.secret_key = (secret_key or "").strip()
@@ -137,7 +145,9 @@ class GateSpotClient(_GateBase):
     def get_accounts(self) -> Any:
         return self._signed_request("GET", "/api/v4/spot/accounts")
 
-    def place_limit_order(self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_limit_order(
+        self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
@@ -158,9 +168,17 @@ class GateSpotClient(_GateBase):
             body["text"] = text
         raw = self._signed_request("POST", "/api/v4/spot/orders", json_body=body)
         oid = str(raw.get("id") or "") if isinstance(raw, dict) else ""
-        return LiveOrderResult(exchange_id="gate", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="gate",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
-    def place_market_order(self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_market_order(
+        self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
@@ -178,7 +196,13 @@ class GateSpotClient(_GateBase):
             body["text"] = text
         raw = self._signed_request("POST", "/api/v4/spot/orders", json_body=body)
         oid = str(raw.get("id") or "") if isinstance(raw, dict) else ""
-        return LiveOrderResult(exchange_id="gate", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="gate",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def cancel_order(self, *, order_id: str) -> Any:
         if not order_id:
@@ -190,7 +214,9 @@ class GateSpotClient(_GateBase):
             raise LiveTradingError("Gate spot get_order requires order_id")
         return self._signed_request("GET", f"/api/v4/spot/orders/{str(order_id)}")
 
-    def wait_for_fill(self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5) -> Dict[str, Any]:
+    def wait_for_fill(
+        self, *, order_id: str, max_wait_sec: float = 10.0, poll_interval_sec: float = 0.5
+    ) -> Dict[str, Any]:
         end_ts = time.time() + float(max_wait_sec or 0.0)
         last: Dict[str, Any] = {}
         while True:
@@ -221,17 +247,48 @@ class GateSpotClient(_GateBase):
                 fee = 0.0
             fee_ccy = str(last.get("fee_currency") or "").strip()
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if status.lower() in ("closed", "cancelled", "canceled"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
 
 
 class GateUsdtFuturesClient(_GateBase):
-    def __init__(self, *, api_key: str, secret_key: str, base_url: str = "https://api.gateio.ws", timeout_sec: float = 15.0, channel_id: str = ""):
-        super().__init__(api_key=api_key, secret_key=secret_key, base_url=base_url, timeout_sec=timeout_sec, channel_id=channel_id)
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        secret_key: str,
+        base_url: str = "https://api.gateio.ws",
+        timeout_sec: float = 15.0,
+        channel_id: str = "",
+    ):
+        super().__init__(
+            api_key=api_key, secret_key=secret_key, base_url=base_url, timeout_sec=timeout_sec, channel_id=channel_id
+        )
         # Best-effort cache for contract metadata to convert base qty -> contracts.
         self._contract_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
         self._contract_cache_ttl_sec = 300.0
@@ -276,9 +333,12 @@ class GateUsdtFuturesClient(_GateBase):
             if obj and (now - float(ts or 0.0)) <= float(self._contract_cache_ttl_sec or 300.0):
                 return obj
         code, data, text = self._request(
-            "GET", f"/api/v4/futures/usdt/contracts/{c}",
-            params=None, headers={"X-Gate-Size-Decimal": "1"},
-            json_body=None, data=None,
+            "GET",
+            f"/api/v4/futures/usdt/contracts/{c}",
+            params=None,
+            headers={"X-Gate-Size-Decimal": "1"},
+            json_body=None,
+            data=None,
         )
         if code >= 400:
             raise LiveTradingError(f"Gate HTTP {code}: {text[:500]}")
@@ -293,7 +353,9 @@ class GateUsdtFuturesClient(_GateBase):
         sign, digits, exponent = d.as_tuple()
         return max(0, -int(exponent))
 
-    def _resolve_order_size(self, *, contract: str, side: str, base_size: float) -> Tuple[str, Optional[Dict[str, str]]]:
+    def _resolve_order_size(
+        self, *, contract: str, side: str, base_size: float
+    ) -> Tuple[str, Optional[Dict[str, str]]]:
         """
         Convert base-asset qty to a signed Gate ``size`` string and determine whether to use
         the ``X-Gate-Size-Decimal`` header.
@@ -337,8 +399,7 @@ class GateUsdtFuturesClient(_GateBase):
             s = format(signed_q, "f")
             if "." in s:
                 s = s.rstrip("0").rstrip(".")
-            return (s if s and s not in ("-", "+", "-0", "+0", "0") else "0",
-                    {"X-Gate-Size-Decimal": "1"})
+            return (s if s and s not in ("-", "+", "-0", "+0", "0") else "0", {"X-Gate-Size-Decimal": "1"})
         else:
             iv = int(self._floor(contracts))
             int_min = max(1, int(order_min))
@@ -388,7 +449,8 @@ class GateUsdtFuturesClient(_GateBase):
 
     def get_positions(self) -> Any:
         return self._signed_request(
-            "GET", "/api/v4/futures/usdt/positions",
+            "GET",
+            "/api/v4/futures/usdt/positions",
             extra_headers={"X-Gate-Size-Decimal": "1"},
         )
 
@@ -442,8 +504,14 @@ class GateUsdtFuturesClient(_GateBase):
         size_str, extra_headers = self._resolve_order_size(contract=contract, side=sd, base_size=base_qty)
         if size_str in ("0", "-0", ""):
             raise LiveTradingError("Invalid size (resolved contracts == 0)")
-        logger.info("Gate futures market: contract=%s side=%s base_qty=%s size_str=%s decimal_hdr=%s",
-                     contract, sd, base_qty, size_str, extra_headers is not None)
+        logger.info(
+            "Gate futures market: contract=%s side=%s base_qty=%s size_str=%s decimal_hdr=%s",
+            contract,
+            sd,
+            base_qty,
+            size_str,
+            extra_headers is not None,
+        )
         body: Dict[str, Any] = {"contract": contract, "size": size_str, "price": "0", "tif": "ioc"}
         if reduce_only:
             body["reduce_only"] = True
@@ -457,7 +525,13 @@ class GateUsdtFuturesClient(_GateBase):
             extra_headers=extra_headers,
         )
         oid = str(raw.get("id") or "") if isinstance(raw, dict) else ""
-        return LiveOrderResult(exchange_id="gate", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="gate",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def place_limit_order(
         self,
@@ -495,7 +569,13 @@ class GateUsdtFuturesClient(_GateBase):
             extra_headers=extra_headers,
         )
         oid = str(raw.get("id") or "") if isinstance(raw, dict) else ""
-        return LiveOrderResult(exchange_id="gate", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="gate",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def cancel_order(self, *, order_id: str) -> Any:
         if not order_id:
@@ -507,7 +587,9 @@ class GateUsdtFuturesClient(_GateBase):
             raise LiveTradingError("Gate futures get_order requires order_id")
         return self._signed_request("GET", f"/api/v4/futures/usdt/orders/{str(order_id)}")
 
-    def wait_for_fill(self, *, order_id: str, contract: str, max_wait_sec: float = 3.0, poll_interval_sec: float = 0.5) -> Dict[str, Any]:
+    def wait_for_fill(
+        self, *, order_id: str, contract: str, max_wait_sec: float = 3.0, poll_interval_sec: float = 0.5
+    ) -> Dict[str, Any]:
         end_ts = time.time() + float(max_wait_sec or 0.0)
         last: Dict[str, Any] = {}
         qm = Decimal("1")
@@ -548,11 +630,30 @@ class GateUsdtFuturesClient(_GateBase):
             if fee > 0:
                 fee_ccy = "USDT"
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if str(status).lower() in ("finished", "cancelled", "canceled"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
-
-

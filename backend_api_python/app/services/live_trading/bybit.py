@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-from decimal import Decimal, ROUND_DOWN
+from decimal import ROUND_DOWN, Decimal
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
@@ -79,7 +79,7 @@ class BybitClient(BaseRestClient):
         """
         Convert Decimal to string with controlled precision.
         Bybit requires quantities to match qtyStep precision.
-        
+
         Args:
             d: Decimal value to format
             max_decimals: Maximum decimal places (fallback if strict_precision not provided)
@@ -89,7 +89,7 @@ class BybitClient(BaseRestClient):
             if d == 0:
                 return "0"
             normalized = d.normalize()
-            
+
             if strict_precision is not None:
                 try:
                     prec = int(strict_precision)
@@ -97,15 +97,15 @@ class BybitClient(BaseRestClient):
                         q = Decimal("1").scaleb(-prec)
                         quantized = normalized.quantize(q, rounding=ROUND_DOWN)
                         s = format(quantized, f".{prec}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                         return s if s else "0"
                 except Exception:
                     pass
-            
+
             s = format(normalized, f".{max_decimals}f")
-            if '.' in s:
-                s = s.rstrip('0').rstrip('.')
+            if "." in s:
+                s = s.rstrip("0").rstrip(".")
             return s if s else "0"
         except Exception:
             try:
@@ -117,18 +117,18 @@ class BybitClient(BaseRestClient):
                         prec = int(strict_precision)
                         if 0 <= prec <= 18:
                             s = format(f, f".{prec}f")
-                            if '.' in s:
-                                s = s.rstrip('0').rstrip('.')
+                            if "." in s:
+                                s = s.rstrip("0").rstrip(".")
                             return s if s else "0"
                     except Exception:
                         pass
                 s = format(f, f".{max_decimals}f")
-                if '.' in s:
-                    s = s.rstrip('0').rstrip('.')
+                if "." in s:
+                    s = s.rstrip("0").rstrip(".")
                 return s if s else "0"
             except Exception:
                 s = str(d)
-                if 'e' in s.lower() or 'E' in s:
+                if "e" in s.lower() or "E" in s:
                     try:
                         f = float(s)
                         if strict_precision is not None:
@@ -136,14 +136,14 @@ class BybitClient(BaseRestClient):
                                 prec = int(strict_precision)
                                 if 0 <= prec <= 18:
                                     s = format(f, f".{prec}f")
-                                    if '.' in s:
-                                        s = s.rstrip('0').rstrip('.')
+                                    if "." in s:
+                                        s = s.rstrip("0").rstrip(".")
                                     return s if s else "0"
                             except Exception:
                                 pass
                         s = format(f, f".{max_decimals}f")
-                        if '.' in s:
-                            s = s.rstrip('0').rstrip('.')
+                        if "." in s:
+                            s = s.rstrip("0").rstrip(".")
                     except Exception:
                         pass
                 return s if s else "0"
@@ -414,7 +414,9 @@ class BybitClient(BaseRestClient):
         return {}
 
     def get_wallet_balance(self, *, account_type: str = "UNIFIED") -> Dict[str, Any]:
-        return self._signed_request("GET", "/v5/account/wallet-balance", params={"accountType": str(account_type or "UNIFIED")})
+        return self._signed_request(
+            "GET", "/v5/account/wallet-balance", params={"accountType": str(account_type or "UNIFIED")}
+        )
 
     def get_instrument_info(self, *, category: str, symbol: str) -> Dict[str, Any]:
         cat = str(category or self.category or "linear").strip().lower()
@@ -449,15 +451,15 @@ class BybitClient(BaseRestClient):
         mn = self._to_dec((lot or {}).get("minOrderQty") or "0")
         if step > 0:
             q = self._floor_to_step(q, step)
-        
+
         # Infer precision from qtyStep
         qty_precision = None
         if step > 0:
             try:
                 step_normalized = step.normalize()
                 step_str = str(step_normalized)
-                if '.' in step_str:
-                    decimal_part = step_str.split('.')[1]
+                if "." in step_str:
+                    decimal_part = step_str.split(".")[1]
                     qty_precision = len(decimal_part)
                     if qty_precision < 0:
                         qty_precision = 0
@@ -467,7 +469,7 @@ class BybitClient(BaseRestClient):
                     qty_precision = 0
             except Exception:
                 pass
-        
+
         if mn > 0 and q < mn:
             return (Decimal("0"), qty_precision)
         return (q, qty_precision)
@@ -627,7 +629,9 @@ class BybitClient(BaseRestClient):
         last: Dict[str, Any] = {}
         while True:
             try:
-                last = self.get_order(symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or ""))
+                last = self.get_order(
+                    symbol=symbol, order_id=str(order_id or ""), client_order_id=str(client_order_id or "")
+                )
             except Exception:
                 last = last or {}
             status = str(last.get("orderStatus") or last.get("order_status") or "")
@@ -666,11 +670,32 @@ class BybitClient(BaseRestClient):
                 if fee > 0 and self.category == "linear":
                     fee_ccy = "USDT"
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if status.lower() in ("filled", "cancelled", "canceled", "rejected"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
 
     def get_positions(
@@ -714,5 +739,3 @@ class BybitClient(BaseRestClient):
             return bool(ok)
         except Exception:
             return False
-
-

@@ -1,36 +1,39 @@
 """
 Trading Strategy API Routes
 """
-from flask import Blueprint, request, jsonify, g
-from datetime import datetime
+
 import json
 import re
-import traceback
 import time
+import traceback
+from datetime import datetime
 
+from flask import Blueprint, g, jsonify, request
+
+from app import get_trading_executor
+from app.services.backtest import BacktestService
 from app.services.strategy import StrategyService
 from app.services.strategy_compiler import StrategyCompiler
-from app.services.backtest import BacktestService
 from app.services.strategy_snapshot import StrategySnapshotResolver
-from app import get_trading_executor
-from app.utils.logger import get_logger
 from app.utils.db import get_db_connection
+from app.utils.logger import get_logger
 
 try:
     from psycopg2.errors import UndefinedTable as PgUndefinedTable
 except Exception:  # pragma: no cover
     PgUndefinedTable = None  # type: ignore
-from app.utils.auth import login_required
 from app.data_sources import DataSourceFactory
+from app.utils.auth import login_required
 
 logger = get_logger(__name__)
 
-strategy_bp = Blueprint('strategy', __name__)
+strategy_bp = Blueprint("strategy", __name__)
 
 # Local mode: avoid heavy initialization during module import.
 # Instantiate services lazily on first use to keep startup clean.
 _strategy_service = None
 _backtest_service = None
+
 
 def get_strategy_service() -> StrategyService:
     global _strategy_service
@@ -46,7 +49,7 @@ def get_backtest_service() -> BacktestService:
     return _backtest_service
 
 
-@strategy_bp.route('/strategies', methods=['GET'])
+@strategy_bp.route("/strategies", methods=["GET"])
 @login_required
 def list_strategies():
     """
@@ -55,158 +58,160 @@ def list_strategies():
     try:
         user_id = g.user_id
         items = get_strategy_service().list_strategies(user_id=user_id)
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'strategies': items}})
+        return jsonify({"code": 1, "msg": "success", "data": {"strategies": items}})
     except Exception as e:
         logger.error(f"list_strategies failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': {'strategies': []}}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": {"strategies": []}}), 500
 
 
-@strategy_bp.route('/strategies/detail', methods=['GET'])
+@strategy_bp.route("/strategies/detail", methods=["GET"])
 @login_required
 def get_strategy_detail():
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
+        strategy_id = request.args.get("id", type=int)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Missing strategy id parameter', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "Missing strategy id parameter", "data": None}), 400
         st = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
         if not st:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
-        return jsonify({'code': 1, 'msg': 'success', 'data': st})
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": None}), 404
+        return jsonify({"code": 1, "msg": "success", "data": st})
     except Exception as e:
         logger.error(f"get_strategy_detail failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/backtest', methods=['POST'])
+@strategy_bp.route("/strategies/backtest", methods=["POST"])
 @login_required
 def run_strategy_backtest():
     try:
         payload = request.get_json() or {}
         user_id = g.user_id
-        strategy_id = int(payload.get('strategyId') or 0)
+        strategy_id = int(payload.get("strategyId") or 0)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'strategyId is required', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "strategyId is required", "data": None}), 400
 
-        start_date_str = str(payload.get('startDate') or '').strip()
-        end_date_str = str(payload.get('endDate') or '').strip()
+        start_date_str = str(payload.get("startDate") or "").strip()
+        end_date_str = str(payload.get("endDate") or "").strip()
         if not start_date_str or not end_date_str:
-            return jsonify({'code': 0, 'msg': 'startDate and endDate are required', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "startDate and endDate are required", "data": None}), 400
 
         strategy = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
         if not strategy:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": None}), 404
 
         resolver = StrategySnapshotResolver(user_id=user_id)
-        snapshot = resolver.resolve(strategy, payload.get('overrideConfig') or {})
-        snapshot['user_id'] = user_id
+        snapshot = resolver.resolve(strategy, payload.get("overrideConfig") or {})
+        snapshot["user_id"] = user_id
 
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
 
         days_diff = (end_date - start_date).days
-        timeframe = snapshot.get('timeframe') or '1D'
-        if timeframe == '1m':
+        timeframe = snapshot.get("timeframe") or "1D"
+        if timeframe == "1m":
             max_days = 30
-            max_range_text = '1 month'
-        elif timeframe == '5m':
+            max_range_text = "1 month"
+        elif timeframe == "5m":
             max_days = 180
-            max_range_text = '6 months'
-        elif timeframe in ['15m', '30m']:
+            max_range_text = "6 months"
+        elif timeframe in ["15m", "30m"]:
             max_days = 365
-            max_range_text = '1 year'
+            max_range_text = "1 year"
         else:
             max_days = 1095
-            max_range_text = '3 years'
+            max_range_text = "3 years"
         if days_diff > max_days:
-            return jsonify({
-                'code': 0,
-                'msg': f'Backtest range exceeds limit: timeframe {timeframe} supports up to {max_range_text} ({max_days} days), but you selected {days_diff} days',
-                'data': None
-            }), 400
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": f"Backtest range exceeds limit: timeframe {timeframe} supports up to {max_range_text} ({max_days} days), but you selected {days_diff} days",
+                    "data": None,
+                }
+            ), 400
 
         svc = get_backtest_service()
         result = svc.run_strategy_snapshot(snapshot, start_date=start_date, end_date=end_date)
         run_id = svc.persist_run(
             user_id=user_id,
-            indicator_id=snapshot.get('indicator_id'),
-            strategy_id=snapshot.get('strategy_id'),
-            strategy_name=snapshot.get('strategy_name') or '',
-            run_type=snapshot.get('run_type') or 'strategy_indicator',
-            market=snapshot.get('market') or '',
-            symbol=snapshot.get('symbol') or '',
-            timeframe=snapshot.get('timeframe') or '',
+            indicator_id=snapshot.get("indicator_id"),
+            strategy_id=snapshot.get("strategy_id"),
+            strategy_name=snapshot.get("strategy_name") or "",
+            run_type=snapshot.get("run_type") or "strategy_indicator",
+            market=snapshot.get("market") or "",
+            symbol=snapshot.get("symbol") or "",
+            timeframe=snapshot.get("timeframe") or "",
             start_date_str=start_date_str,
             end_date_str=end_date_str,
-            initial_capital=float(snapshot.get('initial_capital') or 0),
-            commission=float(snapshot.get('commission') or 0),
-            slippage=float(snapshot.get('slippage') or 0),
-            leverage=int(snapshot.get('leverage') or 1),
-            trade_direction=str(snapshot.get('trade_direction') or 'long'),
-            strategy_config=snapshot.get('strategy_config') or {},
-            config_snapshot=snapshot.get('config_snapshot') or {},
-            status='success',
-            error_message='',
+            initial_capital=float(snapshot.get("initial_capital") or 0),
+            commission=float(snapshot.get("commission") or 0),
+            slippage=float(snapshot.get("slippage") or 0),
+            leverage=int(snapshot.get("leverage") or 1),
+            trade_direction=str(snapshot.get("trade_direction") or "long"),
+            strategy_config=snapshot.get("strategy_config") or {},
+            config_snapshot=snapshot.get("config_snapshot") or {},
+            status="success",
+            error_message="",
             result=result,
-            code=snapshot.get('code') or '',
+            code=snapshot.get("code") or "",
         )
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'runId': run_id, 'result': result}})
+        return jsonify({"code": 1, "msg": "success", "data": {"runId": run_id, "result": result}})
     except ValueError as e:
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 400
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 400
     except Exception as e:
         logger.error(f"run_strategy_backtest failed: {str(e)}")
         logger.error(traceback.format_exc())
         try:
             payload = payload if isinstance(payload, dict) else {}
-            strategy_id = int(payload.get('strategyId') or 0)
+            strategy_id = int(payload.get("strategyId") or 0)
             strategy = get_strategy_service().get_strategy(strategy_id, user_id=g.user_id) if strategy_id else None
             if strategy:
                 resolver = StrategySnapshotResolver(user_id=g.user_id)
-                snapshot = resolver.resolve(strategy, payload.get('overrideConfig') or {})
-                snapshot['user_id'] = g.user_id
+                snapshot = resolver.resolve(strategy, payload.get("overrideConfig") or {})
+                snapshot["user_id"] = g.user_id
                 get_backtest_service().persist_run(
                     user_id=g.user_id,
-                    indicator_id=snapshot.get('indicator_id'),
-                    strategy_id=snapshot.get('strategy_id'),
-                    strategy_name=snapshot.get('strategy_name') or '',
-                    run_type=snapshot.get('run_type') or 'strategy_indicator',
-                    market=snapshot.get('market') or '',
-                    symbol=snapshot.get('symbol') or '',
-                    timeframe=snapshot.get('timeframe') or '',
-                    start_date_str=str(payload.get('startDate') or ''),
-                    end_date_str=str(payload.get('endDate') or ''),
-                    initial_capital=float(snapshot.get('initial_capital') or 0),
-                    commission=float(snapshot.get('commission') or 0),
-                    slippage=float(snapshot.get('slippage') or 0),
-                    leverage=int(snapshot.get('leverage') or 1),
-                    trade_direction=str(snapshot.get('trade_direction') or 'long'),
-                    strategy_config=snapshot.get('strategy_config') or {},
-                    config_snapshot=snapshot.get('config_snapshot') or {},
-                    status='failed',
+                    indicator_id=snapshot.get("indicator_id"),
+                    strategy_id=snapshot.get("strategy_id"),
+                    strategy_name=snapshot.get("strategy_name") or "",
+                    run_type=snapshot.get("run_type") or "strategy_indicator",
+                    market=snapshot.get("market") or "",
+                    symbol=snapshot.get("symbol") or "",
+                    timeframe=snapshot.get("timeframe") or "",
+                    start_date_str=str(payload.get("startDate") or ""),
+                    end_date_str=str(payload.get("endDate") or ""),
+                    initial_capital=float(snapshot.get("initial_capital") or 0),
+                    commission=float(snapshot.get("commission") or 0),
+                    slippage=float(snapshot.get("slippage") or 0),
+                    leverage=int(snapshot.get("leverage") or 1),
+                    trade_direction=str(snapshot.get("trade_direction") or "long"),
+                    strategy_config=snapshot.get("strategy_config") or {},
+                    config_snapshot=snapshot.get("config_snapshot") or {},
+                    status="failed",
                     error_message=str(e),
                     result=None,
-                    code=snapshot.get('code') or '',
+                    code=snapshot.get("code") or "",
                 )
         except Exception:
             pass
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/backtest/history', methods=['GET'])
+@strategy_bp.route("/strategies/backtest/history", methods=["GET"])
 @login_required
 def get_strategy_backtest_history():
     try:
         user_id = g.user_id
-        strategy_id = int(request.args.get('strategyId') or request.args.get('id') or 0)
+        strategy_id = int(request.args.get("strategyId") or request.args.get("id") or 0)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'strategyId is required', 'data': None}), 400
-        limit = max(1, min(int(request.args.get('limit') or 50), 200))
-        offset = max(0, int(request.args.get('offset') or 0))
-        symbol = (request.args.get('symbol') or '').strip()
-        market = (request.args.get('market') or '').strip()
-        timeframe = (request.args.get('timeframe') or '').strip()
+            return jsonify({"code": 0, "msg": "strategyId is required", "data": None}), 400
+        limit = max(1, min(int(request.args.get("limit") or 50), 200))
+        offset = max(0, int(request.args.get("offset") or 0))
+        symbol = (request.args.get("symbol") or "").strip()
+        market = (request.args.get("market") or "").strip()
+        timeframe = (request.args.get("timeframe") or "").strip()
         rows = get_backtest_service().list_runs(
             user_id=user_id,
             strategy_id=strategy_id,
@@ -216,55 +221,55 @@ def get_strategy_backtest_history():
             market=market,
             timeframe=timeframe,
         )
-        rows = [r for r in rows if str(r.get('run_type') or '').startswith('strategy_')]
-        return jsonify({'code': 1, 'msg': 'success', 'data': rows})
+        rows = [r for r in rows if str(r.get("run_type") or "").startswith("strategy_")]
+        return jsonify({"code": 1, "msg": "success", "data": rows})
     except Exception as e:
         logger.error(f"get_strategy_backtest_history failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/backtest/get', methods=['GET'])
+@strategy_bp.route("/strategies/backtest/get", methods=["GET"])
 @login_required
 def get_strategy_backtest_run():
     try:
         user_id = g.user_id
-        run_id = int(request.args.get('runId') or 0)
+        run_id = int(request.args.get("runId") or 0)
         if not run_id:
-            return jsonify({'code': 0, 'msg': 'runId is required', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "runId is required", "data": None}), 400
         row = get_backtest_service().get_run(user_id=user_id, run_id=run_id)
-        if not row or not str(row.get('run_type') or '').startswith('strategy_'):
-            return jsonify({'code': 0, 'msg': 'run not found', 'data': None}), 404
-        return jsonify({'code': 1, 'msg': 'success', 'data': row})
+        if not row or not str(row.get("run_type") or "").startswith("strategy_"):
+            return jsonify({"code": 0, "msg": "run not found", "data": None}), 404
+        return jsonify({"code": 1, "msg": "success", "data": row})
     except Exception as e:
         logger.error(f"get_strategy_backtest_run failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/create', methods=['POST'])
+@strategy_bp.route("/strategies/create", methods=["POST"])
 @login_required
 def create_strategy():
     try:
         user_id = g.user_id
         payload = request.get_json() or {}
         # Use current user's ID
-        payload['user_id'] = user_id
-        payload['strategy_type'] = payload.get('strategy_type') or 'IndicatorStrategy'
+        payload["user_id"] = user_id
+        payload["strategy_type"] = payload.get("strategy_type") or "IndicatorStrategy"
         new_id = get_strategy_service().create_strategy(payload)
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'id': new_id}})
+        return jsonify({"code": 1, "msg": "success", "data": {"id": new_id}})
     except Exception as e:
         logger.error(f"create_strategy failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/batch-create', methods=['POST'])
+@strategy_bp.route("/strategies/batch-create", methods=["POST"])
 @login_required
 def batch_create_strategies():
     """
     Batch create strategies (multiple symbols)
-    
+
     Request body:
         strategy_name: Base strategy name
         symbols: Array of symbols, e.g. ["Crypto:BTC/USDT", "Crypto:ETH/USDT"]
@@ -273,35 +278,29 @@ def batch_create_strategies():
     try:
         user_id = g.user_id
         payload = request.get_json() or {}
-        payload['user_id'] = user_id
-        payload['strategy_type'] = payload.get('strategy_type') or 'IndicatorStrategy'
-        
+        payload["user_id"] = user_id
+        payload["strategy_type"] = payload.get("strategy_type") or "IndicatorStrategy"
+
         result = get_strategy_service().batch_create_strategies(payload)
-        
-        if result['success']:
-            return jsonify({
-                'code': 1,
-                'msg': f"Successfully created {result['total_created']} strategies",
-                'data': result
-            })
+
+        if result["success"]:
+            return jsonify(
+                {"code": 1, "msg": f"Successfully created {result['total_created']} strategies", "data": result}
+            )
         else:
-            return jsonify({
-                'code': 0,
-                'msg': 'Batch creation failed',
-                'data': result
-            })
+            return jsonify({"code": 0, "msg": "Batch creation failed", "data": result})
     except Exception as e:
         logger.error(f"batch_create_strategies failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/batch-start', methods=['POST'])
+@strategy_bp.route("/strategies/batch-start", methods=["POST"])
 @login_required
 def batch_start_strategies():
     """
     Batch start strategies
-    
+
     Request body:
         strategy_ids: Array of strategy IDs
         or
@@ -310,44 +309,46 @@ def batch_start_strategies():
     try:
         user_id = g.user_id
         payload = request.get_json() or {}
-        strategy_ids = payload.get('strategy_ids') or []
-        strategy_group_id = payload.get('strategy_group_id')
-        
+        strategy_ids = payload.get("strategy_ids") or []
+        strategy_group_id = payload.get("strategy_group_id")
+
         # If strategy_group_id provided, get all strategies in the group
         if strategy_group_id and not strategy_ids:
             strategy_ids = get_strategy_service().get_strategies_by_group(strategy_group_id, user_id=user_id)
-        
+
         if not strategy_ids:
-            return jsonify({'code': 0, 'msg': 'Please provide strategy IDs', 'data': None}), 400
-        
+            return jsonify({"code": 0, "msg": "Please provide strategy IDs", "data": None}), 400
+
         # Update database status first
         result = get_strategy_service().batch_start_strategies(strategy_ids, user_id=user_id)
-        
+
         # Then start executor
         executor = get_trading_executor()
-        for sid in result.get('success_ids', []):
+        for sid in result.get("success_ids", []):
             try:
                 executor.start_strategy(sid)
             except Exception as e:
                 logger.error(f"Failed to start executor for strategy {sid}: {e}")
-        
-        return jsonify({
-            'code': 1 if result['success'] else 0,
-            'msg': f"Successfully started {len(result.get('success_ids', []))} strategies",
-            'data': result
-        })
+
+        return jsonify(
+            {
+                "code": 1 if result["success"] else 0,
+                "msg": f"Successfully started {len(result.get('success_ids', []))} strategies",
+                "data": result,
+            }
+        )
     except Exception as e:
         logger.error(f"batch_start_strategies failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/batch-stop', methods=['POST'])
+@strategy_bp.route("/strategies/batch-stop", methods=["POST"])
 @login_required
 def batch_stop_strategies():
     """
     Batch stop strategies
-    
+
     Request body:
         strategy_ids: Array of strategy IDs
         or
@@ -356,15 +357,15 @@ def batch_stop_strategies():
     try:
         user_id = g.user_id
         payload = request.get_json() or {}
-        strategy_ids = payload.get('strategy_ids') or []
-        strategy_group_id = payload.get('strategy_group_id')
-        
+        strategy_ids = payload.get("strategy_ids") or []
+        strategy_group_id = payload.get("strategy_group_id")
+
         if strategy_group_id and not strategy_ids:
             strategy_ids = get_strategy_service().get_strategies_by_group(strategy_group_id, user_id=user_id)
-        
+
         if not strategy_ids:
-            return jsonify({'code': 0, 'msg': 'Please provide strategy IDs', 'data': None}), 400
-        
+            return jsonify({"code": 0, "msg": "Please provide strategy IDs", "data": None}), 400
+
         # Stop executor first
         executor = get_trading_executor()
         for sid in strategy_ids:
@@ -372,27 +373,29 @@ def batch_stop_strategies():
                 executor.stop_strategy(sid)
             except Exception as e:
                 logger.error(f"Failed to stop executor for strategy {sid}: {e}")
-        
+
         # Then update database status
         result = get_strategy_service().batch_stop_strategies(strategy_ids, user_id=user_id)
-        
-        return jsonify({
-            'code': 1 if result['success'] else 0,
-            'msg': f"Successfully stopped {len(result.get('success_ids', []))} strategies",
-            'data': result
-        })
+
+        return jsonify(
+            {
+                "code": 1 if result["success"] else 0,
+                "msg": f"Successfully stopped {len(result.get('success_ids', []))} strategies",
+                "data": result,
+            }
+        )
     except Exception as e:
         logger.error(f"batch_stop_strategies failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/batch-delete', methods=['DELETE'])
+@strategy_bp.route("/strategies/batch-delete", methods=["DELETE"])
 @login_required
 def batch_delete_strategies():
     """
     Batch delete strategies
-    
+
     Request body:
         strategy_ids: Array of strategy IDs
         or
@@ -401,87 +404,91 @@ def batch_delete_strategies():
     try:
         user_id = g.user_id
         payload = request.get_json() or {}
-        strategy_ids = payload.get('strategy_ids') or []
-        strategy_group_id = payload.get('strategy_group_id')
-        
+        strategy_ids = payload.get("strategy_ids") or []
+        strategy_group_id = payload.get("strategy_group_id")
+
         if strategy_group_id and not strategy_ids:
             strategy_ids = get_strategy_service().get_strategies_by_group(strategy_group_id, user_id=user_id)
-        
+
         if not strategy_ids:
-            return jsonify({'code': 0, 'msg': 'Please provide strategy IDs', 'data': None}), 400
-        
+            return jsonify({"code": 0, "msg": "Please provide strategy IDs", "data": None}), 400
+
         # Stop executor first
         executor = get_trading_executor()
         for sid in strategy_ids:
             try:
                 executor.stop_strategy(sid)
-            except Exception as e:
+            except Exception:
                 pass  # Ignore stop errors
-        
+
         # Then delete
         result = get_strategy_service().batch_delete_strategies(strategy_ids, user_id=user_id)
-        
-        return jsonify({
-            'code': 1 if result['success'] else 0,
-            'msg': f"Successfully deleted {len(result.get('success_ids', []))} strategies",
-            'data': result
-        })
+
+        return jsonify(
+            {
+                "code": 1 if result["success"] else 0,
+                "msg": f"Successfully deleted {len(result.get('success_ids', []))} strategies",
+                "data": result,
+            }
+        )
     except Exception as e:
         logger.error(f"batch_delete_strategies failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/update', methods=['PUT'])
+@strategy_bp.route("/strategies/update", methods=["PUT"])
 @login_required
 def update_strategy():
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
+        strategy_id = request.args.get("id", type=int)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Missing strategy id parameter', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "Missing strategy id parameter", "data": None}), 400
         payload = request.get_json() or {}
         ok = get_strategy_service().update_strategy(strategy_id, payload, user_id=user_id)
         if not ok:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
-        return jsonify({'code': 1, 'msg': 'success', 'data': None})
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": None}), 404
+        return jsonify({"code": 1, "msg": "success", "data": None})
     except Exception as e:
         logger.error(f"update_strategy failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/delete', methods=['DELETE'])
+@strategy_bp.route("/strategies/delete", methods=["DELETE"])
 @login_required
 def delete_strategy():
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
+        strategy_id = request.args.get("id", type=int)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Missing strategy id parameter', 'data': None}), 400
+            return jsonify({"code": 0, "msg": "Missing strategy id parameter", "data": None}), 400
         ok = get_strategy_service().delete_strategy(strategy_id, user_id=user_id)
-        return jsonify({'code': 1 if ok else 0, 'msg': 'success' if ok else 'failed', 'data': None})
+        return jsonify({"code": 1 if ok else 0, "msg": "success" if ok else "failed", "data": None})
     except Exception as e:
         logger.error(f"delete_strategy failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': None}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": None}), 500
 
 
-@strategy_bp.route('/strategies/trades', methods=['GET'])
+@strategy_bp.route("/strategies/trades", methods=["GET"])
 @login_required
 def get_trades():
     """Get trade records for the current user's strategy."""
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
+        strategy_id = request.args.get("id", type=int)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Missing strategy id parameter', 'data': {'trades': [], 'items': []}}), 400
-        
+            return jsonify(
+                {"code": 0, "msg": "Missing strategy id parameter", "data": {"trades": [], "items": []}}
+            ), 400
+
         # Verify strategy belongs to user
         st = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
         if not st:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': {'trades': [], 'items': []}}), 404
-        
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": {"trades": [], "items": []}}), 404
+
         with get_db_connection() as db:
             cur = db.cursor()
             cur.execute(
@@ -491,54 +498,57 @@ def get_trades():
                 WHERE strategy_id = ?
                 ORDER BY id DESC
                 """,
-                (strategy_id,)
+                (strategy_id,),
             )
             rows = cur.fetchall() or []
             cur.close()
-        
+
         # Convert created_at to UTC timestamp (seconds) for frontend
         # This ensures consistent timezone handling
         processed_rows = []
         for row in rows:
             trade = dict(row)
-            created_at = trade.get('created_at')
+            created_at = trade.get("created_at")
             if created_at:
-                if hasattr(created_at, 'timestamp'):
+                if hasattr(created_at, "timestamp"):
                     # datetime object - convert to UTC timestamp
-                    trade['created_at'] = int(created_at.timestamp())
+                    trade["created_at"] = int(created_at.timestamp())
                 elif isinstance(created_at, str):
                     # ISO string - parse and convert
                     try:
                         from datetime import datetime
-                        dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                        trade['created_at'] = int(dt.timestamp())
+
+                        dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        trade["created_at"] = int(dt.timestamp())
                     except Exception:
                         pass
             processed_rows.append(trade)
-        
+
         # Frontend expects data.trades; keep data.items for compatibility with list-style components.
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'trades': processed_rows, 'items': processed_rows}})
+        return jsonify({"code": 1, "msg": "success", "data": {"trades": processed_rows, "items": processed_rows}})
     except Exception as e:
         logger.error(f"get_trades failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': {'trades': [], 'items': []}}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": {"trades": [], "items": []}}), 500
 
 
-@strategy_bp.route('/strategies/positions', methods=['GET'])
+@strategy_bp.route("/strategies/positions", methods=["GET"])
 @login_required
 def get_positions():
     """Get position records for the current user's strategy."""
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
+        strategy_id = request.args.get("id", type=int)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Missing strategy id parameter', 'data': {'positions': [], 'items': []}}), 400
-        
+            return jsonify(
+                {"code": 0, "msg": "Missing strategy id parameter", "data": {"positions": [], "items": []}}
+            ), 400
+
         # Verify strategy belongs to user
         st = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
         if not st:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': {'positions': [], 'items': []}}), 404
-        
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": {"positions": [], "items": []}}), 404
+
         with get_db_connection() as db:
             cur = db.cursor()
             cur.execute(
@@ -549,7 +559,7 @@ def get_positions():
                 WHERE strategy_id = ?
                 ORDER BY id DESC
                 """,
-                (strategy_id,)
+                (strategy_id,),
             )
             rows = cur.fetchall() or []
             cur.close()
@@ -631,27 +641,27 @@ def get_positions():
             db.commit()
             cur.close()
 
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'positions': out, 'items': out}})
+        return jsonify({"code": 1, "msg": "success", "data": {"positions": out, "items": out}})
     except Exception as e:
         logger.error(f"get_positions failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': {'positions': [], 'items': []}}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": {"positions": [], "items": []}}), 500
 
 
-@strategy_bp.route('/strategies/equityCurve', methods=['GET'])
+@strategy_bp.route("/strategies/equityCurve", methods=["GET"])
 @login_required
 def get_equity_curve():
     """Get equity curve for the current user's strategy."""
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
+        strategy_id = request.args.get("id", type=int)
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Missing strategy id parameter', 'data': []}), 400
+            return jsonify({"code": 0, "msg": "Missing strategy id parameter", "data": []}), 400
 
         st = get_strategy_service().get_strategy(strategy_id, user_id=user_id) or {}
         if not st:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': []}), 404
-        initial = float(st.get('initial_capital') or (st.get('trading_config') or {}).get('initial_capital') or 0)
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": []}), 404
+        initial = float(st.get("initial_capital") or (st.get("trading_config") or {}).get("initial_capital") or 0)
         if initial <= 0:
             initial = 1000.0
 
@@ -664,7 +674,7 @@ def get_equity_curve():
                 WHERE strategy_id = ?
                 ORDER BY created_at ASC
                 """,
-                (strategy_id,)
+                (strategy_id,),
             )
             rows = cur.fetchall() or []
             cur.execute(
@@ -682,280 +692,241 @@ def get_equity_curve():
         curve = []
         for r in rows:
             try:
-                equity += float(r.get('profit') or 0)
+                equity += float(r.get("profit") or 0)
             except Exception:
                 pass
-            created_at = r.get('created_at')
-            if created_at and hasattr(created_at, 'timestamp'):
+            created_at = r.get("created_at")
+            if created_at and hasattr(created_at, "timestamp"):
                 ts = int(created_at.timestamp())
             elif created_at:
                 ts = int(created_at)
             else:
                 ts = int(time.time())
-            curve.append({'time': ts, 'equity': round(equity, 2)})
+            curve.append({"time": ts, "equity": round(equity, 2)})
 
         # 将未实现盈亏并入曲线末端，便于「持仓中」也能在绩效里看到浮动权益
         try:
-            unreal = float(prow.get('u') or prow.get('U') or 0)
+            unreal = float(prow.get("u") or prow.get("U") or 0)
         except Exception:
             unreal = 0.0
         live_equity = float(equity) + unreal
         now_ts = int(time.time())
         if abs(unreal) > 1e-12 or not curve:
-            curve.append({'time': now_ts, 'equity': round(live_equity, 2)})
+            curve.append({"time": now_ts, "equity": round(live_equity, 2)})
 
-        return jsonify({'code': 1, 'msg': 'success', 'data': curve})
+        return jsonify({"code": 1, "msg": "success", "data": curve})
     except Exception as e:
         logger.error(f"get_equity_curve failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': []}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": []}), 500
 
 
-
-
-
-@strategy_bp.route('/strategies/stop', methods=['POST'])
+@strategy_bp.route("/strategies/stop", methods=["POST"])
 @login_required
 def stop_strategy():
     """
     Stop a strategy for the current user.
-    
+
     Params:
         id: Strategy ID
     """
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
-        
+        strategy_id = request.args.get("id", type=int)
+
         if not strategy_id:
-            return jsonify({
-                'code': 0,
-                'msg': 'Missing strategy id parameter',
-                'data': None
-            }), 400
-        
+            return jsonify({"code": 0, "msg": "Missing strategy id parameter", "data": None}), 400
+
         # Verify strategy belongs to user
         st = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
         if not st:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
-        
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": None}), 404
+
         # Get strategy type
         strategy_type = get_strategy_service().get_strategy_type(strategy_id)
-        
+
         # Local backend: AI strategy executor was removed. Only indicator strategies are supported.
-        if strategy_type == 'PromptBasedStrategy':
-            return jsonify({'code': 0, 'msg': 'AI strategy has been removed; local edition does not support starting/stopping AI strategies', 'data': None}), 400
+        if strategy_type == "PromptBasedStrategy":
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": "AI strategy has been removed; local edition does not support starting/stopping AI strategies",
+                    "data": None,
+                }
+            ), 400
 
         # Indicator strategy
         get_trading_executor().stop_strategy(strategy_id)
-        
+
         # Update strategy status
-        get_strategy_service().update_strategy_status(strategy_id, 'stopped', user_id=user_id)
-        
-        return jsonify({
-            'code': 1,
-            'msg': 'Stopped successfully',
-            'data': None
-        })
-        
+        get_strategy_service().update_strategy_status(strategy_id, "stopped", user_id=user_id)
+
+        return jsonify({"code": 1, "msg": "Stopped successfully", "data": None})
+
     except Exception as e:
         logger.error(f"Failed to stop strategy: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({
-            'code': 0,
-            'msg': f'Failed to stop strategy: {str(e)}',
-            'data': None
-        }), 500
+        return jsonify({"code": 0, "msg": f"Failed to stop strategy: {str(e)}", "data": None}), 500
 
 
-@strategy_bp.route('/strategies/start', methods=['POST'])
+@strategy_bp.route("/strategies/start", methods=["POST"])
 @login_required
 def start_strategy():
     """
     Start a strategy for the current user.
-    
+
     Params:
         id: Strategy ID
     """
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
-        
+        strategy_id = request.args.get("id", type=int)
+
         if not strategy_id:
-            return jsonify({
-                'code': 0,
-                'msg': 'Missing strategy id parameter',
-                'data': None
-            }), 400
-        
+            return jsonify({"code": 0, "msg": "Missing strategy id parameter", "data": None}), 400
+
         # Verify strategy belongs to user
         st = get_strategy_service().get_strategy(strategy_id, user_id=user_id)
         if not st:
-            return jsonify({'code': 0, 'msg': 'Strategy not found', 'data': None}), 404
-        
+            return jsonify({"code": 0, "msg": "Strategy not found", "data": None}), 404
+
         # Get strategy type
         strategy_type = get_strategy_service().get_strategy_type(strategy_id)
 
         # IndicatorStrategy and ScriptStrategy are executed by TradingExecutor.
-        if strategy_type == 'PromptBasedStrategy':
-            return jsonify({
-                'code': 0,
-                'msg': 'AI strategy has been removed; local edition does not support starting AI strategies',
-                'data': None
-            }), 400
-        get_strategy_service().update_strategy_status(strategy_id, 'running', user_id=user_id)
+        if strategy_type == "PromptBasedStrategy":
+            return jsonify(
+                {
+                    "code": 0,
+                    "msg": "AI strategy has been removed; local edition does not support starting AI strategies",
+                    "data": None,
+                }
+            ), 400
+        get_strategy_service().update_strategy_status(strategy_id, "running", user_id=user_id)
 
         success = get_trading_executor().start_strategy(strategy_id)
-        
+
         if not success:
             # If start failed, restore status
-            get_strategy_service().update_strategy_status(strategy_id, 'stopped', user_id=user_id)
-            return jsonify({
-                'code': 0,
-                'msg': 'Failed to start strategy executor',
-                'data': None
-            }), 500
-        
-        return jsonify({
-            'code': 1,
-            'msg': 'Started successfully',
-            'data': None
-        })
-        
+            get_strategy_service().update_strategy_status(strategy_id, "stopped", user_id=user_id)
+            return jsonify({"code": 0, "msg": "Failed to start strategy executor", "data": None}), 500
+
+        return jsonify({"code": 1, "msg": "Started successfully", "data": None})
+
     except Exception as e:
         logger.error(f"Failed to start strategy: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({
-            'code': 0,
-            'msg': f'Failed to start strategy: {str(e)}',
-            'data': None
-        }), 500
+        return jsonify({"code": 0, "msg": f"Failed to start strategy: {str(e)}", "data": None}), 500
 
 
-@strategy_bp.route('/strategies/test-connection', methods=['POST'])
+@strategy_bp.route("/strategies/test-connection", methods=["POST"])
 @login_required
 def test_connection():
     """
     Test exchange connection.
-    
+
     Request body:
         exchange_config: Exchange configuration (may contain credential_id or inline keys)
     """
     try:
         data = request.get_json() or {}
-        
+
         # Log request data (for debugging, but do not log sensitive information)
         logger.debug(f"Connection test request keys: {list(data.keys())}")
-        
+
         # Get exchange configuration
-        exchange_config = data.get('exchange_config', data)
-        
+        exchange_config = data.get("exchange_config", data)
+
         # Local deployment: no encryption/decryption; accept dict or JSON string.
         if isinstance(exchange_config, str):
             try:
                 import json
+
                 exchange_config = json.loads(exchange_config)
             except Exception:
                 pass
-        
+
         # Verify exchange_config is a dictionary
         if not isinstance(exchange_config, dict):
             logger.error(f"Invalid exchange_config type: {type(exchange_config)}, data: {str(exchange_config)[:200]}")
             # Frontend expects HTTP 200 with {code:0} for business failures.
-            return jsonify({'code': 0, 'msg': 'Invalid exchange config format; please check your payload', 'data': None})
+            return jsonify(
+                {"code": 0, "msg": "Invalid exchange config format; please check your payload", "data": None}
+            )
 
         # Resolve credential_id → full config (merges credential keys with any overrides).
         # This allows the frontend to send just {credential_id: 5} without raw api_key/secret_key.
         from app.services.exchange_execution import resolve_exchange_config
-        user_id = g.user_id if hasattr(g, 'user_id') else 1
+
+        user_id = g.user_id if hasattr(g, "user_id") else 1
         resolved = resolve_exchange_config(exchange_config, user_id=user_id)
 
         # Verify required fields (check resolved config after credential merge)
-        if not resolved.get('exchange_id'):
-            return jsonify({'code': 0, 'msg': 'Please select an exchange', 'data': None})
-        
-        api_key = resolved.get('api_key', '')
-        secret_key = resolved.get('secret_key', '')
-        
+        if not resolved.get("exchange_id"):
+            return jsonify({"code": 0, "msg": "Please select an exchange", "data": None})
+
+        api_key = resolved.get("api_key", "")
+        secret_key = resolved.get("secret_key", "")
+
         # Detailed log troubleshooting
         logger.info(f"Testing connection: exchange_id={resolved.get('exchange_id')}")
         if api_key:
             logger.info(f"API Key: {api_key[:5]}... (len={len(api_key)})")
         if secret_key:
             logger.info(f"Secret Key: {secret_key[:5]}... (len={len(secret_key)})")
-        
+
         # Check if there are special characters
         if api_key and api_key.strip() != api_key:
             logger.warning("API key contains leading/trailing whitespace")
         if secret_key and secret_key.strip() != secret_key:
             logger.warning("Secret key contains leading/trailing whitespace")
-            
+
         if not api_key or not secret_key:
-            return jsonify({'code': 0, 'msg': 'Please provide API key and secret key', 'data': None})
-        
+            return jsonify({"code": 0, "msg": "Please provide API key and secret key", "data": None})
+
         # Pass the resolved config (with actual keys) to the service
         result = get_strategy_service().test_exchange_connection(resolved, user_id=user_id)
-        
-        if result['success']:
-            return jsonify({'code': 1, 'msg': result.get('message') or 'Connection successful', 'data': result.get('data')})
+
+        if result["success"]:
+            return jsonify(
+                {"code": 1, "msg": result.get("message") or "Connection successful", "data": result.get("data")}
+            )
         # Always return HTTP 200 for business-level failures.
-        return jsonify({'code': 0, 'msg': result.get('message') or 'Connection failed', 'data': result.get('data')})
-        
+        return jsonify({"code": 0, "msg": result.get("message") or "Connection failed", "data": result.get("data")})
+
     except Exception as e:
         logger.error(f"Connection test failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({
-            'code': 0,
-            'msg': f'Connection test failed: {str(e)}',
-            'data': None
-        }), 500
+        return jsonify({"code": 0, "msg": f"Connection test failed: {str(e)}", "data": None}), 500
 
 
-@strategy_bp.route('/strategies/get-symbols', methods=['POST'])
+@strategy_bp.route("/strategies/get-symbols", methods=["POST"])
 @login_required
 def get_symbols():
     """
     Get exchange trading pairs list.
-    
+
     Request body:
         exchange_config: Exchange configuration
     """
     try:
         data = request.get_json() or {}
-        exchange_config = data.get('exchange_config', data)
-        
+        exchange_config = data.get("exchange_config", data)
+
         result = get_strategy_service().get_exchange_symbols(exchange_config)
-        
-        if result['success']:
-            return jsonify({
-                'code': 1,
-                'msg': result['message'],
-                'data': {
-                    'symbols': result['symbols']
-                }
-            })
+
+        if result["success"]:
+            return jsonify({"code": 1, "msg": result["message"], "data": {"symbols": result["symbols"]}})
         else:
-            return jsonify({
-                'code': 0,
-                'msg': result['message'],
-                'data': {
-                    'symbols': []
-                }
-            })
-        
+            return jsonify({"code": 0, "msg": result["message"], "data": {"symbols": []}})
+
     except Exception as e:
         logger.error(f"Failed to fetch symbols: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({
-            'code': 0,
-            'msg': f'Failed to fetch symbols: {str(e)}',
-            'data': {
-                'symbols': []
-            }
-        }), 500
+        return jsonify({"code": 0, "msg": f"Failed to fetch symbols: {str(e)}", "data": {"symbols": []}}), 500
 
 
-@strategy_bp.route('/strategies/preview-compile', methods=['POST'])
+@strategy_bp.route("/strategies/preview-compile", methods=["POST"])
 @login_required
 def preview_compile():
     """
@@ -964,45 +935,36 @@ def preview_compile():
     try:
         data = request.get_json() or {}
         # strategy_config is passed as 'config'
-        config = data.get('config')
-        
+        config = data.get("config")
+
         if not config:
-             return jsonify({'code': 0, 'msg': 'Missing config'}), 400
+            return jsonify({"code": 0, "msg": "Missing config"}), 400
 
         # Compile
         compiler = StrategyCompiler()
         try:
             code = compiler.compile(config)
         except Exception as e:
-            return jsonify({'code': 0, 'msg': f'Compilation failed: {str(e)}'}), 400
-        
-        # Execute
-        symbol = config.get('symbol', 'BTC/USDT')
-        timeframe = config.get('timeframe', '4h')
-        
-        backtest_service = BacktestService()
-        result = backtest_service.run_code_strategy(
-            code=code,
-            symbol=symbol,
-            timeframe=timeframe,
-            limit=500 
-        )
-        
-        if result.get('error'):
-             return jsonify({'code': 0, 'msg': f"Execution failed: {result['error']}"}), 400
+            return jsonify({"code": 0, "msg": f"Compilation failed: {str(e)}"}), 400
 
-        return jsonify({
-            'code': 1,
-            'msg': 'Success',
-            'data': result
-        })
-        
+        # Execute
+        symbol = config.get("symbol", "BTC/USDT")
+        timeframe = config.get("timeframe", "4h")
+
+        backtest_service = BacktestService()
+        result = backtest_service.run_code_strategy(code=code, symbol=symbol, timeframe=timeframe, limit=500)
+
+        if result.get("error"):
+            return jsonify({"code": 0, "msg": f"Execution failed: {result['error']}"}), 400
+
+        return jsonify({"code": 1, "msg": "Success", "data": result})
+
     except Exception as e:
         logger.error(f"Preview failed: {e}")
-        return jsonify({'code': 0, 'msg': str(e)}), 500
+        return jsonify({"code": 0, "msg": str(e)}), 500
 
 
-@strategy_bp.route('/strategies/notifications', methods=['GET'])
+@strategy_bp.route("/strategies/notifications", methods=["GET"])
 @login_required
 def get_strategy_notifications():
     """
@@ -1015,10 +977,10 @@ def get_strategy_notifications():
     """
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id', type=int)
-        limit = request.args.get('limit', type=int) or 50
+        strategy_id = request.args.get("id", type=int)
+        limit = request.args.get("limit", type=int) or 50
         limit = max(1, min(200, int(limit)))
-        since_id = request.args.get('since_id', type=int) or 0
+        since_id = request.args.get("since_id", type=int) or 0
 
         # Get user's strategy IDs for filtering notifications
         user_strategy_ids = []
@@ -1026,19 +988,19 @@ def get_strategy_notifications():
             cur = db.cursor()
             cur.execute("SELECT id FROM qd_strategies_trading WHERE user_id = ?", (user_id,))
             rows = cur.fetchall() or []
-            user_strategy_ids = [r.get('id') for r in rows if r.get('id')]
+            user_strategy_ids = [r.get("id") for r in rows if r.get("id")]
             cur.close()
-        
+
         where = []
         args = []
-        
+
         # Filter by user's strategies
         if strategy_id:
             if strategy_id in user_strategy_ids:
                 where.append("strategy_id = ?")
                 args.append(int(strategy_id))
             else:
-                return jsonify({'code': 1, 'msg': 'success', 'data': {'items': []}})
+                return jsonify({"code": 1, "msg": "success", "data": {"items": []}})
         else:
             if user_strategy_ids:
                 placeholders = ",".join(["?"] * len(user_strategy_ids))
@@ -1049,7 +1011,7 @@ def get_strategy_notifications():
                 # Only portfolio monitor notifications (strategy_id is NULL)
                 where.append("strategy_id IS NULL AND user_id = ?")
                 args.append(user_id)
-        
+
         if since_id:
             where.append("id > ?")
             args.append(int(since_id))
@@ -1072,33 +1034,35 @@ def get_strategy_notifications():
 
         # Convert created_at to UTC timestamp (seconds) for frontend
         from datetime import timezone as _dt_tz
+
         processed_rows = []
         for row in rows:
             item = dict(row)
-            created_at = item.get('created_at')
+            created_at = item.get("created_at")
             if created_at:
-                if hasattr(created_at, 'timestamp'):
+                if hasattr(created_at, "timestamp"):
                     # No time zone datetime: The connection has SET TIME ZONE UTC, interpret it according to UTC and then transfer to Unix to avoid misjudgment of the local TZ on the server side.
-                    if getattr(created_at, 'tzinfo', None) is None:
+                    if getattr(created_at, "tzinfo", None) is None:
                         created_at = created_at.replace(tzinfo=_dt_tz.utc)
-                    item['created_at'] = int(created_at.timestamp())
+                    item["created_at"] = int(created_at.timestamp())
                 elif isinstance(created_at, str):
                     try:
                         from datetime import datetime
-                        dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
-                        item['created_at'] = int(dt.timestamp())
+
+                        dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                        item["created_at"] = int(dt.timestamp())
                     except Exception:
                         pass
             processed_rows.append(item)
 
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'items': processed_rows}})
+        return jsonify({"code": 1, "msg": "success", "data": {"items": processed_rows}})
     except Exception as e:
         logger.error(f"get_strategy_notifications failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': {'items': []}}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": {"items": []}}), 500
 
 
-@strategy_bp.route('/strategies/notifications/unread-count', methods=['GET'])
+@strategy_bp.route("/strategies/notifications/unread-count", methods=["GET"])
 @login_required
 def get_unread_notification_count():
     """
@@ -1112,7 +1076,7 @@ def get_unread_notification_count():
             cur = db.cursor()
             cur.execute("SELECT id FROM qd_strategies_trading WHERE user_id = ?", (user_id,))
             rows = cur.fetchall() or []
-            user_strategy_ids = [r.get('id') for r in rows if r.get('id')]
+            user_strategy_ids = [r.get("id") for r in rows if r.get("id")]
             cur.close()
 
         where = ["is_read = 0"]
@@ -1138,47 +1102,47 @@ def get_unread_notification_count():
             cnt = int((cur.fetchone() or {}).get("cnt") or 0)
             cur.close()
 
-        return jsonify({'code': 1, 'msg': 'success', 'data': {'unread': cnt}})
+        return jsonify({"code": 1, "msg": "success", "data": {"unread": cnt}})
     except Exception as e:
         logger.error(f"get_unread_notification_count failed: {str(e)}")
         logger.error(traceback.format_exc())
-        return jsonify({'code': 0, 'msg': str(e), 'data': {'unread': 0}}), 500
+        return jsonify({"code": 0, "msg": str(e), "data": {"unread": 0}}), 500
 
 
-@strategy_bp.route('/strategies/notifications/read', methods=['POST'])
+@strategy_bp.route("/strategies/notifications/read", methods=["POST"])
 @login_required
 def mark_notification_read():
     """Mark a single notification as read for the current user."""
     try:
         user_id = g.user_id
         data = request.get_json(force=True, silent=True) or {}
-        notification_id = data.get('id')
+        notification_id = data.get("id")
         if not notification_id:
-            return jsonify({'code': 0, 'msg': 'Missing id'}), 400
+            return jsonify({"code": 0, "msg": "Missing id"}), 400
 
         # Update notifications for user's strategies OR portfolio monitor notifications
         with get_db_connection() as db:
             cur = db.cursor()
             cur.execute(
                 """
-                UPDATE qd_strategy_notifications SET is_read = 1 
+                UPDATE qd_strategy_notifications SET is_read = 1
                 WHERE id = ? AND (
                     strategy_id IN (SELECT id FROM qd_strategies_trading WHERE user_id = ?)
                     OR (strategy_id IS NULL AND user_id = ?)
                 )
                 """,
-                (int(notification_id), user_id, user_id)
+                (int(notification_id), user_id, user_id),
             )
             db.commit()
             cur.close()
 
-        return jsonify({'code': 1, 'msg': 'success'})
+        return jsonify({"code": 1, "msg": "success"})
     except Exception as e:
         logger.error(f"mark_notification_read failed: {str(e)}")
-        return jsonify({'code': 0, 'msg': str(e)}), 500
+        return jsonify({"code": 0, "msg": str(e)}), 500
 
 
-@strategy_bp.route('/strategies/notifications/read-all', methods=['POST'])
+@strategy_bp.route("/strategies/notifications/read-all", methods=["POST"])
 @login_required
 def mark_all_notifications_read():
     """Mark all notifications as read for the current user."""
@@ -1188,22 +1152,22 @@ def mark_all_notifications_read():
             cur = db.cursor()
             cur.execute(
                 """
-                UPDATE qd_strategy_notifications SET is_read = 1 
+                UPDATE qd_strategy_notifications SET is_read = 1
                 WHERE strategy_id IN (SELECT id FROM qd_strategies_trading WHERE user_id = ?)
                    OR (strategy_id IS NULL AND user_id = ?)
                 """,
-                (user_id, user_id)
+                (user_id, user_id),
             )
             db.commit()
             cur.close()
 
-        return jsonify({'code': 1, 'msg': 'success'})
+        return jsonify({"code": 1, "msg": "success"})
     except Exception as e:
         logger.error(f"mark_all_notifications_read failed: {str(e)}")
-        return jsonify({'code': 0, 'msg': str(e)}), 500
+        return jsonify({"code": 0, "msg": str(e)}), 500
 
 
-@strategy_bp.route('/strategies/notifications/clear', methods=['DELETE'])
+@strategy_bp.route("/strategies/notifications/clear", methods=["DELETE"])
 @login_required
 def clear_notifications():
     """Clear all notifications for the current user."""
@@ -1213,78 +1177,74 @@ def clear_notifications():
             cur = db.cursor()
             cur.execute(
                 """
-                DELETE FROM qd_strategy_notifications 
+                DELETE FROM qd_strategy_notifications
                 WHERE strategy_id IN (SELECT id FROM qd_strategies_trading WHERE user_id = ?)
                    OR (strategy_id IS NULL AND user_id = ?)
                 """,
-                (user_id, user_id)
+                (user_id, user_id),
             )
             db.commit()
             cur.close()
 
-        return jsonify({'code': 1, 'msg': 'success'})
+        return jsonify({"code": 1, "msg": "success"})
     except Exception as e:
         logger.error(f"clear_notifications failed: {str(e)}")
-        return jsonify({'code': 0, 'msg': str(e)}), 500
+        return jsonify({"code": 0, "msg": str(e)}), 500
 
 
 # ===== Script Strategy Endpoints =====
 
-@strategy_bp.route('/strategies/verify-code', methods=['POST'])
+
+@strategy_bp.route("/strategies/verify-code", methods=["POST"])
 @login_required
 def verify_strategy_code():
     """Verify script strategy code syntax and safety."""
     try:
         payload = request.get_json() or {}
-        code = payload.get('code', '')
+        code = payload.get("code", "")
         if not code.strip():
-            return jsonify({'success': False, 'message': 'Code is empty'})
+            return jsonify({"success": False, "message": "Code is empty"})
 
-        required_funcs = ['on_bar', 'on_init']
-        found = [f for f in required_funcs if f'def {f}' in code]
+        required_funcs = ["on_bar", "on_init"]
+        found = [f for f in required_funcs if f"def {f}" in code]
         missing = [f for f in required_funcs if f not in found]
 
         if missing:
-            return jsonify({
-                'success': False,
-                'message': f'Missing required functions: {", ".join(missing)}'
-            })
+            return jsonify({"success": False, "message": f"Missing required functions: {', '.join(missing)}"})
 
         try:
-            compile(code, '<strategy>', 'exec')
+            compile(code, "<strategy>", "exec")
         except SyntaxError as se:
-            return jsonify({
-                'success': False,
-                'message': f'Syntax error at line {se.lineno}: {se.msg}'
-            })
+            return jsonify({"success": False, "message": f"Syntax error at line {se.lineno}: {se.msg}"})
 
-        return jsonify({'success': True, 'message': 'Code verification passed'})
+        return jsonify({"success": True, "message": "Code verification passed"})
     except Exception as e:
         logger.error(f"verify_strategy_code failed: {str(e)}")
-        return jsonify({'success': False, 'message': str(e)})
+        return jsonify({"success": False, "message": str(e)})
 
 
-@strategy_bp.route('/strategies/ai-generate', methods=['POST'])
+@strategy_bp.route("/strategies/ai-generate", methods=["POST"])
 @login_required
 def ai_generate_strategy():
     """Generate strategy code or suggest template parameter updates using AI."""
     try:
         payload = request.get_json() or {}
-        prompt = payload.get('prompt', '')
+        prompt = payload.get("prompt", "")
         if not prompt.strip():
-            return jsonify({'code': '', 'msg': 'Prompt is empty', 'params': None})
+            return jsonify({"code": "", "msg": "Prompt is empty", "params": None})
 
-        intent = (payload.get('intent') or 'generate_code').strip()
+        intent = (payload.get("intent") or "generate_code").strip()
         from app.services.llm import LLMService
+
         llm = LLMService()
         api_key = llm.get_api_key()
         if not api_key:
-            return jsonify({'code': '', 'msg': 'No LLM API key configured', 'params': None})
+            return jsonify({"code": "", "msg": "No LLM API key configured", "params": None})
 
-        if intent == 'adjust_params':
-            template_key = payload.get('template_key') or ''
-            current_params = payload.get('params') or {}
-            code_snapshot = (payload.get('code') or '')[:8000]
+        if intent == "adjust_params":
+            template_key = payload.get("template_key") or ""
+            current_params = payload.get("params") or {}
+            code_snapshot = (payload.get("code") or "")[:8000]
             system_prompt = """You tune quantitative strategy template parameters from the user's request.
 Return ONLY a single JSON object: keys are parameter names (strings), values are JSON numbers or booleans.
 You may return a partial object (only keys that should change) or a full object.
@@ -1305,27 +1265,27 @@ Do not use markdown fences, do not add explanations before or after the JSON."""
                 ],
                 model=llm.get_code_generation_model(),
                 temperature=0.3,
-                use_json_mode=False
+                use_json_mode=False,
             )
 
-            raw = (content or '').strip()
-            if raw.startswith('```'):
-                raw = re.sub(r'^```[a-zA-Z]*', '', raw).strip()
-                if raw.endswith('```'):
+            raw = (content or "").strip()
+            if raw.startswith("```"):
+                raw = re.sub(r"^```[a-zA-Z]*", "", raw).strip()
+                if raw.endswith("```"):
                     raw = raw[:-3].strip()
             updates = None
             try:
                 updates = json.loads(raw)
             except json.JSONDecodeError:
-                m = re.search(r'\{[\s\S]*\}', raw)
+                m = re.search(r"\{[\s\S]*\}", raw)
                 if m:
                     try:
                         updates = json.loads(m.group(0))
                     except json.JSONDecodeError:
                         updates = None
             if not isinstance(updates, dict):
-                return jsonify({'code': '', 'params': None, 'msg': 'AI did not return valid JSON parameters'})
-            return jsonify({'code': '', 'params': updates, 'msg': 'success'})
+                return jsonify({"code": "", "params": None, "msg": "AI did not return valid JSON parameters"})
+            return jsonify({"code": "", "params": updates, "msg": "success"})
 
         system_prompt = """You are a quantitative trading strategy code generator.
 Generate Python strategy code that follows this framework:
@@ -1343,19 +1303,19 @@ Generate Python strategy code that follows this framework:
 
 Return ONLY the Python code, no explanations."""
 
-        extra = ''
-        template_key = payload.get('template_key')
-        params = payload.get('params')
-        code_ctx = (payload.get('code') or '').strip()
+        extra = ""
+        template_key = payload.get("template_key")
+        params = payload.get("params")
+        code_ctx = (payload.get("code") or "").strip()
         if template_key or params is not None or code_ctx:
             extra_parts = []
             if template_key:
                 extra_parts.append(f"Current template key: {template_key}")
             if isinstance(params, dict) and params:
-                extra_parts.append('Current template parameters (JSON):\n' + json.dumps(params, ensure_ascii=False))
+                extra_parts.append("Current template parameters (JSON):\n" + json.dumps(params, ensure_ascii=False))
             if code_ctx:
-                extra_parts.append('Current code (may be long):\n' + code_ctx[:12000])
-            extra = '\n\n' + '\n\n'.join(extra_parts)
+                extra_parts.append("Current code (may be long):\n" + code_ctx[:12000])
+            extra = "\n\n" + "\n\n".join(extra_parts)
 
         user_prompt = prompt.strip() + extra
 
@@ -1366,7 +1326,7 @@ Return ONLY the Python code, no explanations."""
             ],
             model=llm.get_code_generation_model(),
             temperature=0.7,
-            use_json_mode=False
+            use_json_mode=False,
         )
 
         content = content.strip()
@@ -1379,51 +1339,45 @@ Return ONLY the Python code, no explanations."""
         content = content.strip()
 
         if content:
-            return jsonify({'code': content, 'msg': 'success', 'params': None})
+            return jsonify({"code": content, "msg": "success", "params": None})
         else:
-            return jsonify({'code': '', 'msg': 'AI generation returned empty result', 'params': None})
+            return jsonify({"code": "", "msg": "AI generation returned empty result", "params": None})
     except Exception as e:
         logger.error(f"ai_generate_strategy failed: {str(e)}")
-        return jsonify({'code': '', 'msg': str(e), 'params': None})
+        return jsonify({"code": "", "msg": str(e), "params": None})
 
 
-@strategy_bp.route('/strategies/performance', methods=['GET'])
+@strategy_bp.route("/strategies/performance", methods=["GET"])
 @login_required
 def get_strategy_performance():
     """Get strategy performance metrics (aggregated from equity curve and trades)."""
     try:
-        strategy_id = request.args.get('id')
+        strategy_id = request.args.get("id")
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Strategy ID required'})
+            return jsonify({"code": 0, "msg": "Strategy ID required"})
 
         svc = get_strategy_service()
         equity_data = svc.get_equity_curve(int(strategy_id))
-        return jsonify({
-            'code': 1,
-            'msg': 'success',
-            'data': {
-                'equity_curve': equity_data
-            }
-        })
+        return jsonify({"code": 1, "msg": "success", "data": {"equity_curve": equity_data}})
     except Exception as e:
         logger.error(f"get_strategy_performance failed: {str(e)}")
-        return jsonify({'code': 0, 'msg': str(e)}), 500
+        return jsonify({"code": 0, "msg": str(e)}), 500
 
 
-@strategy_bp.route('/strategies/logs', methods=['GET'])
+@strategy_bp.route("/strategies/logs", methods=["GET"])
 @login_required
 def get_strategy_logs():
     """Get strategy running logs."""
     try:
         user_id = g.user_id
-        strategy_id = request.args.get('id')
-        limit = int(request.args.get('limit', 200))
+        strategy_id = request.args.get("id")
+        limit = int(request.args.get("limit", 200))
         if not strategy_id:
-            return jsonify({'code': 0, 'msg': 'Strategy ID required'})
+            return jsonify({"code": 0, "msg": "Strategy ID required"})
 
         st = get_strategy_service().get_strategy(int(strategy_id), user_id=user_id)
         if not st:
-            return jsonify({'code': 0, 'msg': 'Strategy not found'}), 404
+            return jsonify({"code": 0, "msg": "Strategy not found"}), 404
 
         with get_db_connection() as db:
             cur = db.cursor()
@@ -1435,7 +1389,7 @@ def get_strategy_logs():
                 ORDER BY id DESC
                 LIMIT ?
                 """,
-                (int(strategy_id), limit)
+                (int(strategy_id), limit),
             )
             rows = cur.fetchall() or []
             cur.close()
@@ -1445,17 +1399,17 @@ def get_strategy_logs():
             if not isinstance(r, dict):
                 continue
             rr = dict(r)
-            ts = rr.get('timestamp')
-            if ts is not None and hasattr(ts, 'isoformat'):
-                rr['timestamp'] = ts.isoformat()
+            ts = rr.get("timestamp")
+            if ts is not None and hasattr(ts, "isoformat"):
+                rr["timestamp"] = ts.isoformat()
             out.append(rr)
         logs = list(reversed(out))
-        return jsonify({'code': 1, 'msg': 'success', 'data': logs})
+        return jsonify({"code": 1, "msg": "success", "data": logs})
     except Exception as e:
         if PgUndefinedTable is not None and isinstance(e, PgUndefinedTable):
-            return jsonify({'code': 1, 'msg': 'success', 'data': []})
+            return jsonify({"code": 1, "msg": "success", "data": []})
         el = str(e).lower()
-        if 'qd_strategy_logs' in el and ('does not exist' in el or 'no such table' in el):
-            return jsonify({'code': 1, 'msg': 'success', 'data': []})
+        if "qd_strategy_logs" in el and ("does not exist" in el or "no such table" in el):
+            return jsonify({"code": 1, "msg": "success", "data": []})
         logger.error(f"get_strategy_logs failed: {str(e)}")
-        return jsonify({'code': 0, 'msg': str(e)}), 500
+        return jsonify({"code": 0, "msg": str(e)}), 500

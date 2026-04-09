@@ -5,7 +5,7 @@ Provides unified interface for PostgreSQL database operations.
 
 Usage:
     from app.utils.db import get_db_connection
-    
+
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
@@ -18,16 +18,22 @@ Configuration:
 
 # Re-export from PostgreSQL module
 from app.utils.db_postgres import (
-    get_pg_connection as get_db_connection,
-    get_pg_connection_sync as get_db_connection_sync,
-    is_postgres_available,
     close_pool as close_db,
+)
+from app.utils.db_postgres import (
+    get_pg_connection as get_db_connection,
+)
+from app.utils.db_postgres import (
+    get_pg_connection_sync as get_db_connection_sync,
+)
+from app.utils.db_postgres import (
+    is_postgres_available,
 )
 
 
 def get_db_type() -> str:
     """Get database type (always postgresql)"""
-    return 'postgresql'
+    return "postgresql"
 
 
 def is_postgres() -> bool:
@@ -42,6 +48,7 @@ def init_database():
     """
     if is_postgres_available():
         from app.utils.logger import get_logger
+
         logger = get_logger(__name__)
         logger.info("PostgreSQL connection verified")
     else:
@@ -55,11 +62,11 @@ def close_db_connection():
 
 
 __all__ = [
-    'get_db_connection',
-    'get_db_connection_sync',
-    'close_db_connection',
-    'init_database',
-    'close_db',
-    'get_db_type',
-    'is_postgres',
+    "get_db_connection",
+    "get_db_connection_sync",
+    "close_db_connection",
+    "init_database",
+    "close_db",
+    "get_db_type",
+    "is_postgres",
 ]

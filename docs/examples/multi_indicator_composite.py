@@ -2,12 +2,12 @@
 # 多指标组合策略 (均线+RSI+MACD)
 # Multi-Indicator Composite Strategy
 # ============================================================
-# 
+#
 # 使用方法:
 # 1. 可配置均线周期、RSI阈值等参数
 # 2. 买入条件: RSI超卖 + MACD金叉 + 成交量放大
 # 3. 卖出条件: RSI超买 或 MACD死叉
-# 
+#
 # ============================================================
 
 # === 参数声明 ===
@@ -78,7 +78,7 @@ buy = ma_golden | rsi_buy  # 均线金叉 或 RSI超卖
 
 if use_macd:
     buy = buy & (macd > macd_signal)  # 需要MACD向上
-    
+
 if use_volume:
     buy = buy & volume_up  # 需要成交量放大
 

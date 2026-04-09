@@ -13,9 +13,9 @@ from __future__ import annotations
 import json
 from typing import Any, Dict
 
+from app.utils.credential_crypto import decrypt_credential_blob
 from app.utils.db import get_db_connection
 from app.utils.logger import get_logger
-from app.utils.credential_crypto import decrypt_credential_blob
 
 logger = get_logger(__name__)
 
@@ -145,5 +145,3 @@ def resolve_exchange_config(exchange_config: Dict[str, Any], user_id: int = 1) -
         merged[k] = v
 
     return merged
-
-

@@ -55,7 +55,14 @@ class CoinbaseExchangeClient(BaseRestClient):
             "Content-Type": "application/json",
         }
 
-    def _signed_request(self, method: str, path: str, *, params: Optional[Dict[str, Any]] = None, json_body: Optional[Dict[str, Any]] = None) -> Any:
+    def _signed_request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Optional[Dict[str, Any]] = None,
+        json_body: Optional[Dict[str, Any]] = None,
+    ) -> Any:
         m = str(method or "GET").upper()
         ts = str(int(time.time()))
         body_str = self._json_dumps(json_body) if json_body is not None else ""
@@ -75,7 +82,9 @@ class CoinbaseExchangeClient(BaseRestClient):
                 signed_path = f"{path}?{'&'.join(items)}"
         prehash = f"{ts}{m}{signed_path}{body_str}"
         sign = self._sign(prehash)
-        code, data, text = self._request(m, path, params=params, data=body_str if body_str else None, headers=self._headers(ts, sign))
+        code, data, text = self._request(
+            m, path, params=params, data=body_str if body_str else None, headers=self._headers(ts, sign)
+        )
         if code >= 400:
             raise LiveTradingError(f"CoinbaseExchange HTTP {code}: {text[:500]}")
         return data
@@ -96,7 +105,9 @@ class CoinbaseExchangeClient(BaseRestClient):
     def get_accounts(self) -> Any:
         return self._signed_request("GET", "/accounts")
 
-    def place_market_order(self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_market_order(
+        self, *, symbol: str, side: str, size: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
@@ -113,9 +124,17 @@ class CoinbaseExchangeClient(BaseRestClient):
             body["client_oid"] = str(client_order_id)
         raw = self._signed_request("POST", "/orders", json_body=body)
         oid = str(raw.get("id") or raw.get("order_id") or raw.get("client_oid") or "")
-        return LiveOrderResult(exchange_id="coinbaseexchange", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="coinbaseexchange",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
-    def place_limit_order(self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None) -> LiveOrderResult:
+    def place_limit_order(
+        self, *, symbol: str, side: str, size: float, price: float, client_order_id: Optional[str] = None
+    ) -> LiveOrderResult:
         sd = (side or "").strip().lower()
         if sd not in ("buy", "sell"):
             raise LiveTradingError(f"Invalid side: {side}")
@@ -135,7 +154,13 @@ class CoinbaseExchangeClient(BaseRestClient):
             body["client_oid"] = str(client_order_id)
         raw = self._signed_request("POST", "/orders", json_body=body)
         oid = str(raw.get("id") or raw.get("order_id") or raw.get("client_oid") or "")
-        return LiveOrderResult(exchange_id="coinbaseexchange", exchange_order_id=oid, filled=0.0, avg_price=0.0, raw=raw if isinstance(raw, dict) else {"raw": raw})
+        return LiveOrderResult(
+            exchange_id="coinbaseexchange",
+            exchange_order_id=oid,
+            filled=0.0,
+            avg_price=0.0,
+            raw=raw if isinstance(raw, dict) else {"raw": raw},
+        )
 
     def cancel_order(self, *, order_id: str = "", client_order_id: str = "") -> Any:
         if order_id:
@@ -191,11 +216,30 @@ class CoinbaseExchangeClient(BaseRestClient):
             if fee > 0:
                 fee_ccy = "USD"
             if filled > 0 and avg_price > 0:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if status.lower() in ("done", "rejected", "canceled", "cancelled"):
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             if time.time() >= end_ts:
-                return {"filled": filled, "avg_price": avg_price, "fee": fee, "fee_ccy": fee_ccy, "status": status, "order": last}
+                return {
+                    "filled": filled,
+                    "avg_price": avg_price,
+                    "fee": fee,
+                    "fee_ccy": fee_ccy,
+                    "status": status,
+                    "order": last,
+                }
             time.sleep(float(poll_interval_sec or 0.5))
-
-

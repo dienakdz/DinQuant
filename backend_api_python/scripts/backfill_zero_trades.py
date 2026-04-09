@@ -19,9 +19,8 @@ Notes:
 from __future__ import annotations
 
 import argparse
-import time
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional, Tuple, List
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 from app.utils.db import get_db_connection
 
@@ -96,7 +95,9 @@ def _find_best_order_match(
         if not cand:
             return None
         # If the closest candidates are tied, such as identical executed_at, treat it as ambiguous and skip it
-        if len(cand) >= 2 and abs(int(cand[0]["executed_at"]) - trade_ts) == abs(int(cand[1]["executed_at"]) - trade_ts):
+        if len(cand) >= 2 and abs(int(cand[0]["executed_at"]) - trade_ts) == abs(
+            int(cand[1]["executed_at"]) - trade_ts
+        ):
             return None
         return cand[0]
 
@@ -132,14 +133,22 @@ def main() -> None:
     ap.add_argument("--until", type=str, required=True, help="YYYY-MM-DD or YYYY/MM/DD")
     ap.add_argument("--window-sec", type=int, default=600, help="Match window, default ±600 seconds")
     ap.add_argument("--limit", type=int, default=500, help="Maximum number of trades to process")
-    ap.add_argument("--apply", action="store_true", help="Actually write to the database; default is dry-run output only")
+    ap.add_argument(
+        "--apply", action="store_true", help="Actually write to the database; default is dry-run output only"
+    )
     args = ap.parse_args()
 
     since_ts = _parse_date_to_ts(args.since)
-    until_ts = _parse_date_to_ts(args.until) + 24 * 3600 - 1 if len(args.until.strip()) <= 10 else _parse_date_to_ts(args.until)
+    until_ts = (
+        _parse_date_to_ts(args.until) + 24 * 3600 - 1
+        if len(args.until.strip()) <= 10
+        else _parse_date_to_ts(args.until)
+    )
 
     trades = _fetch_bad_trades(args.strategy_id, since_ts, until_ts, args.limit)
-    print(f"[scan] bad_trades={len(trades)} strategy_id={args.strategy_id} since={since_ts} until={until_ts} apply={args.apply}")
+    print(
+        f"[scan] bad_trades={len(trades)} strategy_id={args.strategy_id} since={since_ts} until={until_ts} apply={args.apply}"
+    )
 
     fixed = 0
     skipped = 0
@@ -173,5 +182,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

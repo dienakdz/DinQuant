@@ -98,13 +98,13 @@ df['sell'] = condition_sell.fillna(False)
 ```python
 # 将买入标记放在最低价下方 0.5% 处
 buy_marks = [
-    df['low'].iloc[i] * 0.995 if df['buy'].iloc[i] else None 
+    df['low'].iloc[i] * 0.995 if df['buy'].iloc[i] else None
     for i in range(len(df))
 ]
 
 # 将卖出标记放在最高价上方 0.5% 处
 sell_marks = [
-    df['high'].iloc[i] * 1.005 if df['sell'].iloc[i] else None 
+    df['high'].iloc[i] * 1.005 if df['sell'].iloc[i] else None
     for i in range(len(df))
 ]
 ```
@@ -166,12 +166,12 @@ df['sell'] = sell
 # -----------------------
 # 计算标记位置
 buy_marks = [
-    df['low'].iloc[i] * 0.995 if buy.iloc[i] else None 
+    df['low'].iloc[i] * 0.995 if buy.iloc[i] else None
     for i in range(len(df))
 ]
 
 sell_marks = [
-    df['high'].iloc[i] * 1.005 if sell.iloc[i] else None 
+    df['high'].iloc[i] * 1.005 if sell.iloc[i] else None
     for i in range(len(df))
 ]
 
